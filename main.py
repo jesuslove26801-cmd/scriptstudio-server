@@ -14,6 +14,8 @@ import traceback
 import json
 import time
 import asyncio
+import base64
+import httpx
 from renderer import render_video
 
 # GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
@@ -476,6 +478,153 @@ async def get_qwen_url():
     if not _kaggle_tts_url:
         return JSONResponse(status_code=503, content={"status": "offline", "message": "TTS 서버가 오프라인입니다. Kaggle 노트북을 실행하세요."})
     return {"status": "ok", "url": _kaggle_tts_url}
+
+_KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "")
+_KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "")
+_KAGGLE_KERNEL_SLUG = os.environ.get("KAGGLE_KERNEL_SLUG", "qwen3-tts-server")
+_GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+_RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://web-production-11acd.up.railway.app")
+
+KAGGLE_SETUP_SCRIPT = '''\
+import subprocess, sys, os, time, re, requests
+
+GITHUB_TOKEN = "__GITHUB_TOKEN__"
+RAILWAY_URL = "__RAILWAY_URL__"
+
+subprocess.run(["rm", "-rf", "/kaggle/working/tts"])
+subprocess.run(["git", "clone",
+    f"https://jesuslove26801-cmd:{GITHUB_TOKEN}@github.com/jesuslove26801-cmd/qwen3-tts-runpod",
+    "/kaggle/working/tts"])
+
+subprocess.run([sys.executable, "-m", "pip", "install", "-q",
+    "transformers==4.57.3", "fastapi", "uvicorn", "python-multipart",
+    "soundfile", "librosa", "einops", "pydub", "scipy", "sox", "onnxruntime"])
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", "/kaggle/working/tts"])
+
+noop = ("from transformers.utils import ModelOutput, logging\\n"
+        "def auto_docstring(*a, **kw):\\n"
+        "    if len(a) == 1 and callable(a[0]): return a[0]\\n"
+        "    return lambda fn: fn\\n")
+for f in ["/kaggle/working/tts/qwen_tts/core/tokenizer_25hz/modeling_qwen3_tts_tokenizer_v1.py",
+          "/kaggle/working/tts/qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py"]:
+    code = open(f).read()
+    if "from transformers.utils import ModelOutput, auto_docstring, logging" in code:
+        open(f, "w").write(code.replace(
+            "from transformers.utils import ModelOutput, auto_docstring, logging", noop))
+
+if not os.path.exists("/usr/local/bin/cloudflared"):
+    subprocess.run(["wget", "-q",
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
+        "-O", "/usr/local/bin/cloudflared"])
+    subprocess.run(["chmod", "+x", "/usr/local/bin/cloudflared"])
+
+subprocess.run(["pkill", "-f", "uvicorn"], capture_output=True)
+time.sleep(2)
+env = {**os.environ, "TTS_MODEL_NAME": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"}
+log = open("/kaggle/working/server.log", "w")
+subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app",
+    "--host", "0.0.0.0", "--port", "8880"],
+    cwd="/kaggle/working/tts", env=env, stdout=log, stderr=log)
+
+cf_log = open("/kaggle/working/cf.log", "w")
+subprocess.Popen(["/usr/local/bin/cloudflared", "tunnel", "--url", "http://localhost:8880"],
+    stderr=cf_log, stdout=subprocess.DEVNULL)
+time.sleep(90)
+
+tunnel_url = None
+with open("/kaggle/working/cf.log") as f:
+    m = re.search(r"https://\\S+\\.trycloudflare\\.com", f.read())
+    if m: tunnel_url = m.group()
+print("Tunnel URL:", tunnel_url)
+
+if tunnel_url:
+    r = requests.post(f"{RAILWAY_URL}/api/set-qwen-url",
+        json={"url": tunnel_url, "secret": ""})
+    print("Railway 등록:", r.status_code, r.json())
+else:
+    print("터널 URL을 찾지 못했습니다.")
+'''
+
+def _kaggle_headers():
+    cred = base64.b64encode(f"{_KAGGLE_USERNAME}:{_KAGGLE_KEY}".encode()).decode()
+    return {"Authorization": f"Basic {cred}", "Content-Type": "application/json"}
+
+_kaggle_start_time: float = 0.0
+
+@app.post("/api/start-kaggle")
+async def start_kaggle_server():
+    global _kaggle_tts_url, _kaggle_start_time
+    if not _KAGGLE_USERNAME or not _KAGGLE_KEY:
+        return JSONResponse(status_code=503, content={"status": "error", "message": "KAGGLE_USERNAME / KAGGLE_KEY 환경변수 미설정"})
+    if not _GITHUB_TOKEN:
+        return JSONResponse(status_code=503, content={"status": "error", "message": "GITHUB_TOKEN 환경변수 미설정"})
+
+    _kaggle_tts_url = ""
+    _kaggle_start_time = time.time()
+
+    script = KAGGLE_SETUP_SCRIPT.replace("__GITHUB_TOKEN__", _GITHUB_TOKEN).replace("__RAILWAY_URL__", _RAILWAY_URL)
+
+    notebook = {
+        "cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
+                   "source": [line + "\n" for line in script.strip().split("\n")]}],
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+                     "language_info": {"name": "python", "version": "3.10.0"}},
+        "nbformat": 4, "nbformat_minor": 4
+    }
+
+    body = {
+        "currentRunningVersion": None,
+        "id": f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}",
+        "title": "Qwen3 TTS Server",
+        "code_file": json.dumps(notebook),
+        "language": "python",
+        "kernel_type": "notebook",
+        "is_private": True,
+        "enable_gpu": True,
+        "enable_internet": True,
+        "dataset_data_sources": [],
+        "kernel_data_sources": [],
+        "competition_data_sources": [],
+        "category_ids": []
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post("https://www.kaggle.com/api/v1/kernels/push",
+                                  headers=_kaggle_headers(), json=body, timeout=30)
+        if r.status_code in (200, 201):
+            logger.info(f"Kaggle 노트북 실행 시작: {r.status_code}")
+            return {"status": "ok", "message": "Kaggle 노트북 실행 시작됨"}
+        else:
+            logger.error(f"Kaggle API 오류: {r.status_code} {r.text[:300]}")
+            return JSONResponse(status_code=500, content={"status": "error", "message": f"Kaggle API 오류: {r.text[:200]}"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/kaggle-status")
+async def get_kaggle_status():
+    if _kaggle_tts_url:
+        return {"status": "ready", "url": _kaggle_tts_url, "message": "✅ 서버 준비 완료!"}
+    if not _KAGGLE_USERNAME or not _KAGGLE_KEY:
+        return {"status": "idle", "message": ""}
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                f"https://www.kaggle.com/api/v1/kernels/{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}/status",
+                headers=_kaggle_headers(), timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            status = d.get("status", "unknown")
+            msg_map = {
+                "queued": "⏳ GPU 할당 대기 중...",
+                "running": "🔄 서버 시작 중... (약 2~3분 소요)",
+                "complete": "완료 (터널 등록 대기 중...)",
+                "error": f"❌ 오류: {d.get('failureMessage', '알 수 없음')}",
+            }
+            return {"status": status, "message": msg_map.get(status, status)}
+    except Exception as e:
+        logger.warning(f"Kaggle 상태 조회 실패: {e}")
+    return {"status": "idle", "message": ""}
 
 class EmailCheckReq(BaseModel):
     email: str
