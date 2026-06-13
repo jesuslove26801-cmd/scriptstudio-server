@@ -27,44 +27,55 @@ def _find_ffmpeg() -> str:
     import sys
     _base = os.path.dirname(os.path.abspath(__file__))
     candidates = []
-    # PyInstaller onefile: 임시 추출 폴더
-    if getattr(sys, "frozen", False):
-        _meipass = getattr(sys, "_MEIPASS", "")
-        if _meipass:
-            candidates.append(os.path.join(_meipass, "ffmpeg.exe"))
-        candidates.append(os.path.join(os.path.dirname(sys.executable), "ffmpeg.exe"))
-    candidates += [
-        os.path.join(_base, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe"),
-        os.path.join(_base, "ffmpeg.exe"),
-        os.path.join(_base, "ffmpeg", "bin", "ffmpeg.exe"),
-        r"C:\ffmpeg\bin\ffmpeg.exe",
-        "ffmpeg",  # PATH에 있을 경우
-    ]
+    if sys.platform == "win32":
+        if getattr(sys, "frozen", False):
+            _meipass = getattr(sys, "_MEIPASS", "")
+            if _meipass:
+                candidates.append(os.path.join(_meipass, "ffmpeg.exe"))
+            candidates.append(os.path.join(os.path.dirname(sys.executable), "ffmpeg.exe"))
+        candidates += [
+            os.path.join(_base, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe"),
+            os.path.join(_base, "ffmpeg.exe"),
+            os.path.join(_base, "ffmpeg", "bin", "ffmpeg.exe"),
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+        ]
+    candidates.append("ffmpeg")  # PATH fallback (Linux/Mac/Windows)
     for p in candidates:
         if p == "ffmpeg" or os.path.isfile(p):
             logger.info(f"FFmpeg 사용 경로: {p}")
             return p
-    raise RuntimeError("FFmpeg를 찾을 수 없습니다. 프로젝트 폴더 또는 C:\\ffmpeg\\bin에 설치해주세요.")
+    raise RuntimeError("FFmpeg를 찾을 수 없습니다.")
 
 FFMPEG_PATH = _find_ffmpeg()
 
 # 실제 시스템에 장착된 물리적 GPU를 확인하여 최적의 H.264 인코더 반환 (NVIDIA, AMD, Intel)
 def _get_available_hw_encoder() -> str | None:
-    # 1. 실제 장착된 물리적 GPU 확인 (Windows wmic 사용)
     gpu_vendor = None
     try:
-        result = subprocess.run(
-            ["wmic", "path", "win32_VideoController", "get", "name"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, text=True,
-            creationflags=_NO_WINDOW
-        )
-        output = result.stdout.lower()
-        if "nvidia" in output:
-            gpu_vendor = "nvenc"
-        elif "amd" in output or "radeon" in output:
-            gpu_vendor = "amf"
-        elif "intel" in output:
-            gpu_vendor = "qsv"
+        if sys.platform == "win32":
+            result = subprocess.run(
+                ["wmic", "path", "win32_VideoController", "get", "name"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, text=True,
+                creationflags=_NO_WINDOW
+            )
+            output = result.stdout.lower()
+            if "nvidia" in output:
+                gpu_vendor = "nvenc"
+            elif "amd" in output or "radeon" in output:
+                gpu_vendor = "amf"
+            elif "intel" in output:
+                gpu_vendor = "qsv"
+        else:
+            # Linux: nvidia-smi로 GPU 확인
+            try:
+                result = subprocess.run(
+                    ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, text=True
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    gpu_vendor = "nvenc"
+            except Exception:
+                pass
     except Exception as e:
         logger.warning(f"GPU 물리 하드웨어 감지 실패: {e}")
 

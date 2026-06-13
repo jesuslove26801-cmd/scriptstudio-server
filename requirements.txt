@@ -5,7 +5,5 @@ python-multipart==0.0.26
 requests==2.33.1
 httpx==0.28.1
 pillow==12.2.0
-openai-whisper==20250625
-faster-whisper==1.2.1
-gradio_client==1.14.0
 aiofiles
+opencv-python-headless==4.10.0.84

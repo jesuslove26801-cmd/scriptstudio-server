@@ -7,10 +7,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import uvicorn
-import winreg
 import tempfile
 import sys
-import whisper
 import logging
 import traceback
 import json
@@ -222,12 +220,18 @@ font_map_cache = {}
 
 def load_font_map():
     if font_map_cache: return font_map_cache
-    
+
+    if sys.platform != "win32":
+        for name in ["Arial", "DejaVu Sans", "Liberation Sans", "FreeSans", "NanumGothic"]:
+            font_map_cache[name] = ""
+        return font_map_cache
+
+    import winreg
     keys_to_check = [
         (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts", os.environ.get('WINDIR', 'C:\\Windows') + '\\Fonts'),
         (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts", os.environ.get('LOCALAPPDATA', '') + '\\Microsoft\\Windows\\Fonts')
     ]
-    
+
     for root_key, sub_key, default_dir in keys_to_check:
         try:
             key = winreg.OpenKey(root_key, sub_key)
@@ -235,7 +239,6 @@ def load_font_map():
                 for i in range(winreg.QueryInfoKey(key)[1]):
                     name, value, _ = winreg.EnumValue(key, i)
                     clean_name = name.split(" (")[0]
-                    
                     if os.path.isabs(value):
                         font_map_cache[clean_name] = value
                     else:
@@ -449,6 +452,10 @@ async def get_font_file(font_name: str):
             return FileResponse(path)
     return {"error": "Font file not found"}
 
+@app.get("/api/status")
+async def api_status():
+    return {"status": "ok", "platform": sys.platform}
+
 @app.get("/api/progress")
 async def api_progress():
     from renderer import render_progress
@@ -502,15 +509,20 @@ def _get_whisper_model():
 @app.post("/api/analyze-audio")
 async def analyze_audio(file: UploadFile = File(...)):
     """Whisper로 음성 파일을 분석하여 단어별 타이밍 정보 반환"""
+    try:
+        import whisper as _whisper
+    except ImportError:
+        return JSONResponse(status_code=503, content={"status": "error", "message": "Whisper 미설치 (로컬 서버 전용 기능)"})
+
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
     try:
         logger.info(f"음성 분석 시작: {file.filename}")
-
-        # mkstemp으로 저장 (Windows NamedTemporaryFile 잠금 문제 방지)
         with os.fdopen(tmp_fd, 'wb') as f:
             f.write(await file.read())
 
-        model = _get_whisper_model()
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = _whisper.load_model("base", device=device)
         result = model.transcribe(tmp_path, language="ko", verbose=False, word_timestamps=True)
 
         timings = []
@@ -518,28 +530,14 @@ async def analyze_audio(file: UploadFile = File(...)):
             for segment in result["segments"]:
                 if "words" in segment:
                     for word in segment["words"]:
-                        timings.append({
-                            "word": word["word"],
-                            "start": word["start"],
-                            "end": word["end"]
-                        })
+                        timings.append({"word": word["word"], "start": word["start"], "end": word["end"]})
 
         full_text = result.get("text", "").strip()
         logger.info(f"음성 분석 완료: {len(timings)}개 단어 감지")
-
-        return {
-            "status": "success",
-            "text": full_text,
-            "timings": timings,
-            "duration": result.get("duration", 0)
-        }
-
+        return {"status": "success", "text": full_text, "timings": timings, "duration": result.get("duration", 0)}
     except Exception as e:
         logger.error(f"음성 분석 실패: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "message": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
     finally:
         try:
             if os.path.exists(tmp_path):
@@ -818,29 +816,25 @@ async def grok_start():
 @app.post("/api/grok/open-chrome")
 async def grok_open_chrome():
     """Chrome을 열고 grok.com으로 이동"""
-    import subprocess, sys
+    import subprocess as _sp
     url = "https://grok.com"
-    chrome_paths = [
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
-        r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe",
-    ]
-    chrome_exe = None
-    for p in chrome_paths:
-        if os.path.exists(p):
-            chrome_exe = p
-            break
-    try:
-        if chrome_exe:
-            subprocess.Popen([chrome_exe, url])
-        else:
-            # Chrome 못 찾으면 기본 브라우저로
-            import webbrowser
-            webbrowser.open(url)
-        return {"status": "ok"}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+    if sys.platform == "win32":
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        ]
+        chrome_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
+        try:
+            if chrome_exe:
+                _sp.Popen([chrome_exe, url])
+            else:
+                import webbrowser; webbrowser.open(url)
+            return {"status": "ok"}
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+    else:
+        return JSONResponse(status_code=503, content={"status": "error", "message": "Chrome 자동 실행은 Windows 전용 기능입니다."})
 
 @app.post("/api/grok/stop")
 async def grok_stop():
@@ -1125,6 +1119,8 @@ def _qwen_bat_path() -> str:
 
 @app.post("/api/start-qwen-server")
 async def start_qwen_server():
+    if sys.platform != "win32":
+        return JSONResponse({"ok": False, "error": "Qwen3-TTS는 로컬 Windows 전용 기능입니다."}, status_code=503)
     bat_path = _qwen_bat_path()
     if not bat_path:
         return JSONResponse({"ok": False, "error": "Qwen3-TTS 런처를 찾을 수 없습니다."}, status_code=404)
@@ -1151,6 +1147,10 @@ def _get_whisper_model():
 
 @app.post("/api/whisper-align")
 async def whisper_align(request: Request):
+    try:
+        from faster_whisper import WhisperModel as _WM
+    except ImportError:
+        return JSONResponse(status_code=503, content={"status": "error", "message": "faster-whisper 미설치 (로컬 서버 전용 기능)"})
     data = await request.json()
     audio_url = data.get("audio_url", "")
     if not audio_url:
