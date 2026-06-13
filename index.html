@@ -1822,6 +1822,7 @@ input[type=password]:focus { border-color: var(--acc); }
           서버: <span id="qwen-server-status" style="color:var(--text3)">확인 중...</span>
           <button onclick="qwenCheckServer()" style="margin-left:8px;font-size:11px;padding:2px 8px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:4px;cursor:pointer">새로고침</button>
           <button onclick="kaggleStartServer()" id="kaggle-start-btn" style="margin-left:4px;font-size:11px;padding:2px 8px;background:#166534;border:1px solid #16a34a;color:#4ade80;border-radius:4px;cursor:pointer;font-weight:600">☁ Kaggle 시작</button>
+          <button onclick="kaggleStopServer()" id="kaggle-stop-btn" style="margin-left:4px;font-size:11px;padding:2px 8px;background:#450a0a;border:1px solid #dc2626;color:#f87171;border-radius:4px;cursor:pointer;font-weight:600">■ 중지</button>
           <span id="kaggle-start-status" style="margin-left:8px;font-size:11px;color:var(--text3)"></span>
         </div>
       </div>
@@ -15040,6 +15041,24 @@ async function kaggleStartServer() {
       }
     } catch(e) {}
   }, 10000);
+}
+
+async function kaggleStopServer() {
+  if (!confirm('Kaggle 서버를 중지하시겠습니까?')) return;
+  var st = document.getElementById('kaggle-start-status');
+  if (st) st.textContent = '중지 중...';
+  if (_kagglePollingTimer) { clearInterval(_kagglePollingTimer); _kagglePollingTimer = null; }
+  try {
+    await fetch(window.SS_SERVER + '/api/stop-kaggle', { method: 'POST' });
+    window._masterKaggleURL = null;
+    if (st) st.textContent = '서버 중지됨';
+    var dot = document.getElementById('qwen-server-dot');
+    var status = document.getElementById('qwen-server-status');
+    if (dot) { dot.style.background = 'var(--text3)'; dot.style.boxShadow = 'none'; }
+    if (status) { status.style.color = 'var(--err)'; status.textContent = '오프라인'; }
+  } catch(e) {
+    if (st) st.textContent = '❌ 중지 실패';
+  }
 }
 
 async function qwenLoadVoices() {

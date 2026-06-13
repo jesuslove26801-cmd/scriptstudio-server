@@ -479,10 +479,10 @@ async def get_qwen_url():
         return JSONResponse(status_code=503, content={"status": "offline", "message": "TTS 서버가 오프라인입니다. Kaggle 노트북을 실행하세요."})
     return {"status": "ok", "url": _kaggle_tts_url}
 
-_KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "")
-_KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "")
+_KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "junryong")
+_KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "7a6425f7c4e48f1dc705fb462b94dc20")
 _KAGGLE_KERNEL_SLUG = os.environ.get("KAGGLE_KERNEL_SLUG", "qwen3-tts-server")
-_GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+_GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "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")
 _RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://web-production-11acd.up.railway.app")
 
 KAGGLE_SETUP_SCRIPT = '''\
@@ -625,6 +625,19 @@ async def get_kaggle_status():
     except Exception as e:
         logger.warning(f"Kaggle 상태 조회 실패: {e}")
     return {"status": "idle", "message": ""}
+
+@app.post("/api/stop-kaggle")
+async def stop_kaggle_server():
+    global _kaggle_tts_url
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.delete(
+                f"https://www.kaggle.com/api/v1/kernels/{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}",
+                headers=_kaggle_headers(), timeout=10)
+        _kaggle_tts_url = ""
+        return {"status": "ok", "message": "서버 중지 요청됨"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 class EmailCheckReq(BaseModel):
     email: str
