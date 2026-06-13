@@ -456,6 +456,21 @@ async def get_font_file(font_name: str):
 async def api_status():
     return {"status": "ok", "platform": sys.platform}
 
+class EmailCheckReq(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/check-access")
+async def check_access(req: EmailCheckReq):
+    allowed = os.environ.get("ALLOWED_EMAILS", "")
+    password = os.environ.get("ACCESS_PASSWORD", "")
+    allowed_list = [e.strip().lower() for e in allowed.split(",") if e.strip()]
+    if not allowed_list or not password:
+        return JSONResponse(status_code=500, content={"status": "error", "message": "서버 설정 오류"})
+    if req.email.strip().lower() in allowed_list and req.password == password:
+        return {"status": "ok"}
+    return JSONResponse(status_code=401, content={"status": "error", "message": "이메일 또는 비밀번호가 올바르지 않습니다"})
+
 @app.get("/api/progress")
 async def api_progress():
     from renderer import render_progress
