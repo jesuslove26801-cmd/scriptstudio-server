@@ -456,6 +456,27 @@ async def get_font_file(font_name: str):
 async def api_status():
     return {"status": "ok", "platform": sys.platform}
 
+# Kaggle TTS 서버 URL 브로커
+_kaggle_tts_url: str = ""
+_KAGGLE_SECRET = os.environ.get("KAGGLE_SECRET", "")
+
+@app.post("/api/set-qwen-url")
+async def set_qwen_url(req: Request):
+    data = await req.json()
+    secret = data.get("secret", "")
+    if _KAGGLE_SECRET and secret != _KAGGLE_SECRET:
+        return JSONResponse(status_code=401, content={"status": "error"})
+    global _kaggle_tts_url
+    _kaggle_tts_url = data.get("url", "").rstrip("/")
+    logger.info(f"Kaggle TTS URL 등록: {_kaggle_tts_url}")
+    return {"status": "ok", "url": _kaggle_tts_url}
+
+@app.get("/api/qwen-url")
+async def get_qwen_url():
+    if not _kaggle_tts_url:
+        return JSONResponse(status_code=503, content={"status": "offline", "message": "TTS 서버가 오프라인입니다. Kaggle 노트북을 실행하세요."})
+    return {"status": "ok", "url": _kaggle_tts_url}
+
 class EmailCheckReq(BaseModel):
     email: str
     password: str
