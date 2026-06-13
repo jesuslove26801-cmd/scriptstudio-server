@@ -573,19 +573,19 @@ async def start_kaggle_server():
     }
 
     body = {
-        "currentRunningVersion": None,
-        "id": f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}",
-        "title": "Qwen3 TTS Server",
-        "code_file": json.dumps(notebook),
-        "language": "python",
-        "kernel_type": "notebook",
-        "is_private": True,
-        "enable_gpu": True,
-        "enable_internet": True,
-        "dataset_data_sources": [],
-        "kernel_data_sources": [],
-        "competition_data_sources": [],
-        "category_ids": []
+        "id": None,
+        "slug": _KAGGLE_KERNEL_SLUG,
+        "newTitle": "Qwen3 TTS Server",
+        "sourceFile": json.dumps(notebook),
+        "language": "Python",
+        "kernelType": "notebook",
+        "isPrivate": True,
+        "enableGpu": True,
+        "enableInternet": True,
+        "datasetDataSources": [],
+        "kernelDataSources": [],
+        "competitionDataSources": [],
+        "categoryIds": []
     }
 
     try:
