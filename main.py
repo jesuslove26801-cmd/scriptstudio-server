@@ -559,7 +559,6 @@ async def start_kaggle_server():
     if not _GITHUB_TOKEN:
         return JSONResponse(status_code=503, content={"status": "error", "message": "GITHUB_TOKEN 환경변수 미설정"})
 
-    _kaggle_tts_url = ""
     _kaggle_start_time = time.time()
 
     script = KAGGLE_SETUP_SCRIPT.replace("__GITHUB_TOKEN__", _GITHUB_TOKEN).replace("__RAILWAY_URL__", _RAILWAY_URL)
