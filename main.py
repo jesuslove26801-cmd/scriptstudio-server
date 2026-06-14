@@ -460,6 +460,7 @@ async def api_status():
 
 # Kaggle TTS 서버 URL 브로커
 _kaggle_tts_url: str = ""
+_kaggle_url_registered_at: float = 0.0
 _KAGGLE_SECRET = os.environ.get("KAGGLE_SECRET", "")
 
 @app.post("/api/set-qwen-url")
@@ -468,8 +469,9 @@ async def set_qwen_url(req: Request):
     secret = data.get("secret", "")
     if _KAGGLE_SECRET and secret != _KAGGLE_SECRET:
         return JSONResponse(status_code=401, content={"status": "error"})
-    global _kaggle_tts_url
+    global _kaggle_tts_url, _kaggle_url_registered_at
     _kaggle_tts_url = data.get("url", "").rstrip("/")
+    _kaggle_url_registered_at = time.time()
     logger.info(f"Kaggle TTS URL 등록: {_kaggle_tts_url}")
     return {"status": "ok", "url": _kaggle_tts_url}
 
@@ -641,7 +643,8 @@ async def start_kaggle_server(req: Request):
 
 @app.get("/api/kaggle-status")
 async def get_kaggle_status():
-    if _kaggle_tts_url:
+    # push 이후에 등록된 URL만 ready로 반환 (이전 세션 URL 무시)
+    if _kaggle_tts_url and _kaggle_url_registered_at >= _kaggle_start_time:
         return {"status": "ready", "url": _kaggle_tts_url, "message": "✅ 서버 준비 완료!"}
     try:
         out = await asyncio.get_event_loop().run_in_executor(None, _kaggle_status_sync)

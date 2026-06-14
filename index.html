@@ -15022,6 +15022,8 @@ async function kaggleStartServer() {
     return;
   }
 
+  // 새 커널 시작 — 이전 세션 URL 무효화
+  window._masterKaggleURL = null;
   if (st) st.textContent = '⏳ GPU 할당 대기 중...';
   if (_kagglePollingTimer) clearInterval(_kagglePollingTimer);
   _kagglePollingTimer = setInterval(async function() {
