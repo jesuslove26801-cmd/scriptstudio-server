@@ -649,7 +649,7 @@ tunnel_url = None
 for _ in range(40):
     time.sleep(3)
     with open("/kaggle/working/cf.log") as f:
-        m = re.search(r"https://\\S+\\.trycloudflare\\.com", f.read())
+        m = re.search(r"https://\S+\.trycloudflare\.com", f.read())
         if m:
             tunnel_url = m.group()
             break
