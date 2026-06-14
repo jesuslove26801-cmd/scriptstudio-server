@@ -632,6 +632,23 @@ if tunnel_url:
     r = requests.post(f"{RAILWAY_URL}/api/set-qwen-url",
         json={"url": tunnel_url, "secret": ""})
     print("Railway 등록:", r.status_code, r.json())
+    # 모델 자동 로딩 대기 (최대 10분)
+    print("모델 자동 로딩 대기 중... /health 폴링")
+    for _w in range(200):
+        time.sleep(3)
+        try:
+            hr = requests.get(f"{tunnel_url}/health", timeout=10)
+            if hr.status_code == 200:
+                info = hr.json()
+                if info.get("backend", {}).get("ready", False):
+                    print(f"✅ 모델 로딩 완료! ({_w * 3}초)")
+                    break
+                else:
+                    if _w % 10 == 0:
+                        print(f"모델 로딩 중... ({_w * 3}초 경과)")
+        except Exception as e:
+            if _w % 10 == 0:
+                print(f"서버 대기중: {e}")
 else:
     print("터널 URL을 찾지 못했습니다.")
 
