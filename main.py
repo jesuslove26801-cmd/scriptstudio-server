@@ -486,21 +486,38 @@ _GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "ghp_wONQI8R76XAowI7XPGFDhDDOiyZB
 _RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://web-production-11acd.up.railway.app")
 
 KAGGLE_SETUP_SCRIPT = '''\
-import subprocess, sys, os, time, re, requests
+import subprocess, sys, os, time, re, requests, importlib.util
 
 GITHUB_TOKEN = "__GITHUB_TOKEN__"
 RAILWAY_URL = "__RAILWAY_URL__"
 
+# 1. git clone (shallow)
 subprocess.run(["rm", "-rf", "/kaggle/working/tts"])
-subprocess.run(["git", "clone",
+subprocess.run(["git", "clone", "--depth", "1",
     f"https://jesuslove26801-cmd:{GITHUB_TOKEN}@github.com/jesuslove26801-cmd/qwen3-tts-runpod",
     "/kaggle/working/tts"])
 
-subprocess.run([sys.executable, "-m", "pip", "install", "-q",
-    "transformers==4.57.3", "fastapi", "uvicorn", "python-multipart",
-    "soundfile", "librosa", "einops", "pydub", "scipy", "sox", "onnxruntime"])
+# 2. transformers 버전 확인 후 필요할 때만 재설치
+try:
+    import transformers as _tr
+    assert _tr.__version__ == "4.57.3"
+    print(f"transformers {_tr.__version__} 이미 설치됨 — skip")
+except (ImportError, AssertionError):
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "transformers==4.57.3"])
+
+# 3. 없는 패키지만 설치
+_need = {p: n for p, n in {
+    "fastapi": "fastapi", "uvicorn": "uvicorn", "python-multipart": "multipart",
+    "soundfile": "soundfile", "librosa": "librosa", "einops": "einops",
+    "pydub": "pydub", "scipy": "scipy", "sox": "sox", "onnxruntime": "onnxruntime"
+}.items() if importlib.util.find_spec(n) is None}
+if _need:
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + list(_need.keys()))
+
+# 4. qwen-tts 항상 재설치
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", "/kaggle/working/tts"])
 
+# auto_docstring patch
 noop = ("from transformers.utils import ModelOutput, logging\\n"
         "def auto_docstring(*a, **kw):\\n"
         "    if len(a) == 1 and callable(a[0]): return a[0]\\n"
@@ -529,12 +546,16 @@ subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app",
 cf_log = open("/kaggle/working/cf.log", "w")
 subprocess.Popen(["/usr/local/bin/cloudflared", "tunnel", "--url", "http://localhost:8880"],
     stderr=cf_log, stdout=subprocess.DEVNULL)
-time.sleep(90)
 
+# 5. cloudflare 폴링 (90초 고정 → 최대 2분 폴링)
 tunnel_url = None
-with open("/kaggle/working/cf.log") as f:
-    m = re.search(r"https://\\S+\\.trycloudflare\\.com", f.read())
-    if m: tunnel_url = m.group()
+for _ in range(40):
+    time.sleep(3)
+    with open("/kaggle/working/cf.log") as f:
+        m = re.search(r"https://\\S+\\.trycloudflare\\.com", f.read())
+        if m:
+            tunnel_url = m.group()
+            break
 print("Tunnel URL:", tunnel_url)
 
 if tunnel_url:
