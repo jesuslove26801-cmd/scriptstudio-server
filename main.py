@@ -543,7 +543,7 @@ time.sleep(2)
 
 # config.yaml 생성 — optimized backend가 CustomVoice(내장) + Base(클론) 자동 전환
 import pathlib
-cfg_dir = pathlib.Path("/root/qwen3-tts")
+cfg_dir = pathlib.Path.home() / "qwen3-tts"
 cfg_dir.mkdir(parents=True, exist_ok=True)
 (cfg_dir / "config.yaml").write_text(
     "default_model: 0.6B-CustomVoice\\n"
