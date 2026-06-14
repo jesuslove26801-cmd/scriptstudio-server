@@ -546,10 +546,10 @@ import pathlib
 cfg_dir = pathlib.Path.home() / "qwen3-tts"
 cfg_dir.mkdir(parents=True, exist_ok=True)
 (cfg_dir / "config.yaml").write_text(
-    "default_model: 0.6B-CustomVoice\\n"
+    "default_model: 1.7B-CustomVoice\\n"
     "models:\\n"
-    "  0.6B-CustomVoice:\\n"
-    "    hf_id: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice\\n"
+    "  1.7B-CustomVoice:\\n"
+    "    hf_id: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice\\n"
     "    type: customvoice\\n"
     "  1.7B-Base:\\n"
     "    hf_id: Qwen/Qwen3-TTS-12Hz-1.7B-Base\\n"
