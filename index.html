@@ -15008,7 +15008,8 @@ async function kaggleStartServer() {
   if (st) st.textContent = '';
 
   try {
-    var r = await fetch(window.SS_SERVER + '/api/start-kaggle', { method: 'POST' });
+    var email = localStorage.getItem('ss_auth_email') || '';
+    var r = await fetch(window.SS_SERVER + '/api/start-kaggle', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email: email}) });
     var d = await r.json();
     if (!r.ok) {
       if (st) st.textContent = '❌ ' + (d.message || '오류');
@@ -15049,7 +15050,8 @@ async function kaggleStopServer() {
   if (st) st.textContent = '중지 중...';
   if (_kagglePollingTimer) { clearInterval(_kagglePollingTimer); _kagglePollingTimer = null; }
   try {
-    await fetch(window.SS_SERVER + '/api/stop-kaggle', { method: 'POST' });
+    var email = localStorage.getItem('ss_auth_email') || '';
+    await fetch(window.SS_SERVER + '/api/stop-kaggle', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email: email}) });
     window._masterKaggleURL = null;
     if (st) st.textContent = '서버 중지됨';
     var dot = document.getElementById('qwen-server-dot');

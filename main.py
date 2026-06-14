@@ -573,7 +573,11 @@ def _kaggle_headers():
 _kaggle_start_time: float = 0.0
 
 @app.post("/api/start-kaggle")
-async def start_kaggle_server():
+async def start_kaggle_server(req: Request):
+    data = await req.json() if req.headers.get("content-type", "").startswith("application/json") else {}
+    master_email = os.environ.get("MASTER_EMAIL", "master@gmail.com")
+    if data.get("email", "").lower() != master_email.lower():
+        return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
     global _kaggle_tts_url, _kaggle_start_time
     if not _KAGGLE_USERNAME or not _KAGGLE_KEY:
         return JSONResponse(status_code=503, content={"status": "error", "message": "KAGGLE_USERNAME / KAGGLE_KEY 환경변수 미설정"})
@@ -647,7 +651,11 @@ async def get_kaggle_status():
     return {"status": "idle", "message": ""}
 
 @app.post("/api/stop-kaggle")
-async def stop_kaggle_server():
+async def stop_kaggle_server(req: Request):
+    data = await req.json() if req.headers.get("content-type", "").startswith("application/json") else {}
+    master_email = os.environ.get("MASTER_EMAIL", "master@gmail.com")
+    if data.get("email", "").lower() != master_email.lower():
+        return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
     global _kaggle_tts_url
     try:
         async with httpx.AsyncClient() as client:
