@@ -590,7 +590,7 @@ def _kaggle_push_sync(script: str):
         "id": f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}",
         "title": "Qwen3 TTS Server",
         "code_file": "kernel.ipynb",
-        "language": "Python",
+        "language": "python",
         "kernel_type": "notebook",
         "is_private": True,
         "enable_gpu": True,
