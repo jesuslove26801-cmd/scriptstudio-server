@@ -589,7 +589,7 @@ _need = {p: n for p, n in {
     "fastapi": "fastapi", "uvicorn": "uvicorn", "python-multipart": "multipart",
     "soundfile": "soundfile", "librosa": "librosa", "einops": "einops",
     "pydub": "pydub", "scipy": "scipy", "sox": "sox", "onnxruntime": "onnxruntime",
-    "pyyaml": "yaml"
+    "pyyaml": "yaml", "accelerate": "accelerate"
 }.items() if importlib.util.find_spec(n) is None}
 if _need:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + list(_need.keys()))
