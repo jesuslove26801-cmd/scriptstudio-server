@@ -17543,10 +17543,10 @@ async function retryFailedPrompts() {
   </div>
 </div>
 
-<!-- 로그아웃 버튼 (우상단) -->
-<div id="ss-user-bar" style="display:none;position:fixed;top:8px;right:12px;z-index:99998;display:none;align-items:center;gap:8px">
-  <span id="ss-user-email" style="font-size:11px;color:#6b7280"></span>
-  <button onclick="ssLogout()" style="font-size:11px;padding:3px 10px;background:#1a1a2e;border:1px solid #3b3b55;color:#9ca3af;border-radius:6px;cursor:pointer">로그아웃</button>
+<!-- 로그아웃 버튼 (우하단) -->
+<div id="ss-user-bar" style="display:none;position:fixed;bottom:20px;right:20px;z-index:99998;align-items:center;gap:8px;background:#1a1a2e;border:1px solid #3b3b55;border-radius:10px;padding:6px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
+  <span id="ss-user-email" style="font-size:11px;color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  <button onclick="ssLogout()" style="font-size:11px;padding:3px 10px;background:#2d1f1f;border:1px solid #7f1d1d;color:#f87171;border-radius:6px;cursor:pointer;font-weight:600">로그아웃</button>
 </div>
 
 <script>
