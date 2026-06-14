@@ -1896,11 +1896,11 @@ input[type=password]:focus { border-color: var(--acc); }
       <div class="card">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-gold" onclick="qwenLoadFromStudio()">← 스튜디오에서 대본 가져오기</button>
-          <button class="btn btn-primary ss-master-only" id="qwenGenBtn" onclick="qwenGenerateAll()" disabled
+          <button class="btn btn-primary" id="qwenGenBtn" onclick="qwenGenerateAll()" disabled
             style="font-size:13px;padding:8px 22px;background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700">
             🤖 전체 TTS 생성
           </button>
-          <button class="btn btn-err ss-master-only" id="qwenStopBtn" onclick="qwenStop()" style="display:none;font-size:13px;padding:8px 18px">⏹ 중지</button>
+          <button class="btn btn-err" id="qwenStopBtn" onclick="qwenStop()" style="display:none;font-size:13px;padding:8px 18px">⏹ 중지</button>
           <button class="btn btn-ok" id="qwenDownloadBtn" onclick="qwenDownload()" disabled>↓ 다운로드</button>
           <span class="status-txt" id="qwenStatus"></span>
         </div>
@@ -15338,8 +15338,6 @@ async function qwenGenerateScene(idx) {
 }
 
 async function qwenGenerateAll() {
-  var _email = localStorage.getItem('ss_auth_email') || '';
-  if (_email !== window.SS_MASTER_EMAIL) { alert('마스터 전용 기능입니다.'); return; }
   if (!qwenScenes.length) { alert('먼저 스튜디오에서 대본을 가져오세요.'); return; }
   if (!qwenSelectedVoice) { alert('먼저 보이스를 선택하세요.'); return; }
 
