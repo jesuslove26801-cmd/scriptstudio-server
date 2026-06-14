@@ -141,8 +141,8 @@ app = FastAPI()
 
 # ── Kaggle 자동 스케줄러 ──
 _KST = pytz.timezone("Asia/Seoul")
-_KAGGLE_KERNEL_SLUG_A = os.environ.get("KAGGLE_KERNEL_SLUG_A", "notebookc3d9872480")   # 자정 시작
-_KAGGLE_KERNEL_SLUG_B = os.environ.get("KAGGLE_KERNEL_SLUG_B", "qwen3-tts-server")      # 정오 시작
+_KAGGLE_KERNEL_SLUG_A = os.environ.get("KAGGLE_KERNEL_SLUG_A", "notebookc3d9872480")   # T4 커널 (주)
+_KAGGLE_KERNEL_SLUG_B = os.environ.get("KAGGLE_KERNEL_SLUG_B", "notebookc3d9872480")   # T4 커널 (동일)
 
 async def _startup_kaggle_if_offline():
     """Railway 재시작 후 URL이 없으면 60초 대기 후 Kaggle 자동 재시작"""
@@ -560,7 +560,7 @@ async def get_qwen_url():
 
 _KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "junryong")
 _KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "7a6425f7c4e48f1dc705fb462b94dc20")
-_KAGGLE_KERNEL_SLUG = os.environ.get("KAGGLE_KERNEL_SLUG", "qwen3-tts-server")
+_KAGGLE_KERNEL_SLUG = os.environ.get("KAGGLE_KERNEL_SLUG", "notebookc3d9872480")
 _GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "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")
 _RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://web-production-11acd.up.railway.app")
 
