@@ -1822,6 +1822,10 @@ input[type=password]:focus { border-color: var(--acc); }
       <span id="qwen-server-dot" style="display:none"></span>
       <span id="qwen-server-status" style="display:none"></span>
       <span id="kaggle-start-status" style="display:none"></span>
+      <!-- 마스터 전용: 서버 교체 중 알림 -->
+      <div id="qwen-switch-banner" class="ss-master-only" style="display:none;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:8px;padding:10px 14px;color:#f59e0b;font-size:13px;margin-bottom:10px">
+        ⚠️ <b>TTS 서버 교체 중</b> — 매일 00:00 / 12:00 KST에 자동 교체됩니다. 2~3분 후 자동으로 복구돼요.
+      </div>
 
       <!-- 보이스 프로필 -->
       <div class="card">
@@ -15001,6 +15005,8 @@ async function qwenCheckServer() {
         var modelStatus = data.backend?.ready ? '준비됨' : '모델 로딩 중...';
         status.textContent = '연결됨 · ' + modelStatus;
       }
+      var banner = document.getElementById('qwen-switch-banner');
+      if (banner) banner.style.display = 'none';
       qwenLoadVoices();
       return true;
     }
@@ -15008,8 +15014,12 @@ async function qwenCheckServer() {
   if (dot) { dot.style.background = 'var(--err)'; dot.style.boxShadow = 'none'; }
   if (status) {
     status.style.color = 'var(--err)';
-    status.textContent = window._masterKaggleURL ? '연결 실패 — ☁ Kaggle 시작 버튼을 누르세요.' : '연결 실패';
+    status.textContent = '연결 실패';
   }
+  // 마스터 전용 서버 교체 배너
+  var banner = document.getElementById('qwen-switch-banner');
+  var _em = localStorage.getItem('ss_auth_email') || '';
+  if (banner && _em === window.SS_MASTER_EMAIL) banner.style.display = 'block';
   qwenLoadVoices();
   return false;
 }
