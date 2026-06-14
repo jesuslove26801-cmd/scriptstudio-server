@@ -539,7 +539,7 @@ if not os.path.exists("/usr/local/bin/cloudflared"):
 
 subprocess.run(["pkill", "-f", "uvicorn"], capture_output=True)
 time.sleep(2)
-env = {**os.environ, "TTS_MODEL_NAME": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "TTS_BACKEND": "optimized"}
+env = {**os.environ, "TTS_MODEL_NAME": "Qwen/Qwen3-TTS-12Hz-1.7B-Base"}
 log = open("/kaggle/working/server.log", "w")
 subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app",
     "--host", "0.0.0.0", "--port", "8880"],
