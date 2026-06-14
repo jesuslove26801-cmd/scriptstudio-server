@@ -144,6 +144,13 @@ _KST = pytz.timezone("Asia/Seoul")
 _KAGGLE_KERNEL_SLUG_A = os.environ.get("KAGGLE_KERNEL_SLUG_A", "notebookc3d9872480")   # 자정 시작
 _KAGGLE_KERNEL_SLUG_B = os.environ.get("KAGGLE_KERNEL_SLUG_B", "qwen3-tts-server")      # 정오 시작
 
+async def _startup_kaggle_if_offline():
+    """Railway 재시작 후 URL이 없으면 60초 대기 후 Kaggle 자동 재시작"""
+    await asyncio.sleep(60)
+    if not _kaggle_tts_url:
+        logger.info("[재시작 감지] Kaggle URL 없음 → 자동 재시작 시도")
+        await _auto_start_kaggle(_KAGGLE_KERNEL_SLUG_B)
+
 async def _auto_start_kaggle(slug: str):
     logger.info(f"[스케줄러] Kaggle 자동 시작: {slug}")
     try:
@@ -181,6 +188,8 @@ async def startup_scheduler():
                        trigger=CronTrigger(hour=12, minute=0, timezone=_KST), id="kaggle_noon")
     _scheduler.start()
     logger.info("[스케줄러] Kaggle 자동 시작 등록: 노트북A=자정, 노트북B=정오 (KST)")
+    # Railway 재시작 시 URL이 비어있으면 자동으로 Kaggle 커널 재시작
+    asyncio.create_task(_startup_kaggle_if_offline())
 
 @app.on_event("shutdown")
 async def shutdown_scheduler():
@@ -509,6 +518,23 @@ async def api_status():
     return {"status": "ok", "platform": sys.platform}
 
 # Kaggle TTS 서버 URL 브로커
+_URL_CACHE_FILE = "/tmp/kaggle_tts_url.txt"
+
+def _load_cached_url() -> str:
+    try:
+        if os.path.exists(_URL_CACHE_FILE):
+            return open(_URL_CACHE_FILE).read().strip()
+    except Exception:
+        pass
+    return ""
+
+def _save_cached_url(url: str):
+    try:
+        with open(_URL_CACHE_FILE, "w") as f:
+            f.write(url)
+    except Exception:
+        pass
+
 _kaggle_tts_url: str = ""
 _kaggle_url_registered_at: float = 0.0
 _KAGGLE_SECRET = os.environ.get("KAGGLE_SECRET", "")
@@ -522,6 +548,7 @@ async def set_qwen_url(req: Request):
     global _kaggle_tts_url, _kaggle_url_registered_at
     _kaggle_tts_url = data.get("url", "").rstrip("/")
     _kaggle_url_registered_at = time.time()
+    _save_cached_url(_kaggle_tts_url)
     logger.info(f"Kaggle TTS URL 등록: {_kaggle_tts_url}")
     return {"status": "ok", "url": _kaggle_tts_url}
 
