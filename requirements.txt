@@ -7,3 +7,4 @@ httpx==0.28.1
 pillow==12.2.0
 aiofiles
 opencv-python-headless==4.10.0.84
+kaggle>=1.6.0

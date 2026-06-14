@@ -566,28 +566,19 @@ else:
     print("터널 URL을 찾지 못했습니다.")
 '''
 
-def _kaggle_headers():
-    cred = base64.b64encode(f"{_KAGGLE_USERNAME}:{_KAGGLE_KEY}".encode()).decode()
-    return {"Authorization": f"Basic {cred}", "Content-Type": "application/json"}
+def _setup_kaggle_env():
+    kaggle_dir = os.path.expanduser("~/.kaggle")
+    os.makedirs(kaggle_dir, exist_ok=True)
+    kaggle_json = os.path.join(kaggle_dir, "kaggle.json")
+    with open(kaggle_json, "w") as f:
+        json.dump({"username": _KAGGLE_USERNAME, "key": _KAGGLE_KEY}, f)
+    os.chmod(kaggle_json, 0o600)
 
 _kaggle_start_time: float = 0.0
 
-@app.post("/api/start-kaggle")
-async def start_kaggle_server(req: Request):
-    data = await req.json() if req.headers.get("content-type", "").startswith("application/json") else {}
-    master_email = os.environ.get("MASTER_EMAIL", "master@gmail.com")
-    if data.get("email", "").lower() != master_email.lower():
-        return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
-    global _kaggle_tts_url, _kaggle_start_time
-    if not _KAGGLE_USERNAME or not _KAGGLE_KEY:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "KAGGLE_USERNAME / KAGGLE_KEY 환경변수 미설정"})
-    if not _GITHUB_TOKEN:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "GITHUB_TOKEN 환경변수 미설정"})
-
-    _kaggle_start_time = time.time()
-
-    script = KAGGLE_SETUP_SCRIPT.replace("__GITHUB_TOKEN__", _GITHUB_TOKEN).replace("__RAILWAY_URL__", _RAILWAY_URL)
-
+def _kaggle_push_sync(script: str):
+    import tempfile, subprocess as sp
+    _setup_kaggle_env()
     notebook = {
         "cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                    "source": [line + "\n" for line in script.strip().split("\n")]}],
@@ -595,33 +586,52 @@ async def start_kaggle_server(req: Request):
                      "language_info": {"name": "python", "version": "3.10.0"}},
         "nbformat": 4, "nbformat_minor": 4
     }
-
-    body = {
-        "id": None,
-        "slug": _KAGGLE_KERNEL_SLUG,
-        "newTitle": "Qwen3 TTS Server",
-        "sourceFile": json.dumps(notebook),
+    meta = {
+        "id": f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}",
+        "title": "Qwen3 TTS Server",
+        "code_file": "kernel.ipynb",
         "language": "Python",
-        "kernelType": "notebook",
-        "isPrivate": True,
-        "enableGpu": True,
-        "enableInternet": True,
-        "datasetDataSources": [],
-        "kernelDataSources": [],
-        "competitionDataSources": [],
-        "categoryIds": []
+        "kernel_type": "notebook",
+        "is_private": True,
+        "enable_gpu": True,
+        "enable_internet": True
     }
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "kernel.ipynb"), "w") as f:
+            json.dump(notebook, f)
+        with open(os.path.join(tmp, "kernel-metadata.json"), "w") as f:
+            json.dump(meta, f)
+        result = sp.run(["kaggle", "kernels", "push", "-p", tmp],
+                        capture_output=True, text=True, timeout=60)
+        return result.returncode, result.stdout + result.stderr
+
+def _kaggle_status_sync():
+    import subprocess as sp
+    _setup_kaggle_env()
+    result = sp.run(["kaggle", "kernels", "status", f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}"],
+                    capture_output=True, text=True, timeout=30)
+    return result.stdout + result.stderr
+
+@app.post("/api/start-kaggle")
+async def start_kaggle_server(req: Request):
+    data = await req.json() if req.headers.get("content-type", "").startswith("application/json") else {}
+    master_email = os.environ.get("MASTER_EMAIL", "master@gmail.com")
+    if data.get("email", "").lower() != master_email.lower():
+        return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
+    global _kaggle_start_time
+    if not _GITHUB_TOKEN:
+        return JSONResponse(status_code=503, content={"status": "error", "message": "GITHUB_TOKEN 미설정"})
+
+    _kaggle_start_time = time.time()
+    script = KAGGLE_SETUP_SCRIPT.replace("__GITHUB_TOKEN__", _GITHUB_TOKEN).replace("__RAILWAY_URL__", _RAILWAY_URL)
 
     try:
-        async with httpx.AsyncClient() as client:
-            r = await client.post("https://www.kaggle.com/api/v1/kernels/push",
-                                  headers=_kaggle_headers(), json=body, timeout=30)
-        if r.status_code in (200, 201):
-            logger.info(f"Kaggle 노트북 실행 시작: {r.status_code}")
+        rc, out = await asyncio.get_event_loop().run_in_executor(None, _kaggle_push_sync, script)
+        logger.info(f"kaggle push rc={rc} out={out[:200]}")
+        if rc == 0:
             return {"status": "ok", "message": "Kaggle 노트북 실행 시작됨"}
         else:
-            logger.error(f"Kaggle API 오류: {r.status_code} {r.text[:300]}")
-            return JSONResponse(status_code=500, content={"status": "error", "message": f"Kaggle API 오류: {r.text[:200]}"})
+            return JSONResponse(status_code=500, content={"status": "error", "message": f"kaggle push 실패: {out[:300]}"})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
@@ -629,23 +639,17 @@ async def start_kaggle_server(req: Request):
 async def get_kaggle_status():
     if _kaggle_tts_url:
         return {"status": "ready", "url": _kaggle_tts_url, "message": "✅ 서버 준비 완료!"}
-    if not _KAGGLE_USERNAME or not _KAGGLE_KEY:
-        return {"status": "idle", "message": ""}
     try:
-        async with httpx.AsyncClient() as client:
-            r = await client.get(
-                f"https://www.kaggle.com/api/v1/kernels/{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}/status",
-                headers=_kaggle_headers(), timeout=10)
-        if r.status_code == 200:
-            d = r.json()
-            status = d.get("status", "unknown")
-            msg_map = {
-                "queued": "⏳ GPU 할당 대기 중...",
-                "running": "🔄 서버 시작 중... (약 2~3분 소요)",
-                "complete": "완료 (터널 등록 대기 중...)",
-                "error": f"❌ 오류: {d.get('failureMessage', '알 수 없음')}",
-            }
-            return {"status": status, "message": msg_map.get(status, status)}
+        out = await asyncio.get_event_loop().run_in_executor(None, _kaggle_status_sync)
+        logger.info(f"kaggle status: {out[:100]}")
+        if "running" in out.lower():
+            return {"status": "running", "message": "🔄 서버 시작 중... (약 2~3분 소요)"}
+        elif "queued" in out.lower():
+            return {"status": "queued", "message": "⏳ GPU 할당 대기 중..."}
+        elif "complete" in out.lower():
+            return {"status": "complete", "message": "완료 (터널 등록 대기 중...)"}
+        elif "error" in out.lower():
+            return {"status": "error", "message": f"❌ 오류: {out[:100]}"}
     except Exception as e:
         logger.warning(f"Kaggle 상태 조회 실패: {e}")
     return {"status": "idle", "message": ""}
@@ -658,10 +662,10 @@ async def stop_kaggle_server(req: Request):
         return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
     global _kaggle_tts_url
     try:
-        async with httpx.AsyncClient() as client:
-            r = await client.delete(
-                f"https://www.kaggle.com/api/v1/kernels/{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}",
-                headers=_kaggle_headers(), timeout=10)
+        import subprocess as sp
+        _setup_kaggle_env()
+        sp.run(["kaggle", "kernels", "cancel", f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}"],
+               capture_output=True, timeout=30)
         _kaggle_tts_url = ""
         return {"status": "ok", "message": "서버 중지 요청됨"}
     except Exception as e:
