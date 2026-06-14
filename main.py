@@ -707,6 +707,22 @@ class EmailCheckReq(BaseModel):
 
 @app.post("/api/check-access")
 async def check_access(req: EmailCheckReq):
+    # USERS 형식: "email1:pass1,email2:pass2" (개별 비밀번호)
+    users_env = os.environ.get("USERS", "")
+    if users_env:
+        user_map = {}
+        for entry in users_env.split(","):
+            entry = entry.strip()
+            if ":" in entry:
+                e, p = entry.split(":", 1)
+                user_map[e.strip().lower()] = p.strip()
+        if not user_map:
+            return JSONResponse(status_code=500, content={"status": "error", "message": "서버 설정 오류"})
+        stored = user_map.get(req.email.strip().lower())
+        if stored and req.password == stored:
+            return {"status": "ok"}
+        return JSONResponse(status_code=401, content={"status": "error", "message": "이메일 또는 비밀번호가 올바르지 않습니다"})
+    # 하위 호환: ALLOWED_EMAILS + ACCESS_PASSWORD
     allowed = os.environ.get("ALLOWED_EMAILS", "")
     password = os.environ.get("ACCESS_PASSWORD", "")
     allowed_list = [e.strip().lower() for e in allowed.split(",") if e.strip()]
