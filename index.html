@@ -548,9 +548,12 @@ input[type=password]:focus { border-color: var(--acc); }
     <span>딸각</span>
   </button>
   <div style="width:40px;height:1px;background:var(--border);margin-top:4px"></div>
-  <div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:8px">
+  <button class="sidebar-btn" onclick="ssLogout()" title="로그아웃" style="color:#f87171;border:1px solid #7f1d1d;background:#2d1f1f">
+    <span class="sb-icon">⏏</span>
+    <span>로그아웃</span>
+  </button>
+  <div style="margin-top:auto;padding-bottom:8px">
     <div class="api-dot" id="globalApiDot" style="width:8px;height:8px;border-radius:50%;background:var(--border)" title="API 연결 상태"></div>
-    <button onclick="ssLogout()" title="로그아웃" style="width:36px;height:36px;border-radius:8px;background:#2d1f1f;border:1px solid #7f1d1d;color:#f87171;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">⏏</button>
   </div>
 </div>
 
