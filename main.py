@@ -652,10 +652,18 @@ if tunnel_url:
 else:
     print("터널 URL을 찾지 못했습니다.")
 
-# 커널 살아있는 동안 서버 유지 (배치 종료 방지)
+# 커널 살아있는 동안 서버 유지 + 5분마다 URL 재등록 (Railway 재시작 대응)
 print("서버 유지 중... (최대 9시간)")
+_keep_tick = 0
 while True:
     time.sleep(60)
+    _keep_tick += 1
+    if tunnel_url and _keep_tick % 5 == 0:
+        try:
+            requests.post(f"{RAILWAY_URL}/api/set-qwen-url",
+                json={"url": tunnel_url, "secret": ""}, timeout=10)
+        except Exception:
+            pass
 '''
 
 def _setup_kaggle_env():
