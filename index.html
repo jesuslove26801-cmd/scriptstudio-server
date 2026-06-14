@@ -17542,14 +17542,30 @@ async function retryFailedPrompts() {
     <button onclick="ssDoLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">입장</button>
   </div>
 </div>
+
+<!-- 로그아웃 버튼 (우상단) -->
+<div id="ss-user-bar" style="display:none;position:fixed;top:8px;right:12px;z-index:99998;display:none;align-items:center;gap:8px">
+  <span id="ss-user-email" style="font-size:11px;color:#6b7280"></span>
+  <button onclick="ssLogout()" style="font-size:11px;padding:3px 10px;background:#1a1a2e;border:1px solid #3b3b55;color:#9ca3af;border-radius:6px;cursor:pointer">로그아웃</button>
+</div>
+
 <script>
 window.SS_MASTER_EMAIL = 'master@gmail.com';
+window.ssLogout = function() {
+  localStorage.removeItem('ss_auth');
+  localStorage.removeItem('ss_auth_email');
+  location.reload();
+};
 window.ssMasterUIInit = function() {
   var email = localStorage.getItem('ss_auth_email') || '';
   var isMaster = (email === window.SS_MASTER_EMAIL);
   document.querySelectorAll('.ss-master-only').forEach(function(el) {
     el.style.display = isMaster ? '' : 'none';
   });
+  var bar = document.getElementById('ss-user-bar');
+  var emailEl = document.getElementById('ss-user-email');
+  if (bar) { bar.style.display = 'flex'; }
+  if (emailEl) { emailEl.textContent = email; }
 };
 
 var masterBlobs = [];
