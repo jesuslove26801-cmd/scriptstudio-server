@@ -175,10 +175,10 @@ _scheduler = AsyncIOScheduler(timezone=_KST)
 
 @app.on_event("startup")
 async def startup_scheduler():
-    _scheduler.add_job(lambda: asyncio.create_task(_auto_start_kaggle(_KAGGLE_KERNEL_SLUG_A)),
-                       CronTrigger(hour=0, minute=0, timezone=_KST), id="kaggle_midnight")
-    _scheduler.add_job(lambda: asyncio.create_task(_auto_start_kaggle(_KAGGLE_KERNEL_SLUG_B)),
-                       CronTrigger(hour=12, minute=0, timezone=_KST), id="kaggle_noon")
+    _scheduler.add_job(_auto_start_kaggle, args=[_KAGGLE_KERNEL_SLUG_A],
+                       trigger=CronTrigger(hour=0, minute=0, timezone=_KST), id="kaggle_midnight")
+    _scheduler.add_job(_auto_start_kaggle, args=[_KAGGLE_KERNEL_SLUG_B],
+                       trigger=CronTrigger(hour=12, minute=0, timezone=_KST), id="kaggle_noon")
     _scheduler.start()
     logger.info("[스케줄러] Kaggle 자동 시작 등록: 노트북A=자정, 노트북B=정오 (KST)")
 
