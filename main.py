@@ -511,7 +511,8 @@ except (ImportError, AssertionError):
 _need = {p: n for p, n in {
     "fastapi": "fastapi", "uvicorn": "uvicorn", "python-multipart": "multipart",
     "soundfile": "soundfile", "librosa": "librosa", "einops": "einops",
-    "pydub": "pydub", "scipy": "scipy", "sox": "sox", "onnxruntime": "onnxruntime"
+    "pydub": "pydub", "scipy": "scipy", "sox": "sox", "onnxruntime": "onnxruntime",
+    "pyyaml": "yaml"
 }.items() if importlib.util.find_spec(n) is None}
 if _need:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + list(_need.keys()))
@@ -539,7 +540,24 @@ if not os.path.exists("/usr/local/bin/cloudflared"):
 
 subprocess.run(["pkill", "-f", "uvicorn"], capture_output=True)
 time.sleep(2)
-env = {**os.environ, "TTS_MODEL_NAME": "Qwen/Qwen3-TTS-12Hz-1.7B-Base"}
+
+# config.yaml 생성 — optimized backend가 CustomVoice(내장) + Base(클론) 자동 전환
+import pathlib
+cfg_dir = pathlib.Path("/root/qwen3-tts")
+cfg_dir.mkdir(parents=True, exist_ok=True)
+(cfg_dir / "config.yaml").write_text(
+    "default_model: 0.6B-CustomVoice\\n"
+    "models:\\n"
+    "  0.6B-CustomVoice:\\n"
+    "    hf_id: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice\\n"
+    "    type: customvoice\\n"
+    "  1.7B-Base:\\n"
+    "    hf_id: Qwen/Qwen3-TTS-12Hz-1.7B-Base\\n"
+    "    type: base\\n"
+)
+print("config.yaml 생성 완료")
+
+env = {**os.environ, "TTS_BACKEND": "optimized"}
 log = open("/kaggle/working/server.log", "w")
 subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app",
     "--host", "0.0.0.0", "--port", "8880"],
