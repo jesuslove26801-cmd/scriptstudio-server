@@ -566,6 +566,11 @@ if tunnel_url:
     print("Railway 등록:", r.status_code, r.json())
 else:
     print("터널 URL을 찾지 못했습니다.")
+
+# 커널 살아있는 동안 서버 유지 (배치 종료 방지)
+print("서버 유지 중... (최대 9시간)")
+while True:
+    time.sleep(60)
 '''
 
 def _setup_kaggle_env():
