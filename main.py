@@ -17,6 +17,9 @@ import asyncio
 import base64
 import httpx
 from renderer import render_video
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+import pytz
 
 # GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
 _grok_bridge = None
@@ -135,6 +138,53 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# ── Kaggle 자동 스케줄러 ──
+_KST = pytz.timezone("Asia/Seoul")
+_KAGGLE_KERNEL_SLUG_A = os.environ.get("KAGGLE_KERNEL_SLUG_A", "notebookc3d9872480")   # 자정 시작
+_KAGGLE_KERNEL_SLUG_B = os.environ.get("KAGGLE_KERNEL_SLUG_B", "qwen3-tts-server")      # 정오 시작
+
+async def _auto_start_kaggle(slug: str):
+    logger.info(f"[스케줄러] Kaggle 자동 시작: {slug}")
+    try:
+        loop = asyncio.get_event_loop()
+        rc, out = await loop.run_in_executor(None, lambda: _kaggle_push_sync_slug(slug))
+        logger.info(f"[스케줄러] push rc={rc} out={out[:200]}")
+    except Exception as e:
+        logger.error(f"[스케줄러] 오류: {e}")
+
+def _kaggle_push_sync_slug(slug: str):
+    import subprocess as sp
+    _setup_kaggle_env()
+    script = KAGGLE_SETUP_SCRIPT.replace("__GITHUB_TOKEN__", _GITHUB_TOKEN).replace("__RAILWAY_URL__", _RAILWAY_URL)
+    kernel_dir = tempfile.mkdtemp()
+    nb = {"cells": [{"cell_type": "code", "source": script, "metadata": {}, "outputs": [], "execution_count": None}],
+          "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+                       "language_info": {"name": "python", "version": "3.10.0"}}, "nbformat": 4, "nbformat_minor": 5}
+    with open(os.path.join(kernel_dir, "kernel.ipynb"), "w") as f:
+        json.dump(nb, f)
+    meta = {"id": f"{_KAGGLE_USERNAME}/{slug}", "title": slug, "code_file": "kernel.ipynb",
+            "language": "python", "kernel_type": "notebook", "is_private": True,
+            "enable_gpu": True, "enable_internet": True, "dataset_sources": [], "competition_sources": [], "kernel_sources": []}
+    with open(os.path.join(kernel_dir, "kernel-metadata.json"), "w") as f:
+        json.dump(meta, f)
+    result = sp.run(["kaggle", "kernels", "push", "-p", kernel_dir], capture_output=True, text=True, timeout=60)
+    return result.returncode, result.stdout + result.stderr
+
+_scheduler = AsyncIOScheduler(timezone=_KST)
+
+@app.on_event("startup")
+async def startup_scheduler():
+    _scheduler.add_job(lambda: asyncio.create_task(_auto_start_kaggle(_KAGGLE_KERNEL_SLUG_A)),
+                       CronTrigger(hour=0, minute=0, timezone=_KST), id="kaggle_midnight")
+    _scheduler.add_job(lambda: asyncio.create_task(_auto_start_kaggle(_KAGGLE_KERNEL_SLUG_B)),
+                       CronTrigger(hour=12, minute=0, timezone=_KST), id="kaggle_noon")
+    _scheduler.start()
+    logger.info("[스케줄러] Kaggle 자동 시작 등록: 노트북A=자정, 노트북B=정오 (KST)")
+
+@app.on_event("shutdown")
+async def shutdown_scheduler():
+    _scheduler.shutdown()
 
 # Qwen3-TTS 로컬 (Gradio) 라우트 등록
 try:
