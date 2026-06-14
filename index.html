@@ -1884,7 +1884,7 @@ input[type=password]:focus { border-color: var(--acc); }
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary" id="masterTTSBtn" onclick="masterGenerateAll()"
             style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-color:#4f46e5;color:#fff;font-weight:700">
-            🎙 내 목소리로 TTS 생성
+            🎙 마스터 TTS 생성
           </button>
           <button class="btn btn-err" id="masterStopBtn" onclick="masterStop()" style="display:none">⏹ 중지</button>
           <button class="btn btn-ok" id="masterDownloadBtn" onclick="masterDownload()" disabled>↓ 다운로드</button>
@@ -1900,11 +1900,11 @@ input[type=password]:focus { border-color: var(--acc); }
       <div class="card">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-gold" onclick="qwenLoadFromStudio()">← 스튜디오에서 대본 가져오기</button>
-          <button class="btn btn-primary" id="qwenGenBtn" onclick="qwenGenerateAll()" disabled
+          <button class="btn btn-primary ss-master-only" id="qwenGenBtn" onclick="qwenGenerateAll()" disabled
             style="font-size:13px;padding:8px 22px;background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700">
             🤖 전체 TTS 생성
           </button>
-          <button class="btn btn-err" id="qwenStopBtn" onclick="qwenStop()" style="display:none;font-size:13px;padding:8px 18px">⏹ 중지</button>
+          <button class="btn btn-err ss-master-only" id="qwenStopBtn" onclick="qwenStop()" style="display:none;font-size:13px;padding:8px 18px">⏹ 중지</button>
           <button class="btn btn-ok" id="qwenDownloadBtn" onclick="qwenDownload()" disabled>↓ 다운로드</button>
           <span class="status-txt" id="qwenStatus"></span>
         </div>
@@ -3226,6 +3226,7 @@ function videoLoadFromStudio() {
       if (tts && tts.audioBuffer) audioBuf = tts.audioBuffer;
     }
     if (!audioBuf && el && el.audioBuf) audioBuf = el.audioBuf;
+    if (!audioBuf && window.masterAudioBuffers && window.masterAudioBuffers[i]) audioBuf = window.masterAudioBuffers[i];
 
     // 자막 타임스탬프: scenes > ttsScenes 순으로 탐색
     var subTimings = s.subtitleTimings || (tts && tts.subtitleTimings) || null;
@@ -14942,6 +14943,23 @@ var qwenFinalBlobs = [];
 var qwenVoiceProfiles = [];
 var qwenSelectedVoice = null;
 var QWEN_SERVER = 'http://127.0.0.1:8880';
+var QWEN_CHAR_VOICES = [
+  {id:'소희',   model:'sohee',    gender:'여성', color:'#FF6B9D', bg:'rgba(255,107,157,0.13)'},
+  {id:'세레나', model:'serena',   gender:'여성', color:'#C77DFF', bg:'rgba(199,125,255,0.13)'},
+  {id:'비비안', model:'vivian',   gender:'여성', color:'#A78BFA', bg:'rgba(167,139,250,0.13)'},
+  {id:'아나',   model:'ono_anna', gender:'여성', color:'#F472B6', bg:'rgba(244,114,182,0.13)'},
+  {id:'에이든', model:'aiden',    gender:'남성', color:'#60A5FA', bg:'rgba(96,165,250,0.13)'},
+  {id:'딜런',   model:'dylan',    gender:'남성', color:'#34D399', bg:'rgba(52,211,153,0.13)'},
+  {id:'에릭',   model:'eric',     gender:'남성', color:'#FBBF24', bg:'rgba(251,191,36,0.13)'},
+  {id:'라이언', model:'ryan',     gender:'남성', color:'#38BDF8', bg:'rgba(56,189,248,0.13)'},
+  {id:'엉클푸', model:'uncle_fu', gender:'남성', color:'#FB923C', bg:'rgba(251,146,60,0.13)'},
+];
+function qwenResolveVoice(v) {
+  if (!v) return v;
+  if (v.startsWith('clone:')) return v;
+  var ch = QWEN_CHAR_VOICES.find(function(c){ return c.id === v; });
+  return ch ? ch.model : v;
+}
 function qwenURL() { return window._masterKaggleURL || QWEN_SERVER; }
 async function qwenInitURL() {
   if (window._masterKaggleURL) return;
@@ -14996,6 +15014,7 @@ async function qwenCheckServer() {
     status.style.color = 'var(--err)';
     status.textContent = window._masterKaggleURL ? '연결 실패 — ☁ Kaggle 시작 버튼을 누르세요.' : '연결 실패';
   }
+  qwenLoadVoices();
   return false;
 }
 
@@ -15069,41 +15088,60 @@ async function qwenLoadVoices() {
   var list = document.getElementById('qwen-voice-list');
   var count = document.getElementById('qwen-voice-count');
   if (!list) return;
+  function _charGrid(selectedId) {
+    var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">';
+    html += QWEN_CHAR_VOICES.map(function(ch) {
+      var sel = ch.id === selectedId;
+      return '<div onclick="qwenSelectVoice(\'' + ch.id + '\')" style="cursor:pointer;border-radius:12px;border:2px solid ' + (sel ? ch.color : 'var(--border)') + ';background:' + (sel ? ch.bg : 'var(--s3)') + ';padding:12px 8px;text-align:center;transition:all 0.15s' + (sel ? ';box-shadow:0 0 14px ' + ch.color + '55' : '') + '">' +
+        '<div style="width:48px;height:48px;border-radius:50%;background:' + ch.color + ';color:#fff;font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;box-shadow:0 2px 8px ' + ch.color + '77">' + ch.id.charAt(0) + '</div>' +
+        '<div style="font-size:13px;font-weight:700;color:' + (sel ? ch.color : 'var(--text)') + ';margin-bottom:4px">' + ch.id + (sel ? ' ✓' : '') + '</div>' +
+        '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:' + (ch.gender==='여성' ? 'rgba(255,107,157,0.18)' : 'rgba(96,165,250,0.18)') + ';color:' + (ch.gender==='여성' ? '#FF6B9D' : '#60A5FA') + ';font-weight:600">' + ch.gender + '</span>' +
+        '<button id="qwen-sample-btn-' + ch.model + '" onclick="event.stopPropagation();qwenPlaySample(\'' + ch.model + '\',\'' + ch.id + '\')" style="display:block;margin:6px auto 0;font-size:10px;padding:2px 10px;background:transparent;border:1px solid ' + ch.color + '66;color:' + ch.color + ';border-radius:20px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background=\'' + ch.bg + '\'" onmouseout="this.style.background=\'transparent\'">▶ 샘플</button>' +
+      '</div>';
+    }).join('');
+    html += '</div>';
+    return html;
+  }
   try {
     var res = await fetch(qwenURL() + '/v1/voices');
     if (!res.ok) throw new Error('서버 응답 오류');
     var data = await res.json();
-    var voices = (data.voices || []).filter(function(v){ return v.id && v.id.startsWith('clone:'); });
-    qwenVoiceProfiles = voices.map(function(v){ return v.id.replace('clone:', ''); });
-    if (count) count.textContent = voices.length ? '(' + voices.length + '개)' : '';
+    var allVoices = data.voices || [];
+    var cloneVoices = allVoices.filter(function(v){ return v.id && v.id.startsWith('clone:'); });
+    qwenVoiceProfiles = allVoices.map(function(v){ return v.id; });
+    if (count) count.textContent = cloneVoices.length ? '(' + cloneVoices.length + '개 클론)' : '';
 
-    if (!voices.length) {
-      list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:16px;text-align:center">등록된 보이스 프로필이 없습니다. <b>＋ 보이스 등록</b>을 눌러 추가하세요.</div>';
-      qwenSelectedVoice = null;
-      qwenUpdateSelectedVoiceInfo();
-      return;
+    var validIds = QWEN_CHAR_VOICES.map(function(c){return c.id;}).concat(cloneVoices.map(function(v){return v.id;}));
+    if (!qwenSelectedVoice || !validIds.includes(qwenSelectedVoice)) {
+      qwenSelectedVoice = cloneVoices.length ? cloneVoices[0].id : QWEN_CHAR_VOICES[0].id;
     }
 
-    // 기존 선택 유지 또는 첫 번째로 설정
-    if (!qwenSelectedVoice || !qwenVoiceProfiles.includes(qwenSelectedVoice)) {
-      qwenSelectedVoice = qwenVoiceProfiles[0];
+    var html = '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ 기본 내장 목소리 (빠름 · 1~2초)</div>';
+    html += _charGrid(qwenSelectedVoice);
+    if (cloneVoices.length) {
+      html += '<div style="font-size:11px;color:var(--text3);margin-top:4px;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🎙 내 클론 목소리</div>';
+      html += cloneVoices.map(function(v) {
+        var id = v.id; var name = id.replace('clone:', ''); var sel = id === qwenSelectedVoice;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:' + (sel ? 'var(--acc-dim)' : 'var(--s3)') + ';border:1px solid ' + (sel ? 'var(--acc-glow)' : 'var(--border)') + ';border-radius:8px;cursor:pointer;margin-bottom:4px" onclick="qwenSelectVoice(\'' + id.replace(/'/g,"\\'") + '\')">' +
+          '<span style="font-size:18px">🎙</span>' +
+          '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:' + (sel ? 'var(--acc2)' : 'var(--text)') + '">' + name + (sel ? ' <span style="font-size:10px;color:var(--acc2)">✓ 선택됨</span>' : '') + '</div><div style="font-size:11px;color:var(--text3)">' + (v.description||'Voice clone profile') + '</div></div>' +
+          '<button onclick="event.stopPropagation();qwenDeleteVoice(\'' + name.replace(/'/g,"\\'") + '\')" class="btn btn-sm btn-err" style="padding:3px 9px;font-size:11px">🗑</button>' +
+        '</div>';
+      }).join('');
+    } else {
+      html += '<div style="color:var(--text3);font-size:12px;padding:8px 0 4px;text-align:center">클론 없음 — <b>＋ 보이스 등록</b>으로 추가</div>';
     }
-
-    list.innerHTML = voices.map(function(v) {
-      var name = v.id.replace('clone:', '');
-      var isSelected = name === qwenSelectedVoice;
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:' + (isSelected ? 'var(--acc-dim)' : 'var(--s3)') + ';border:1px solid ' + (isSelected ? 'var(--acc-glow)' : 'var(--border)') + ';border-radius:8px;cursor:pointer" onclick="qwenSelectVoice(\'' + name.replace(/'/g, "\\'") + '\')">' +
-        '<span style="font-size:18px">🎙</span>' +
-        '<div style="flex:1">' +
-          '<div style="font-size:13px;font-weight:600;color:' + (isSelected ? 'var(--acc2)' : 'var(--text)') + '">' + name + (isSelected ? ' <span style="font-size:10px;color:var(--acc2)">✓ 선택됨</span>' : '') + '</div>' +
-          '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + (v.description || 'Voice clone profile') + '</div>' +
-        '</div>' +
-        '<button onclick="event.stopPropagation();qwenDeleteVoice(\'' + name.replace(/'/g, "\\'") + '\')" class="btn btn-sm btn-err" style="padding:3px 9px;font-size:11px">🗑</button>' +
-      '</div>';
-    }).join('');
+    list.innerHTML = html;
     qwenUpdateSelectedVoiceInfo();
   } catch(e) {
-    list.innerHTML = '<div style="color:var(--err);font-size:12px;padding:16px;text-align:center">보이스 목록 불러오기 실패: ' + e.message + '</div>';
+    if (!qwenSelectedVoice || !QWEN_CHAR_VOICES.some(function(c){return c.id===qwenSelectedVoice;})) {
+      qwenSelectedVoice = QWEN_CHAR_VOICES[0].id;
+    }
+    var html = '<div style="color:var(--err);font-size:11px;padding:4px 8px;margin-bottom:8px;background:rgba(255,80,80,.08);border-radius:6px">⚠ 서버 오프라인 — 기본 목소리만 표시</div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ 기본 내장 목소리</div>';
+    html += _charGrid(qwenSelectedVoice);
+    list.innerHTML = html;
+    qwenUpdateSelectedVoiceInfo();
   }
 }
 
@@ -15118,7 +15156,8 @@ function qwenUpdateSelectedVoiceInfo() {
   if (!info || !nameEl) return;
   if (qwenSelectedVoice) {
     info.style.display = '';
-    nameEl.textContent = qwenSelectedVoice;
+    var isClone = qwenSelectedVoice.startsWith('clone:');
+    nameEl.textContent = isClone ? qwenSelectedVoice.replace('clone:', '') + ' (클론)' : qwenSelectedVoice + ' (기본)';
   } else {
     info.style.display = 'none';
   }
@@ -15187,7 +15226,7 @@ async function qwenDeleteVoice(name) {
   try {
     var res = await fetch(qwenURL() + '/v1/voice-library/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
     if (res.ok) {
-      if (qwenSelectedVoice === name) qwenSelectedVoice = null;
+      if (qwenSelectedVoice === 'clone:' + name) qwenSelectedVoice = null;
       qwenLoadVoices();
     } else { alert('삭제 실패'); }
   } catch(e) { alert('서버 오류: ' + e.message); }
@@ -15235,6 +15274,29 @@ function qwenUpdateSceneRow(i) {
   el.parentNode.replaceChild(tmp.firstChild, el);
 }
 
+var _qwenSampleAudio = null;
+async function qwenPlaySample(modelId, name) {
+  var btn = document.getElementById('qwen-sample-btn-' + modelId);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  if (_qwenSampleAudio) { _qwenSampleAudio.pause(); _qwenSampleAudio = null; }
+  try {
+    var res = await fetch(qwenURL() + '/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'tts-1', input: '안녕하세요, 저는 ' + name + '입니다. 반갑습니다.', voice: modelId, language: 'Korean' })
+    });
+    if (!res.ok) throw new Error('생성 실패');
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    _qwenSampleAudio = new Audio(url);
+    _qwenSampleAudio.play();
+    if (btn) { btn.textContent = '▶ 샘플'; btn.disabled = false; }
+  } catch(e) {
+    if (btn) { btn.textContent = '▶ 샘플'; btn.disabled = false; }
+    alert('샘플 생성 실패: ' + e.message);
+  }
+}
+
 function qwenPreviewScene(i) {
   var s = qwenScenes[i];
   if (!s || !s.blob) return;
@@ -15259,7 +15321,7 @@ async function qwenGenerateScene(idx) {
       body: JSON.stringify({
         model: 'tts-1',
         input: scene.text,
-        voice: 'clone:' + qwenSelectedVoice,
+        voice: qwenResolveVoice(qwenSelectedVoice),
         language: document.getElementById('qwen-language').value,
         response_format: document.getElementById('qwen-format').value
       })
@@ -15280,8 +15342,10 @@ async function qwenGenerateScene(idx) {
 }
 
 async function qwenGenerateAll() {
+  var _email = localStorage.getItem('ss_auth_email') || '';
+  if (_email !== window.SS_MASTER_EMAIL) { alert('마스터 전용 기능입니다.'); return; }
   if (!qwenScenes.length) { alert('먼저 스튜디오에서 대본을 가져오세요.'); return; }
-  if (!qwenSelectedVoice) { alert('보이스 프로필이 없습니다. + 보이스 등록을 눌러 추가하세요.'); return; }
+  if (!qwenSelectedVoice) { alert('먼저 보이스를 선택하세요.'); return; }
 
   await qwenCheckServer();
   qwenRunning = true;
@@ -15316,7 +15380,7 @@ async function qwenGenerateAll() {
         body: JSON.stringify({
           model: 'tts-1',
           input: scene.text,
-          voice: 'clone:' + qwenSelectedVoice,
+          voice: qwenResolveVoice(qwenSelectedVoice),
           language: lang,
           response_format: fmt
         })
@@ -17542,15 +17606,21 @@ window.masterGenerateAll = async function() {
         body: JSON.stringify({
           model: 'tts-1',
           input: scene.text,
-          voice: 'clone:' + qwenSelectedVoice,
+          voice: qwenResolveVoice(qwenSelectedVoice),
           language: lang,
           response_format: fmt
         })
       });
       if (!res.ok) { var e = await res.json(); throw new Error(e.detail?.message || '생성 실패'); }
-      masterBlobs.push(await res.blob());
+      var _blob = await res.blob();
+      masterBlobs.push(_blob);
+      qwenScenes[i].blob = _blob;
+      qwenScenes[i].status = 'done';
+      qwenUpdateSceneRow(i);
     } catch(e) {
       masterBlobs.push(null);
+      qwenScenes[i].status = 'error';
+      qwenUpdateSceneRow(i);
       statusEl.textContent = '❌ ' + e.message;
     }
   }
@@ -17559,7 +17629,20 @@ window.masterGenerateAll = async function() {
   genBtn.disabled = false; stopBtn.style.display = 'none';
   var ok = masterBlobs.filter(function(b){ return b; }).length;
   statusEl.textContent = '✓ ' + ok + '/' + total + ' 완료';
-  if (ok > 0) dlBtn.disabled = false;
+  if (ok > 0) {
+    dlBtn.disabled = false;
+    // AudioBuffer 디코딩해서 video export에 연동
+    try {
+      var _actx = new (window.AudioContext || window.webkitAudioContext)();
+      window.masterAudioBuffers = new Array(masterBlobs.length).fill(null);
+      for (var _j = 0; _j < masterBlobs.length; _j++) {
+        if (masterBlobs[_j]) {
+          var _ab = await masterBlobs[_j].arrayBuffer();
+          window.masterAudioBuffers[_j] = await _actx.decodeAudioData(_ab);
+        }
+      }
+    } catch(_e) { window.masterAudioBuffers = []; }
+  }
   masterRunning = false;
 };
 
@@ -17572,12 +17655,13 @@ window.masterDownload = async function() {
     var a = document.createElement('a'); a.href = URL.createObjectURL(blobs[0]);
     a.download = 'master_tts.wav'; a.click(); return;
   }
-  // 여러 개: zip으로
+  // 여러 개: 순차 다운로드
   for (var i = 0; i < masterBlobs.length; i++) {
     if (!masterBlobs[i]) continue;
     var a2 = document.createElement('a'); a2.href = URL.createObjectURL(masterBlobs[i]);
-    a2.download = 'scene_' + (i+1) + '.wav'; a2.click();
-    await new Promise(function(r){ setTimeout(r, 200); });
+    a2.download = 'scene_' + (i+1) + '.wav';
+    document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+    await new Promise(function(r){ setTimeout(r, 1000); });
   }
 };
 
