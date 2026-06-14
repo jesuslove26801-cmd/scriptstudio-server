@@ -601,8 +601,12 @@ def _kaggle_push_sync(script: str):
             json.dump(notebook, f)
         with open(os.path.join(tmp, "kernel-metadata.json"), "w") as f:
             json.dump(meta, f)
+        # 디버그: 실제 쓰여진 메타데이터 확인
+        with open(os.path.join(tmp, "kernel-metadata.json")) as dbg:
+            logger.info(f"metadata content: {dbg.read()}")
         result = sp.run(["kaggle", "kernels", "push", "-p", tmp],
                         capture_output=True, text=True, timeout=60)
+        logger.info(f"kaggle push stdout: {result.stdout[:200]} stderr: {result.stderr[:200]}")
         return result.returncode, result.stdout + result.stderr
 
 def _kaggle_status_sync():
