@@ -26,15 +26,15 @@ import io
 SERVER_URL = "https://web-production-11acd.up.railway.app"
 
 # FFmpeg 자동 설치 (Railway Linux 환경에서 시스템 ffmpeg 없을 때)
-try:
-    import shutil as _shutil
-    if not _shutil.which("ffmpeg"):
+import shutil as _shutil
+if not _shutil.which("ffmpeg") and sys.platform != "win32":
+    try:
+        import subprocess as _sp
+        _sp.run([sys.executable, "-m", "pip", "install", "static-ffmpeg", "-q"], capture_output=True)
         import static_ffmpeg
         static_ffmpeg.add_paths()
-        import logging as _log
-        _log.getLogger(__name__).info("static-ffmpeg PATH 등록 완료")
-except Exception as _e:
-    pass
+    except Exception as _fe:
+        pass
 
 _grok_bridge = None
 _grok_available = False
