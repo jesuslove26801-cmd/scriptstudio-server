@@ -694,6 +694,9 @@ models:
   1.7B-CustomVoice:
     hf_id: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
     type: customvoice
+  1.7B-Base:
+    hf_id: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+    type: base
 optimization:
   attention: sdpa
   use_compile: true
