@@ -544,7 +544,9 @@ async def get_font_file(font_name: str):
 
 @app.get("/api/status")
 async def api_status():
-    return {"status": "ok", "platform": sys.platform}
+    import shutil
+    ffmpeg_path = shutil.which("ffmpeg")
+    return {"status": "ok", "platform": sys.platform, "ffmpeg": ffmpeg_path or "NOT FOUND"}
 
 # Kaggle TTS 서버 URL 브로커
 _URL_CACHE_FILE = "/tmp/kaggle_tts_url.txt"
