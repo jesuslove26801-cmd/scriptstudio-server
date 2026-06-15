@@ -545,8 +545,28 @@ async def set_qwen_url(req: Request):
     secret = data.get("secret", "")
     if _KAGGLE_SECRET and secret != _KAGGLE_SECRET:
         return JSONResponse(status_code=401, content={"status": "error"})
+    new_url = data.get("url", "").rstrip("/")
+    # 현재 URL이 이미 healthy(ready)이면 not-ready URL로 덮어쓰기 차단
+    if _kaggle_tts_url:
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                cur_h = await client.get(f"{_kaggle_tts_url}/health")
+                cur_ready = cur_h.json().get("backend", {}).get("ready", False)
+        except Exception:
+            cur_ready = False
+        if cur_ready:
+            # 기존 URL이 healthy → 새 URL도 ready여야만 교체 허용
+            try:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    new_h = await client.get(f"{new_url}/health")
+                    new_ready = new_h.json().get("backend", {}).get("ready", False)
+            except Exception:
+                new_ready = False
+            if not new_ready:
+                logger.info(f"URL 등록 거부 (기존 healthy, 신규 not ready): {new_url}")
+                return JSONResponse(status_code=202, content={"status": "pending", "message": "Current server is healthy; new URL not ready"})
     global _kaggle_tts_url, _kaggle_url_registered_at
-    _kaggle_tts_url = data.get("url", "").rstrip("/")
+    _kaggle_tts_url = new_url
     _kaggle_url_registered_at = time.time()
     _save_cached_url(_kaggle_tts_url)
     logger.info(f"Kaggle TTS URL 등록: {_kaggle_tts_url}")
