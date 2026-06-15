@@ -240,20 +240,28 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # 데이터 스키마
 class SceneData(BaseModel):
+    model_config = {"extra": "ignore"}
     id: int
     script: str
     imgDataUrl: Optional[str] = None
-    audioDataUrl: Optional[str] = None  # base64 mp3/wav
+    audioDataUrl: Optional[str] = None
     audioPath: Optional[str] = None
     dur: float
-    gapSec: float
-    subtitleTimings: Optional[list] = None  # [{text, start, end}, ...]
+    durationSec: Optional[float] = None
+    gapSec: float = 0
+    subtitleTimings: Optional[list] = None
+    textChunks: Optional[list] = None
+    subtitlePreviewLocked: bool = False
     grokVideo: bool = False
-    grokVideoPath: Optional[str] = None  # 실제 파일 경로 (서버에서 채움)
+    grokVideoPath: Optional[str] = None
+    avatarUrl: Optional[str] = None
     useFade: bool = False
-    zoom_type: Optional[str] = None  # zoom_in, zoom_out, pan_left, pan_right, pan_up, pan_down, none (None=전역설정 따름)
+    zoom_type: Optional[str] = None
+    motionEffect: Optional[str] = None
+    transition: Optional[str] = None
 
 class RenderRequest(BaseModel):
+    model_config = {"extra": "ignore"}
     grok_download_folder: Optional[str] = None
     scenes: List[SceneData]
     w: int
@@ -263,11 +271,14 @@ class RenderRequest(BaseModel):
     subtitle_color: str = "&H00FFFFFF"
     subtitle_bg: str = "box"
     subtitle_size: int = 45
+    subtitle_position: str = "bottom"
+    subtitle_preview_locked: bool = False
     transition_type: str = "hard"
     zoom_speed: float = 1.08
     use_zoompan: bool = True
-    global_zoom_type: str = "zoom_in"  # zoom_in, zoom_out, pan_left, pan_right, pan_up, pan_down, none
+    global_zoom_type: str = "zoom_in"
     show_subtitle: bool = True
+    motion_effect: Optional[str] = None
 
 # 정적 파일 서빙을 위한 경로 설정
 @app.get("/", response_class=HTMLResponse)
@@ -982,6 +993,33 @@ async def api_render(req: RenderRequest):
             status_code=500,
             content={"status": "error", "message": str(e)}
         )
+
+@app.post("/api/export-xml")
+async def api_export_xml(req: RenderRequest):
+    try:
+        from renderer import export_premiere_xml
+        result = export_premiere_xml(req)
+        if result.get("status") != "success":
+            return JSONResponse(status_code=500, content={"status": "error", "message": "XML 생성 실패"})
+
+        import zipfile as _zf
+        out_dir = "outputs"
+        xml_path = os.path.join(out_dir, result["xml_file"])
+        srt_path = os.path.join(out_dir, result["srt_file"])
+        zip_name = f"premiere_export_{int(time.time())}.zip"
+        zip_path = os.path.join(out_dir, zip_name)
+
+        with _zf.ZipFile(zip_path, "w", _zf.ZIP_DEFLATED) as zf:
+            if os.path.exists(xml_path):
+                zf.write(xml_path, result["xml_file"])
+            if os.path.exists(srt_path):
+                zf.write(srt_path, result["srt_file"])
+
+        return {"status": "success", "zip_file": zip_name, "file_count": 2,
+                "xml_file": result["xml_file"], "srt_file": result["srt_file"]}
+    except Exception as e:
+        logger.error(f"XML 내보내기 실패: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 _whisper_model = None
 
