@@ -1,5 +1,2 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "glib", "xorg.libSM", "xorg.libXext", "xorg.libX11", "fontconfig", "freetype", "noto-fonts-cjk-sans"]
-
-[phases.build]
-cmds = ["fc-cache -fv"]
+nixPkgs = ["ffmpeg", "glib", "xorg.libSM", "xorg.libXext", "xorg.libX11", "fontconfig", "freetype"]
