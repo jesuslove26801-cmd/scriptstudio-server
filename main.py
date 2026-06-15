@@ -25,6 +25,17 @@ import io
 # GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
 SERVER_URL = "https://web-production-11acd.up.railway.app"
 
+# FFmpeg 자동 설치 (Railway Linux 환경에서 시스템 ffmpeg 없을 때)
+try:
+    import shutil as _shutil
+    if not _shutil.which("ffmpeg"):
+        import static_ffmpeg
+        static_ffmpeg.add_paths()
+        import logging as _log
+        _log.getLogger(__name__).info("static-ffmpeg PATH 등록 완료")
+except Exception as _e:
+    pass
+
 _grok_bridge = None
 _grok_available = False
 _grok_load_error = ""

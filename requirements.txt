@@ -11,3 +11,4 @@ kaggle>=1.6.0
 apscheduler==3.10.4
 pytz==2024.1
 edge-tts==7.0.2
+static-ffmpeg>=2.1
