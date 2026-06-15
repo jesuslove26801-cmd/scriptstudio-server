@@ -648,8 +648,27 @@ if not os.path.exists("/usr/local/bin/cloudflared"):
 subprocess.run(["pkill", "-f", "uvicorn"], capture_output=True)
 time.sleep(2)
 
+# T4 최적화: config.yaml 생성 (CUDA Graphs + torch.compile)
+import pathlib
+_cfg_dir = pathlib.Path.home() / "qwen3-tts"
+_cfg_dir.mkdir(exist_ok=True)
+(_cfg_dir / "config.yaml").write_text("""default_model: 1.7B-CustomVoice
+models:
+  1.7B-CustomVoice:
+    hf_id: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+    type: customvoice
+optimization:
+  attention: sdpa
+  use_compile: true
+  compile_mode: reduce-overhead
+  use_cuda_graphs: true
+  use_fast_codebook: true
+  compile_codebook_predictor: true
+""")
+
 env = {**os.environ,
-       "TTS_BACKEND": "official",
+       "TTS_BACKEND": "optimized",
+       "TTS_WARMUP_ON_START": "true",
        "TTS_MODEL_NAME": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"}
 log = open("/kaggle/working/server.log", "w")
 subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app",
