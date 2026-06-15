@@ -23,6 +23,8 @@ import pytz
 import io
 
 # GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
+SERVER_URL = "https://web-production-11acd.up.railway.app"
+
 _grok_bridge = None
 _grok_available = False
 _grok_load_error = ""
@@ -263,6 +265,7 @@ class SceneData(BaseModel):
 class RenderRequest(BaseModel):
     model_config = {"extra": "ignore"}
     grok_download_folder: Optional[str] = None
+    device_id: Optional[str] = None
     scenes: List[SceneData]
     w: int
     h: int
@@ -993,6 +996,65 @@ async def api_render(req: RenderRequest):
             status_code=500,
             content={"status": "error", "message": str(e)}
         )
+
+# ── Companion Task 저장소 (메모리) ────────────────────────────────────
+_companion_tasks: dict = {}  # task_id → {zip_url, device_id, status, created_at}
+
+@app.post("/api/export-capcut")
+async def api_export_capcut(req: RenderRequest):
+    """웹에서 CapCut 내보내기 요청 → ZIP 생성 → companion task 등록"""
+    try:
+        device_id = req.device_id or ""
+        from renderer import export_capcut_project
+        result = export_capcut_project(req, return_zip=True)
+        if result.get("status") != "success":
+            return JSONResponse(status_code=500, content={"status": "error", "message": "CapCut 프로젝트 생성 실패"})
+
+        zip_name  = result.get("zip_file")
+        zip_url   = f"{SERVER_URL}/download-audio/{zip_name}"
+        task_id   = f"cc_{int(time.time())}_{zip_name[:8]}"
+
+        _companion_tasks[task_id] = {
+            "task_id":    task_id,
+            "zip_url":    zip_url,
+            "device_id":  device_id or "",
+            "status":     "pending",
+            "created_at": time.time(),
+            "draft_name": result["draft_name"],
+        }
+        return {"status": "success", "task_id": task_id, "draft_name": result["draft_name"]}
+    except Exception as e:
+        logger.error(f"CapCut 내보내기 실패: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/companion/task/poll")
+async def companion_poll(device_id: str = ""):
+    """Companion 앱이 3초마다 호출 → 자신의 device_id에 해당하는 pending 작업 반환"""
+    now = time.time()
+    for tid, task in list(_companion_tasks.items()):
+        if task["status"] == "pending" and (not device_id or task["device_id"] == device_id):
+            if now - task["created_at"] > 300:  # 5분 지난 작업 자동 삭제
+                del _companion_tasks[tid]
+                continue
+            task["status"] = "sent"
+            return task
+    return {"task_id": None}
+
+@app.post("/api/companion/task/{task_id}/complete")
+async def companion_complete(task_id: str, req: Request):
+    """Companion 앱이 작업 완료/실패 보고"""
+    body = await req.json()
+    if task_id in _companion_tasks:
+        _companion_tasks[task_id]["status"] = body.get("status", "done")
+    return {"ok": True}
+
+@app.get("/api/companion/task/{task_id}/status")
+async def companion_task_status(task_id: str):
+    """웹 프론트엔드가 작업 완료 여부 폴링"""
+    task = _companion_tasks.get(task_id)
+    if not task:
+        return {"status": "not_found"}
+    return {"status": task["status"], "draft_name": task.get("draft_name")}
 
 @app.post("/api/export-xml")
 async def api_export_xml(req: RenderRequest):

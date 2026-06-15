@@ -1022,25 +1022,29 @@ def _apply_capcut_transition(video_seg, transition: str):
         video_seg.add_transition(t)
 
 
-def export_capcut_project(req) -> dict:
-    """RenderRequest를 받아 CapCut 드래프트 폴더에 프로젝트를 생성"""
+def export_capcut_project(req, return_zip: bool = False) -> dict:
+    """RenderRequest를 받아 CapCut 드래프트 폴더에 프로젝트를 생성.
+    return_zip=True 이면 로컬 CapCut 폴더 대신 임시 폴더에 생성 후 ZIP 경로 반환."""
     try:
         import pycapcut as cc
         from pycapcut import trange
     except ImportError:
         raise RuntimeError("pyCapCut이 설치되지 않았습니다. 서버 환경에 pip install pycapcut을 실행하세요.")
 
-    local_app_data = os.environ.get('LOCALAPPDATA', os.path.join(os.path.expanduser('~'), 'AppData', 'Local'))
-    capcut_draft_path = os.path.join(local_app_data, 'CapCut', 'User Data', 'Projects', 'com.lveditor.draft')
-
-    if not os.path.exists(capcut_draft_path):
-        raise FileNotFoundError(
-            f"CapCut 드래프트 폴더를 찾을 수 없습니다: {capcut_draft_path}\n"
-            "CapCut이 설치되어 있는지 확인하고, 한 번 실행해서 드래프트 폴더를 생성해주세요."
-        )
-
     from datetime import datetime
     project_name = f"ScriptStudio_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    if return_zip:
+        import tempfile
+        capcut_draft_path = tempfile.mkdtemp(prefix="capcut_export_")
+    else:
+        local_app_data = os.environ.get('LOCALAPPDATA', os.path.join(os.path.expanduser('~'), 'AppData', 'Local'))
+        capcut_draft_path = os.path.join(local_app_data, 'CapCut', 'User Data', 'Projects', 'com.lveditor.draft')
+        if not os.path.exists(capcut_draft_path):
+            raise FileNotFoundError(
+                f"CapCut 드래프트 폴더를 찾을 수 없습니다: {capcut_draft_path}\n"
+                "CapCut이 설치되어 있는지 확인하고, 한 번 실행해서 드래프트 폴더를 생성해주세요."
+            )
 
     w = req.w or 1080
     h = req.h or 1920
@@ -1166,4 +1170,20 @@ def export_capcut_project(req) -> dict:
 
     script.save()
     logger.info(f"CapCut 드래프트 저장 완료: {project_name}")
+
+    if return_zip:
+        import zipfile as _zf, shutil, time as _t
+        out_dir = "outputs"
+        os.makedirs(out_dir, exist_ok=True)
+        zip_name = f"capcut_export_{int(_t.time())}.zip"
+        zip_path = os.path.join(out_dir, zip_name)
+        draft_dir = os.path.join(capcut_draft_path, project_name)
+        with _zf.ZipFile(zip_path, "w", _zf.ZIP_DEFLATED) as zf:
+            for root_d, dirs, files in os.walk(capcut_draft_path):
+                for file in files:
+                    fp = os.path.join(root_d, file)
+                    zf.write(fp, os.path.relpath(fp, capcut_draft_path))
+        shutil.rmtree(capcut_draft_path, ignore_errors=True)
+        return {"status": "success", "draft_name": project_name, "zip_file": zip_name}
+
     return {"status": "success", "draft_name": project_name}
