@@ -20,6 +20,7 @@ from renderer import render_video
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
+import io
 
 # GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
 _grok_bridge = None
@@ -538,6 +539,42 @@ def _save_cached_url(url: str):
 _kaggle_tts_url: str = ""
 _kaggle_url_registered_at: float = 0.0
 _KAGGLE_SECRET = os.environ.get("KAGGLE_SECRET", "")
+
+# ── Edge TTS ──────────────────────────────────────────────────────────────────
+EDGE_VOICES = {
+    "SunHi":  "ko-KR-SunHiNeural",   # 여성 한국어
+    "InJoon": "ko-KR-InJoonNeural",  # 남성 한국어
+    "HyunSu": "ko-KR-HyunsuNeural", # 남성 한국어
+    "Aria":   "en-US-AriaNeural",    # 여성 영어
+    "Guy":    "en-US-GuyNeural",     # 남성 영어
+}
+
+@app.post("/api/edge-tts")
+async def edge_tts_generate(req: Request):
+    try:
+        import edge_tts
+        body = await req.json()
+        text = body.get("text", "").strip()
+        voice_name = body.get("voice", "SunHi")
+        speed = float(body.get("speed", 1.0))
+        if not text:
+            return JSONResponse({"error": "text required"}, status_code=400)
+        voice_id = EDGE_VOICES.get(voice_name, "ko-KR-SunHiNeural")
+        rate = f"+{int((speed-1)*100)}%" if speed >= 1 else f"{int((speed-1)*100)}%"
+        communicate = edge_tts.Communicate(text, voice_id, rate=rate)
+        buf = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                buf.write(chunk["data"])
+        buf.seek(0)
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(buf, media_type="audio/mpeg")
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/edge-tts/voices")
+async def edge_tts_voices():
+    return {"voices": [{"id": k, "description": v} for k, v in EDGE_VOICES.items()]}
 
 # 보이스 프로필 저장소 (Railway 재시작 전까지 유지)
 _voice_profiles: dict = {}  # name → {audio_b64, language, ref_text}
