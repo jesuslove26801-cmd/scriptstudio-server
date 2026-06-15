@@ -539,6 +539,46 @@ _kaggle_tts_url: str = ""
 _kaggle_url_registered_at: float = 0.0
 _KAGGLE_SECRET = os.environ.get("KAGGLE_SECRET", "")
 
+# 보이스 프로필 저장소 (Railway 재시작 전까지 유지)
+_voice_profiles: dict = {}  # name → {audio_b64, language, ref_text}
+
+@app.post("/api/voice-profile/save")
+async def save_voice_profile(req: Request):
+    form = await req.form()
+    name = (form.get("name") or "").strip()
+    if not name:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "name required"})
+    audio_file = form.get("ref_audio")
+    if not audio_file:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "ref_audio required"})
+    audio_bytes = await audio_file.read()
+    _voice_profiles[name] = {
+        "name": name,
+        "language": form.get("language") or "Korean",
+        "ref_text": form.get("ref_text") or "",
+        "audio_b64": base64.b64encode(audio_bytes).decode()
+    }
+    logger.info(f"보이스 프로필 저장: {name}")
+    return {"status": "ok", "name": name}
+
+@app.get("/api/voice-profile/list")
+async def list_voice_profiles():
+    return {"status": "ok", "profiles": [{"name": v["name"], "language": v["language"]} for v in _voice_profiles.values()]}
+
+@app.get("/api/voice-profile/get/{name}")
+async def get_voice_profile(name: str):
+    p = _voice_profiles.get(name)
+    if not p:
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Profile not found"})
+    return {"status": "ok", **p}
+
+@app.delete("/api/voice-profile/delete/{name}")
+async def delete_voice_profile(name: str):
+    if name in _voice_profiles:
+        del _voice_profiles[name]
+        return {"status": "ok"}
+    return JSONResponse(status_code=404, content={"status": "error"})
+
 @app.post("/api/set-qwen-url")
 async def set_qwen_url(req: Request):
     data = await req.json()
@@ -654,6 +694,31 @@ if tunnel_url:
                 print(f"서버 대기중: {e}")
 else:
     print("터널 URL을 찾지 못했습니다.")
+
+# 보이스 프로필 자동 동기화 (Railway → Kaggle)
+print("보이스 프로필 동기화 중...")
+try:
+    import base64, io
+    pl_res = requests.get(f"{RAILWAY_URL}/api/voice-profile/list", timeout=10)
+    profiles = pl_res.json().get("profiles", [])
+    for p in profiles:
+        pname = p["name"]
+        try:
+            det = requests.get(f"{RAILWAY_URL}/api/voice-profile/get/{pname}", timeout=10).json()
+            audio_bytes = base64.b64decode(det["audio_b64"])
+            files = {"ref_audio": (f"{pname}.wav", io.BytesIO(audio_bytes), "audio/wav")}
+            data = {"name": pname, "language": det.get("language","Korean"),
+                    "ref_text": det.get("ref_text",""),
+                    "x_vector_only_mode": "false" if det.get("ref_text") else "true"}
+            reg = requests.post(f"http://localhost:8880/v1/voice-library/profiles",
+                                files=files, data=data, timeout=30)
+            print(f"  {pname} 등록: {reg.status_code}")
+        except Exception as pe:
+            print(f"  {pname} 실패: {pe}")
+    if not profiles:
+        print("  저장된 프로필 없음")
+except Exception as e:
+    print(f"프로필 동기화 실패: {e}")
 
 # 커널 살아있는 동안 서버 유지 + 5분마다 URL 재등록 (Railway 재시작 대응)
 print("서버 유지 중... (최대 9시간)")
