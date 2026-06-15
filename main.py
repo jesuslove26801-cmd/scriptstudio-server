@@ -597,18 +597,6 @@ if _need:
 # 4. qwen-tts 항상 재설치
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", "/kaggle/working/tts"])
 
-# auto_docstring patch
-noop = ("from transformers.utils import ModelOutput, logging\n"
-        "def auto_docstring(*a, **kw):\n"
-        "    if len(a) == 1 and callable(a[0]): return a[0]\n"
-        "    return lambda fn: fn\n")
-for f in ["/kaggle/working/tts/qwen_tts/core/tokenizer_25hz/modeling_qwen3_tts_tokenizer_v1.py",
-          "/kaggle/working/tts/qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py"]:
-    code = open(f).read()
-    if "from transformers.utils import ModelOutput, auto_docstring, logging" in code:
-        open(f, "w").write(code.replace(
-            "from transformers.utils import ModelOutput, auto_docstring, logging", noop))
-
 if not os.path.exists("/usr/local/bin/cloudflared"):
     subprocess.run(["wget", "-q",
         "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
