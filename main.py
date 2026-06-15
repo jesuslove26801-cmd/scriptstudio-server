@@ -368,6 +368,20 @@ async def get_vertex_token():
         logger.error(f"Vertex AI 토큰 발급 실패: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
+# 환경변수 VERTEX_KEY_JSON 에서 키 로드 (Railway 재시작 후에도 유지)
+_VERTEX_KEY_ENV = os.environ.get("VERTEX_KEY_JSON", "")
+if _VERTEX_KEY_ENV and not _vertex_key_path:
+    try:
+        import base64 as _b64
+        _key_raw = _b64.b64decode(_VERTEX_KEY_ENV).decode() if not _VERTEX_KEY_ENV.strip().startswith("{") else _VERTEX_KEY_ENV
+        _key_data = json.loads(_key_raw)
+        _env_key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vertex_key.json")
+        with open(_env_key_path, "w") as _f:
+            json.dump(_key_data, _f)
+        _vertex_key_path = _env_key_path
+    except Exception as _e:
+        pass
+
 # project_id 캐시 (서비스 계정용)
 _vertex_project_id = ""
 try:
