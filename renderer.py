@@ -122,7 +122,26 @@ def get_video_encoder():
     else:
         return ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
 
-def create_ass_subtitle(text_chunks, duration, w, h, fontname="맑은 고딕", fontcolor="&H00FFFFFF", bgstyle="box", fontsize=45, subtitle_timings=None, position="bottom"):
+_DEFAULT_FONT = "Noto Sans CJK KR" if sys.platform != "win32" else "맑은 고딕"
+
+# Windows 전용 한글 폰트 → Linux Noto 매핑 (Railway 서버가 Linux이므로 필요)
+_WIN_FONT_MAP = {
+    "맑은 고딕": "Noto Sans CJK KR",
+    "굴림": "Noto Sans CJK KR",
+    "돋움": "Noto Sans CJK KR",
+    "바탕": "Noto Serif CJK KR",
+    "궁서": "Noto Serif CJK KR",
+    "나눔고딕": "Noto Sans CJK KR",
+    "나눔바탕": "Noto Serif CJK KR",
+}
+
+def _resolve_font(font: str) -> str:
+    if sys.platform == "win32":
+        return font or _DEFAULT_FONT
+    return _WIN_FONT_MAP.get(font, font) or _DEFAULT_FONT
+
+def create_ass_subtitle(text_chunks, duration, w, h, fontname=None, fontcolor="&H00FFFFFF", bgstyle="box", fontsize=45, subtitle_timings=None, position="bottom"):
+    fontname = _resolve_font(fontname or _DEFAULT_FONT)
     if bgstyle == "shadow":
         border_style, outline, shadow, outline_color, back_color = 1, 1.5, 2.5, "&H99000000", "&H00000000"
     elif bgstyle == "outline":
