@@ -1,2 +1,2 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "glib", "xorg.libSM", "xorg.libXext", "xorg.libX11", "fontconfig", "freetype"]
+aptPkgs = ["ffmpeg", "libsm6", "libxext6", "libglib2.0-0", "libfontconfig1", "libfreetype6"]
