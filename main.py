@@ -25,16 +25,46 @@ import io
 # GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
 SERVER_URL = "https://web-production-11acd.up.railway.app"
 
-# FFmpeg 자동 설치 (Railway Linux 환경에서 시스템 ffmpeg 없을 때)
+# FFmpeg + fontconfig 자동 설치 (Railway Linux 환경)
 import shutil as _shutil
-if not _shutil.which("ffmpeg") and sys.platform != "win32":
-    try:
-        import subprocess as _sp
-        _sp.run([sys.executable, "-m", "pip", "install", "static-ffmpeg", "-q"], capture_output=True)
-        import static_ffmpeg
-        static_ffmpeg.add_paths()
-    except Exception as _fe:
-        pass
+if sys.platform != "win32":
+    # 1. FFmpeg
+    if not _shutil.which("ffmpeg"):
+        try:
+            import subprocess as _sp
+            _sp.run([sys.executable, "-m", "pip", "install", "static-ffmpeg", "-q"], capture_output=True)
+            import static_ffmpeg
+            static_ffmpeg.add_paths()
+        except Exception:
+            pass
+
+    # 2. fontconfig 최소 설정 (자막 ASS 필터용)
+    import os as _os
+    if not _os.environ.get("FONTCONFIG_FILE"):
+        _fc_dir = "/tmp/fc_conf"
+        _os.makedirs(_fc_dir, exist_ok=True)
+        _fc_cache = "/tmp/fc_cache"
+        _os.makedirs(_fc_cache, exist_ok=True)
+        _fc_conf = f"{_fc_dir}/fonts.conf"
+        with open(_fc_conf, "w") as _f:
+            _f.write(f"""<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>/usr/share/fonts</dir>
+  <dir>/usr/local/share/fonts</dir>
+  <dir>/app/.fonts</dir>
+  <cachedir>{_fc_cache}</cachedir>
+  <config><rescan><int>30</int></rescan></config>
+</fontconfig>""")
+        _os.environ["FONTCONFIG_FILE"] = _fc_conf
+        _os.environ["FONTCONFIG_PATH"] = _fc_dir
+        # apt로 기본 폰트 설치 시도
+        try:
+            import subprocess as _sp
+            _sp.run(["apt-get", "install", "-y", "-q", "fontconfig", "fonts-dejavu-core"], capture_output=True)
+            _sp.run(["fc-cache", "-f", _fc_cache], capture_output=True)
+        except Exception:
+            pass
 
 _grok_bridge = None
 _grok_available = False

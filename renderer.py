@@ -222,6 +222,50 @@ def _safe_path_exists(path_str: str) -> bool:
     except (OSError, ValueError):
         return False
 
+async def _render_zoom_ffmpeg(img_path, w, h, dur, fps, audio_path, ass_path_escaped, clip_path, show_subtitle=True, zoom_speed_value=1.08, zoom_type='zoom_in'):
+    """FFmpeg zoompan 필터로 줌/패닝 (Linux/Railway용, 메모리 효율적)"""
+    total_frames = int(dur * fps)
+    z_expr = {
+        'zoom_in':  f"min(zoom+{(zoom_speed_value-1)/total_frames:.6f},{zoom_speed_value})",
+        'zoom_out': f"max(zoom-{(zoom_speed_value-1)/total_frames:.6f},1.0)",
+    }.get(zoom_type, "1.0")
+
+    if zoom_type in ('pan_left', 'pan_right', 'pan_up', 'pan_down'):
+        pan_scale = zoom_speed_value
+        if zoom_type == 'pan_left':
+            x_expr = f"iw*(1-1/{pan_scale})*on/{total_frames}"
+            y_expr = f"(ih-oh)/2"
+        elif zoom_type == 'pan_right':
+            x_expr = f"iw*(1-1/{pan_scale})*(1-on/{total_frames})"
+            y_expr = f"(ih-oh)/2"
+        elif zoom_type == 'pan_up':
+            x_expr = f"(iw-ow)/2"
+            y_expr = f"ih*(1-1/{pan_scale})*on/{total_frames}"
+        else:
+            x_expr = f"(iw-ow)/2"
+            y_expr = f"ih*(1-1/{pan_scale})*(1-on/{total_frames})"
+        zoom_filter = f"zoompan=z={pan_scale}:x='{x_expr}':y='{y_expr}':d={total_frames}:s={w}x{h}:fps={fps}"
+    elif zoom_type == 'none':
+        zoom_filter = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"
+    else:
+        zoom_filter = f"zoompan=z='{z_expr}':x='(iw-ow)/2':y='(ih-oh)/2':d={total_frames}:s={w}x{h}:fps={fps}"
+
+    encoder_opts = get_video_encoder()
+    vf_parts = [zoom_filter]
+    if show_subtitle and ass_path_escaped:
+        vf_parts.append(f"ass={ass_path_escaped}")
+
+    return [
+        FFMPEG_PATH, "-y", "-loop", "1", "-i", img_path,
+        "-i", audio_path,
+        "-vf", ",".join(vf_parts),
+        "-t", str(dur),
+    ] + encoder_opts + [
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-shortest", clip_path
+    ]
+
 def _render_zoom_pipe(img_path, w, h, dur, fps, audio_path, ass_path_escaped, clip_path, show_subtitle=True, zoom_speed_value=1.08, zoom_type='zoom_in'):
     """OpenCV로 프레임별 줌/패닝 생성 후 FFmpeg 파이프 인코딩 (초고속, 떨림 100% 제거)"""
     import cv2
@@ -550,10 +594,13 @@ async def render_video(req: Any) -> str:
             await run_ffmpeg(cmd)
         elif getattr(req, 'use_zoompan', True):
             zoom_speed_val = getattr(req, 'zoom_speed', 1.08)
-            # 씬별 motionEffect 우선, 없으면 zoom_type, 없으면 전역 설정
             scene_zoom_type = getattr(scene, 'zoom_type', None) or getattr(scene, 'motionEffect', None) or getattr(req, 'global_zoom_type', 'zoom_in')
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _render_zoom_pipe, img_path, w_int, h_int, dur, fps_int, audio_path, ass_path_escaped, clip_path, show_subtitle, zoom_speed_val, scene_zoom_type)
+            # Linux(Railway)에서는 메모리 절약을 위해 FFmpeg zoompan 필터 사용
+            if sys.platform != "win32":
+                await run_ffmpeg(await _render_zoom_ffmpeg(img_path, w_int, h_int, dur, fps_int, audio_path, ass_path_escaped, clip_path, show_subtitle, zoom_speed_val, scene_zoom_type))
+            else:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, _render_zoom_pipe, img_path, w_int, h_int, dur, fps_int, audio_path, ass_path_escaped, clip_path, show_subtitle, zoom_speed_val, scene_zoom_type)
         else:
             vf_parts = [
                 f"scale={w_int}:{h_int}:force_original_aspect_ratio=increase:flags=lanczos",
