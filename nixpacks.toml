@@ -1,2 +1,2 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "libglib2.0", "libsm6", "libxext6"]
+nixPkgs = ["ffmpeg", "glib", "xorg.libSM", "xorg.libXext", "xorg.libX11", "fontconfig", "freetype"]
