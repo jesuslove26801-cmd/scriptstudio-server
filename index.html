@@ -7,9 +7,24 @@
 <script>
 // 서버 자동 전환: 로컬 없으면 Railway 클라우드 사용
 window.SS_SERVER = 'https://web-production-11acd.up.railway.app';
-// Grok OAuth 프록시 (Railway)
+// Grok OAuth 프록시 — 로컬 우선, 없으면 Railway 마스터
 window.GROK_PROXY_URL = 'https://grok-proxy-production-c36a.up.railway.app';
 window.GROK_PROXY_KEY = 'ss-grok-master-2026';
+window.GROK_LOCAL_URL = 'http://localhost:3747';
+window.GROK_LOCAL_KEY = 'ss-grok-local-2026';
+window.GROK_USE_LOCAL = false; // 로컬 프록시 감지 후 true로 전환
+(async function detectLocalGrok() {
+  try {
+    var r = await fetch(window.GROK_LOCAL_URL + '/auth/status', { signal: AbortSignal.timeout(1500) });
+    var d = await r.json();
+    if (d.logged_in) {
+      window.GROK_USE_LOCAL = true;
+      window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
+      window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
+      console.log('[Grok] 로컬 프록시 감지됨 — 로컬 계정 사용');
+    }
+  } catch(e) {}
+})();
 (function(){
   var _orig = window.fetch;
   window.fetch = function(url, opts) {
@@ -1496,6 +1511,7 @@ input[type=password]:focus { border-color: var(--acc); }
 
     <div class="sep"></div>
     <button class="btn btn-primary" id="genAllBtn" onclick="generateAllPromptsAndImages()" style="background:linear-gradient(135deg,var(--acc),var(--cyan));border:none;font-size:13px;padding:7px 18px;white-space:nowrap">⚡ 전체 생성</button>
+    <button class="btn" id="grokLoginBtn" onclick="grokLocalLogin()" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 14px;white-space:nowrap" title="본인 Grok 계정으로 로그인 (로컬 프록시 필요)">🔑 Grok 로그인</button>
     <button class="btn ss-master-only" id="grokVideoAllBtn" onclick="grokProxyVideoGenAll()" style="background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 18px;white-space:nowrap">🎬 전체 영상 변환</button>
     <button class="btn btn-err ss-master-only" id="grokVideoAllStopBtn" onclick="grokVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ 중지</button>
     <button class="btn btn-err" id="studioStopBtn" onclick="studioStop()" style="display:none">⏹ 중지</button>
@@ -17135,6 +17151,63 @@ async function _checkGrokServerReady() {
 
 // ── Grok 전체 영상 변환 ───────────────────────────────────────────────────
 var _grokVideoAllRunning = false;
+
+async function grokLocalLogin() {
+  var btn = document.getElementById('grokLoginBtn');
+  // 로컬 프록시 실행 중인지 확인
+  try {
+    var chk = await fetch(window.GROK_LOCAL_URL + '/auth/status', { signal: AbortSignal.timeout(1500) });
+    var st = await chk.json();
+    if (st.logged_in) {
+      window.GROK_USE_LOCAL = true;
+      window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
+      window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
+      if (btn) { btn.textContent = '✅ Grok 연결됨'; btn.style.borderColor = 'rgba(16,185,129,.5)'; btn.style.color = '#10b981'; }
+      showToast('✅ 로컬 Grok 프록시 연결됨! 본인 계정으로 영상 생성합니다.');
+      return;
+    }
+    // 로그인 요청
+    if (btn) btn.textContent = '⏳ 브라우저 열리는 중...';
+    var r = await fetch(window.GROK_LOCAL_URL + '/auth/login', { method: 'POST', signal: AbortSignal.timeout(5000) });
+    var d = await r.json();
+    if (d.status === 'already_logged_in') {
+      window.GROK_USE_LOCAL = true;
+      window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
+      window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
+      if (btn) { btn.textContent = '✅ Grok 연결됨'; btn.style.color = '#10b981'; }
+      showToast('✅ 이미 로그인된 Grok 계정으로 연결됐습니다.');
+      return;
+    }
+    if (d.status === 'pending') {
+      if (btn) btn.textContent = '⏳ 승인 대기 중...';
+      showToast('🔑 브라우저에서 Grok 로그인 승인 후 다시 버튼을 클릭하세요.\n코드: ' + d.user_code);
+      // 폴링
+      var pollCount = 0;
+      var poll = setInterval(async function() {
+        pollCount++;
+        if (pollCount > 60) { clearInterval(poll); if (btn) btn.textContent = '🔑 Grok 로그인'; return; }
+        try {
+          var pr = await fetch(window.GROK_LOCAL_URL + '/auth/status', { signal: AbortSignal.timeout(2000) });
+          var ps = await pr.json();
+          if (ps.logged_in) {
+            clearInterval(poll);
+            window.GROK_USE_LOCAL = true;
+            window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
+            window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
+            if (btn) { btn.textContent = '✅ Grok 연결됨'; btn.style.color = '#10b981'; }
+            showToast('✅ Grok 로그인 완료! 본인 계정으로 영상 생성합니다.');
+          }
+        } catch(e) {}
+      }, 3000);
+      return;
+    }
+  } catch(e) {
+    // 로컬 프록시 미실행
+    if (btn) btn.textContent = '🔑 Grok 로그인';
+    alert('⚠️ 로컬 Grok 프록시가 실행되지 않았습니다.\n\nScriptStudio_Grok_Setup.bat 파일을 먼저 실행해주세요.\n(한 번만 설치하면 이후 자동 실행됩니다)');
+    return;
+  }
+}
 
 function grokVideoAllStop() {
   _grokVideoAllRunning = false;
