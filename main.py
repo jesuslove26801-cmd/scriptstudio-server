@@ -255,6 +255,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_STYLE_PREVIEWS_DIR = os.path.join(os.path.dirname(__file__), "style-previews")
+if os.path.isdir(_STYLE_PREVIEWS_DIR):
+    app.mount("/style-previews", StaticFiles(directory=_STYLE_PREVIEWS_DIR), name="style-previews")
+
 # 422 오류 상세 로깅 핸들러
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

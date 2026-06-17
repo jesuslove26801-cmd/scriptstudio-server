@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -7,6 +7,9 @@
 <script>
 // 서버 자동 전환: 로컬 없으면 Railway 클라우드 사용
 window.SS_SERVER = 'https://web-production-11acd.up.railway.app';
+// Grok OAuth 프록시 (Railway)
+window.GROK_PROXY_URL = 'https://grok-proxy-production-c36a.up.railway.app';
+window.GROK_PROXY_KEY = 'ss-grok-master-2026';
 (function(){
   var _orig = window.fetch;
   window.fetch = function(url, opts) {
@@ -548,11 +551,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <span>딸각</span>
   </button>
   <div style="width:40px;height:1px;background:var(--border);margin-top:4px"></div>
-  <button class="sidebar-btn" onclick="ssLogout()" title="로그아웃" style="color:#f87171;border:1px solid #7f1d1d;background:#2d1f1f">
-    <span class="sb-icon">⏏</span>
-    <span>로그아웃</span>
-  </button>
-  <div style="margin-top:auto;padding-bottom:8px">
+  <div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:8px">
     <div class="api-dot" id="globalApiDot" style="width:8px;height:8px;border-radius:50%;background:var(--border)" title="API 연결 상태"></div>
   </div>
 </div>
@@ -796,7 +795,20 @@ input[type=password]:focus { border-color: var(--acc); }
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
       <span id="apiStatusText" style="font-size:11px;color:var(--text3);font-family:var(--mono)">미연결</span>
       <span id="elApiStatus" style="font-size:10px;font-family:var(--mono);color:var(--text3);white-space:nowrap"></span>
+      <span id="ss-user-label" style="display:none;font-size:11px;color:var(--text2);font-family:var(--mono)"></span>
+      <button id="ss-logout-btn" onclick="ssLogout()" style="display:none;padding:3px 10px;font-size:11px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:6px;cursor:pointer">로그아웃</button>
     </div>
+  </div>
+  <!-- Companion 업데이트 알림 배너 -->
+  <div id="ss-update-bar" style="display:none;background:rgba(251,191,36,0.12);border-bottom:1px solid rgba(251,191,36,0.3);padding:7px 16px;align-items:center;gap:10px;font-size:12px;">
+    <span style="font-size:15px;">🔔</span>
+    <span id="ss-update-bar-title" style="color:#fbbf24;font-weight:700">Companion 설치 / 업데이트 필요</span>
+    <span id="ss-update-bar-desc" style="color:#a08030;margin-left:4px;"></span>
+    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup.bat" download
+       style="margin-left:auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:4px 12px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;">
+      ⬇ 설치 / 업데이트
+    </a>
+    <button onclick="document.getElementById('ss-update-bar').style.display='none'" style="background:none;border:none;color:#a08030;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">✕</button>
   </div>
   <!-- 2줄: 탭 전체 -->
   <div style="border-bottom:1px solid var(--border);padding:0 12px">
@@ -1283,9 +1295,7 @@ input[type=password]:focus { border-color: var(--acc); }
                style="width:100%;font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);outline:none;box-sizing:border-box">
       </div>
     </div>
-    <div class="sep"></div>
     <input type="checkbox" id="s-auto-crop" checked style="display:none">
-    <div class="sep"></div>
     <div class="opt-item" id="flux-korean-area" style="flex-direction:row;align-items:center;gap:6px;display:none!important;visibility:hidden;height:0;overflow:hidden">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="flux-strict-korean" style="accent-color:#f59e0b;width:13px;height:13px" checked>
@@ -1326,7 +1336,6 @@ input[type=password]:focus { border-color: var(--acc); }
         <span id="flux-lora-strength-val" style="font-size:9px;color:#a78bfa;text-align:center">0.8</span>
       </div>
     </div>
-    <div class="sep"></div>
     <div class="opt-item" id="flux-ipadapter-area" style="flex-direction:row;align-items:center;gap:8px;display:none!important;visibility:hidden;height:0;overflow:hidden">
       <div class="upload-area" id="ipAdapterUploadArea" onclick="document.getElementById('ipAdapterUpload').click()" title="FLUX 화풍 참조 이미지 (IP-Adapter)">
         <img id="ipAdapterPreview" class="upload-preview-sm" alt="">
@@ -1487,6 +1496,8 @@ input[type=password]:focus { border-color: var(--acc); }
 
     <div class="sep"></div>
     <button class="btn btn-primary" id="genAllBtn" onclick="generateAllPromptsAndImages()" style="background:linear-gradient(135deg,var(--acc),var(--cyan));border:none;font-size:13px;padding:7px 18px;white-space:nowrap">⚡ 전체 생성</button>
+    <button class="btn ss-master-only" id="grokVideoAllBtn" onclick="grokProxyVideoGenAll()" style="background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 18px;white-space:nowrap">🎬 전체 영상 변환</button>
+    <button class="btn btn-err ss-master-only" id="grokVideoAllStopBtn" onclick="grokVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ 중지</button>
     <button class="btn btn-err" id="studioStopBtn" onclick="studioStop()" style="display:none">⏹ 중지</button>
     <button class="btn btn-err" id="retryFailedBtn" onclick="retryFailedImages()" style="display:none">↺ 재시도</button>
       <div style="position:relative;display:inline-block">
@@ -1819,12 +1830,46 @@ input[type=password]:focus { border-color: var(--acc); }
   <div class="extract-wrap">
     <div class="extract-inner">
 
-      <span id="qwen-server-dot" style="display:none"></span>
-      <span id="qwen-server-status" style="display:none"></span>
-      <span id="kaggle-start-status" style="display:none"></span>
-      <!-- 마스터 전용: 서버 교체 중 알림 -->
-      <div id="qwen-switch-banner" class="ss-master-only" style="display:none;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:8px;padding:10px 14px;color:#f59e0b;font-size:13px;margin-bottom:10px">
-        ⚠️ <b>TTS 서버 교체 중</b> — 매일 00:00 / 12:00 KST에 자동 교체됩니다. 2~3분 후 자동으로 복구돼요.
+      <!-- 로컬 TTS 서버 카드 -->
+      <div class="card" style="border-color:rgba(124,92,252,.3);background:rgba(124,92,252,.06);">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span id="qwen-server-dot" style="width:11px;height:11px;border-radius:50%;background:var(--text3);flex-shrink:0;box-shadow:none;transition:background .3s"></span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--acc2);margin-bottom:2px">🤖 로컬 Qwen3-TTS 서버</div>
+            <div id="qwen-server-status" style="font-size:12px;color:var(--text3)">미연결</div>
+          </div>
+          <button onclick="qwenStartServer()" id="qwen-start-btn"
+            style="padding:7px 16px;background:var(--acc-dim);border:1px solid var(--acc-glow);color:var(--acc2);border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">
+            ▶ 서버 시작
+          </button>
+          <button onclick="qwenRestartServer()" id="qwen-restart-btn"
+            style="padding:7px 12px;background:var(--s3);border:1px solid rgba(251,191,36,.4);color:#fbbf24;border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap">
+            ↺ 재시작
+          </button>
+          <button onclick="qwenCheckServer()" style="padding:7px 12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer;font-size:12px">
+            새로고침
+          </button>
+        </div>
+        <div id="qwen-server-progress" style="display:none;margin-top:10px;">
+          <div style="height:4px;background:var(--s3);border-radius:2px;overflow:hidden;">
+            <div id="qwen-server-prog-bar" style="height:100%;background:var(--acc2);border-radius:2px;width:0%;transition:width .5s"></div>
+          </div>
+          <div id="qwen-server-prog-label" style="font-size:11px;color:var(--text3);margin-top:5px;text-align:center"></div>
+        </div>
+      </div>
+
+      <!-- 외부 서버 URL (Kaggle/ngrok) -->
+      <div class="card" style="border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.04);">
+        <div style="font-size:12px;font-weight:700;color:#818cf8;margin-bottom:8px">🌐 외부 TTS 서버 (Kaggle / ngrok)</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">GPU가 없으면 Kaggle 노트북에서 Qwen3-TTS를 실행하고 URL을 입력하세요. 입력 시 로컬 대신 외부 서버를 사용합니다.</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="qwen-external-url" type="text" placeholder="예: https://xxxx-xxxx.ngrok-free.app" spellcheck="false"
+            style="flex:1;padding:7px 12px;background:var(--s3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;outline:none"
+            oninput="qwenExternalUrlChanged(this.value)" />
+          <button onclick="qwenTestExternalUrl()" style="padding:7px 12px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);color:#818cf8;border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap">연결 확인</button>
+          <button onclick="qwenClearExternalUrl()" style="padding:7px 10px;background:var(--s3);border:1px solid var(--border);color:var(--text3);border-radius:8px;cursor:pointer;font-size:12px">✕</button>
+        </div>
+        <div id="qwen-external-status" style="font-size:11px;color:var(--text3);margin-top:6px;display:none"></div>
       </div>
 
       <!-- 보이스 프로필 -->
@@ -1835,7 +1880,13 @@ input[type=password]:focus { border-color: var(--acc); }
           <button onclick="qwenLoadVoices()" class="btn btn-sm" style="background:var(--s3);border-color:var(--border);color:var(--text2)">새로고침</button>
         </div>
         <div id="qwen-voice-list" style="display:flex;flex-direction:column;gap:6px">
-          <div style="color:var(--text3);font-size:12px;padding:16px;text-align:center">등록된 보이스 프로필이 없습니다. + 보이스 등록을 눌러 추가하세요.</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🤖 Qwen3 TTS</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(54,214,138,.12);border:1px solid rgba(54,214,138,.4);border-radius:10px;cursor:pointer;margin-bottom:5px" onclick="qwenSelectVoice('Vivian')"><span style="font-size:26px;line-height:1">🌸</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--ok)">Vivian <span style="font-size:10px;color:var(--ok);font-weight:400">✓ 선택됨</span></div><div style="font-size:11px;color:var(--text3);margin-top:1px">여성 · Female · Qwen3</div></div><span style="font-size:15px">✅</span></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s3);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:5px" onclick="qwenSelectVoice('Ryan')"><span style="font-size:26px;line-height:1">🌊</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">Ryan</div><div style="font-size:11px;color:var(--text3);margin-top:1px">남성 · Male · Qwen3</div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s3);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:5px" onclick="qwenSelectVoice('sohee')"><span style="font-size:26px;line-height:1">🇰🇷</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">Sohee</div><div style="font-size:11px;color:var(--text3);margin-top:1px">여성 · 한국어 · Qwen3</div></div></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:8px;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ Edge TTS (한국어 · 빠름)</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s3);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:5px" onclick="qwenSelectVoice('SunHi')"><span style="font-size:26px;line-height:1">☀️</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">SunHi</div><div style="font-size:11px;color:var(--text3);margin-top:1px">여성 · 한국어 · Edge TTS · 빠름</div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s3);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:5px" onclick="qwenSelectVoice('InJoon')"><span style="font-size:26px;line-height:1">🎙</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">InJoon</div><div style="font-size:11px;color:var(--text3);margin-top:1px">남성 · 한국어 · Edge TTS · 빠름</div></div></div>
         </div>
         <div id="qwen-selected-voice-info" style="margin-top:8px;font-size:12px;color:var(--text3);display:none">
           선택된 목소리: <b id="qwen-selected-voice-name" style="color:var(--acc2)"></b>
@@ -1872,6 +1923,31 @@ input[type=password]:focus { border-color: var(--acc); }
               <option value="2">2초</option>
             </select>
           </div>
+          <div style="min-width:160px">
+            <div class="field-label" style="margin-bottom:6px">말하기 속도 <span id="qwen-speed-label" style="color:var(--acc2);font-weight:700">1.0×</span></div>
+            <input type="range" id="qwen-speed" min="0.5" max="2.0" step="0.05" value="1.0"
+              style="width:100%;accent-color:var(--acc2)"
+              oninput="document.getElementById('qwen-speed-label').textContent=parseFloat(this.value).toFixed(2)+'×'">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px"><span>0.5×</span><span>1.0×</span><span>2.0×</span></div>
+          </div>
+        </div>
+        <!-- 리버브 설정 -->
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text2)">
+              <input type="checkbox" id="qwen-reverb-on" onchange="qwenReverbToggle()" style="accent-color:var(--acc2)">
+              🔊 리버브 (울림 효과)
+            </label>
+            <span style="font-size:10px;color:var(--text3)">브라우저 CPU 처리 · 설치 불필요</span>
+          </div>
+          <div id="qwen-reverb-controls" style="display:none;gap:8px;flex-wrap:wrap">
+            <input type="hidden" id="qwen-reverb-room" value="0.4">
+            <input type="hidden" id="qwen-reverb-wet" value="12">
+            <button id="qwen-rv-btn-1" onclick="qwenSetReverb(0.3,10,1)" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(54,214,138,.5);background:rgba(54,214,138,.15);color:var(--ok);cursor:pointer;font-size:12px;font-weight:700">약하게</button>
+            <button id="qwen-rv-btn-2" onclick="qwenSetReverb(0.5,18,2)" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);cursor:pointer;font-size:12px">나레이션</button>
+            <button id="qwen-rv-btn-3" onclick="qwenSetReverb(1.0,35,3)" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);cursor:pointer;font-size:12px">웅장하게</button>
+            <span id="qwen-rv-desc" style="font-size:11px;color:var(--text3);align-self:center">풍성한 울림 · 나레이션 최적</span>
+          </div>
         </div>
       </div>
 
@@ -1884,7 +1960,7 @@ input[type=password]:focus { border-color: var(--acc); }
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary" id="masterTTSBtn" onclick="masterGenerateAll()"
             style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-color:#4f46e5;color:#fff;font-weight:700">
-            🎙 마스터 TTS 생성
+            🎙 내 목소리로 TTS 생성
           </button>
           <button class="btn btn-err" id="masterStopBtn" onclick="masterStop()" style="display:none">⏹ 중지</button>
           <button class="btn btn-ok" id="masterDownloadBtn" onclick="masterDownload()" disabled>↓ 다운로드</button>
@@ -3226,7 +3302,6 @@ function videoLoadFromStudio() {
       if (tts && tts.audioBuffer) audioBuf = tts.audioBuffer;
     }
     if (!audioBuf && el && el.audioBuf) audioBuf = el.audioBuf;
-    if (!audioBuf && window.masterAudioBuffers && window.masterAudioBuffers[i]) audioBuf = window.masterAudioBuffers[i];
 
     // 자막 타임스탬프: scenes > ttsScenes 순으로 탐색
     var subTimings = s.subtitleTimings || (tts && tts.subtitleTimings) || null;
@@ -3909,11 +3984,13 @@ async function videoExportFCPXML() {
       // 서버에서 ZIP을 미리 만든 경우 직접 다운로드
       if (result.zip_file) {
           statusEl.textContent = '📦 ZIP 다운로드 중... (' + (result.file_count || 0) + '개 파일)';
-          var zipUrl = '/download-audio/' + result.zip_file;
+          var zipResp = await fetch('/download-audio/' + result.zip_file);
+          var zipBlob = await zipResp.blob();
           var a = document.createElement('a');
-          a.href = zipUrl;
+          a.href = URL.createObjectURL(zipBlob);
           a.download = result.zip_file;
           dlClick(a);
+          setTimeout(function(){ try { URL.revokeObjectURL(a.href); } catch(e){} }, 15000);
           statusEl.style.color = 'var(--ok)';
           statusEl.textContent = '✅ ZIP 다운로드 완료! (' + (result.file_count || 0) + '개 파일 포함)';
       } else {
@@ -4438,6 +4515,23 @@ async function generateYoutubeChapters() {
   statusEl.textContent = '✅ 완료 — 유튜브 영상 설명란에 붙여넣기하세요';
 }
 
+var _ccCompanionDeviceId = null;
+
+async function _ccCheckCompanion() {
+  try {
+    var r = await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(2000) });
+    if (!r.ok) return null;
+    var d = await r.json();
+    _ccCompanionDeviceId = d.device_id || null;
+    return d.device_id || true;
+  } catch(e) { return null; }
+}
+
+function _ccShowCompanionInstall() {
+  var el = document.getElementById('ss-companion-banner');
+  if (el) el.style.display = 'flex';
+}
+
 async function videoExportCapCut() {
   if (!(_vidSubtitlePreviewApplied && vidScenes.length)) {
     videoLoadFromStudio();
@@ -4446,12 +4540,22 @@ async function videoExportCapCut() {
 
   var btn = document.getElementById('vidCapcutBtn');
   btn.disabled = true;
-
   var statusEl = document.getElementById('vidStatus');
   statusEl.style.color = 'var(--text2)';
+
+  // companion 실행 확인
+  statusEl.textContent = '🔍 ScriptStudio Companion 확인 중...';
+  var companionOk = await _ccCheckCompanion();
+  if (!companionOk) {
+    btn.disabled = false;
+    statusEl.textContent = '';
+    _ccShowCompanionInstall();
+    return;
+  }
+
   statusEl.textContent = '✂️ CapCut 프로젝트 생성 중...';
   document.getElementById('vidProgWrap').style.display = 'block';
-  document.getElementById('vidProgBar').style.width = '50%';
+  document.getElementById('vidProgBar').style.width = '30%';
 
   var res = vidGetResolution();
   var W = parseInt(res.w, 10);
@@ -4468,6 +4572,7 @@ async function videoExportCapCut() {
     w: W, h: H, fps: fps,
     subtitle_preview_locked: _vidSubtitlePreviewApplied,
     grok_download_folder: document.getElementById('grokDownloadFolder') ? document.getElementById('grokDownloadFolder').value.trim() : null,
+    device_id: _ccCompanionDeviceId || '',
     subtitle_size: parseInt(document.getElementById('vid-subfontsize').value) || 45,
     subtitle_position: document.getElementById('vid-subposition') ? document.getElementById('vid-subposition').value : 'bottom',
     motion_effect: 'none',
@@ -4531,6 +4636,9 @@ async function videoExportCapCut() {
       });
     }
 
+    document.getElementById('vidProgBar').style.width = '60%';
+    statusEl.textContent = '☁️ 서버에 업로드 중...';
+
     const response = await fetch('/api/export-capcut', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4538,14 +4646,30 @@ async function videoExportCapCut() {
     });
 
     const result = await response.json();
-    document.getElementById('vidProgBar').style.width = '100%';
 
-    if (result.status === 'success') {
-      statusEl.style.color = 'var(--ok)';
-      statusEl.textContent = '✅ CapCut 드래프트 저장 완료! CapCut을 열면 "' + result.draft_name + '" 프로젝트가 보입니다.';
-    } else {
-      throw new Error(result.message || '알 수 없는 오류');
+    if (!result.task_id) throw new Error(result.message || '작업 ID를 받지 못했습니다');
+
+    // companion이 작업을 수행할 때까지 폴링
+    statusEl.textContent = '⏳ Companion이 CapCut에 적용 중...';
+    var taskId = result.task_id;
+    var draftName = result.draft_name;
+    var pollStart = Date.now();
+    var pollUrl = (window.SS_SERVER || '') + '/api/companion/task/' + taskId + '/status';
+
+    while (true) {
+      if (Date.now() - pollStart > 120000) throw new Error('타임아웃 — Companion이 응답하지 않습니다');
+      await new Promise(function(r) { setTimeout(r, 2000); });
+      try {
+        var sr = await fetch(pollUrl);
+        var sd = await sr.json();
+        if (sd.status === 'success' || sd.status === 'done') break;
+        if (sd.status === 'error') throw new Error('Companion 오류');
+      } catch(pe) { if (pe.message.includes('Companion')) throw pe; }
     }
+
+    document.getElementById('vidProgBar').style.width = '100%';
+    statusEl.style.color = 'var(--ok)';
+    statusEl.textContent = '✅ CapCut에 적용 완료! CapCut을 열면 "' + draftName + '" 프로젝트가 보입니다.';
   } catch (err) {
     document.getElementById('vidProgWrap').style.display = 'none';
     statusEl.style.color = 'var(--err)';
@@ -4742,232 +4866,311 @@ function blobToBase64(blob) {
   });
 }
 
-async function videoExportFFmpeg() {
-  // 수동 자막 수정이 적용된 상태에서는 vidScenes를 유지한다.
-  if (!(_vidSubtitlePreviewApplied && vidScenes.length)) {
-    videoLoadFromStudio();
-  }
-  if (!vidScenes.length) { alert('먼저 데이터를 불러오세요.'); return; }
-  
-  var res = vidGetResolution();
-  var W = parseInt(res.w, 10);
-  var H = parseInt(res.h, 10);
-  if (!isFinite(W) || !isFinite(H) || W < 128 || H < 128) { W = 1920; H = 1080; }
-  if (W % 2 !== 0) W -= 1;
-  if (H % 2 !== 0) H -= 1;
-  var fps = parseInt(document.getElementById('vid-fps').value) || 30;
-  var gapSec = parseFloat(document.getElementById('vid-gap').value) || 0;
-  var fixDur = parseFloat(document.getElementById('vid-fixdur').value) || 4;
+// ─── Canvas + WebCodecs 클라이언트 렌더링 헬퍼 ─────────────────────────────────
+function _canvasDrawZoom(ctx, img, W, H, motionEffect, zoomSpeed, fi, totalFrames) {
+  var progress = totalFrames > 1 ? fi / (totalFrames - 1) : 0;
+  var z = Math.max(1.001, zoomSpeed || 1.0);
+  var zf = 1.0, panX = 0, panY = 0;
+  if (motionEffect === 'zoom_in')  { zf = 1.0 + progress * (z - 1.0); }
+  else if (motionEffect === 'zoom_out') { zf = z - progress * (z - 1.0); }
+  else if (motionEffect === 'pan_right') { zf = z; panX = -progress * (1 - 1/z) * W; }
+  else if (motionEffect === 'pan_left')  { zf = z; panX =  (1-progress) * (1 - 1/z) * W; }
+  else if (motionEffect === 'pan_up')    { zf = z; panY = -progress * (1 - 1/z) * H; }
+  else if (motionEffect === 'pan_down')  { zf = z; panY =  (1-progress) * (1 - 1/z) * H; }
+  var iw = img.width, ih = img.height;
+  var sc = Math.max(W / iw, H / ih) * zf;
+  ctx.drawImage(img, (W - iw*sc)/2 + panX, (H - ih*sc)/2 + panY, iw*sc, ih*sc);
+}
 
-  var btn = document.getElementById('vidFfmpegBtn');
-  btn.disabled = true;
-    
-  // 진행률 UI 생성
-  var progressContainer = document.getElementById('renderProgressContainer');
-  if (!progressContainer) {
-      progressContainer = document.createElement('div');
-      progressContainer.id = 'renderProgressContainer';
-      progressContainer.style.marginTop = '15px';
-      progressContainer.style.width = '100%';
-      progressContainer.style.backgroundColor = '#1a1a2e';
-      progressContainer.style.borderRadius = '8px';
-      progressContainer.style.border = '1px solid #ffcc00';
-      progressContainer.style.overflow = 'hidden';
-      progressContainer.style.height = '24px';
-      progressContainer.style.position = 'relative';
-      
-      var progressBar = document.createElement('div');
-      progressBar.id = 'renderProgressBar';
-      progressBar.style.width = '0%';
-      progressBar.style.height = '100%';
-      progressBar.style.backgroundColor = '#ffcc00';
-      progressBar.style.transition = 'width 0.5s ease-in-out';
-      
-      var progressText = document.createElement('div');
-      progressText.id = 'renderProgressText';
-      progressText.style.position = 'absolute';
-      progressText.style.width = '100%';
-      progressText.style.textAlign = 'center';
-      progressText.style.top = '2px';
-      progressText.style.color = '#fff';
-      progressText.style.fontSize = '12px';
-      progressText.style.fontWeight = 'bold';
-      progressText.style.textShadow = '1px 1px 2px #000';
-      progressText.textContent = '0% 완료 (준비 중...)';
-      
-      progressContainer.appendChild(progressBar);
-      progressContainer.appendChild(progressText);
-      btn.parentNode.appendChild(progressContainer);
+function _subAtTime(t, subtitleTimings, textChunks, totalDur) {
+  if (subtitleTimings && subtitleTimings.length) {
+    for (var st of subtitleTimings) { if (t >= st.start && t < st.end) return st.text; }
+    return null;
+  }
+  if (!textChunks || !textChunks.length) return null;
+  var total = textChunks.reduce(function(a,c){ return a+(c.replace(/ /g,'').length||1); }, 0) || 1;
+  var cur = 0;
+  for (var c of textChunks) {
+    var cl = c.replace(/ /g,'').length || 1; var cd = (cl/total)*totalDur;
+    if (t >= cur && t < cur+cd) return c;
+    cur += cd;
+  }
+  return null;
+}
+
+function _canvasDrawSubtitle(ctx, text, W, H, fontName, fontSize, hexColor, bgStyle, position) {
+  if (!text) return;
+  var lines = text.replace(/\\N/g, '\n').split('\n');
+  ctx.save();
+  ctx.font = 'bold ' + fontSize + 'px "' + fontName + '", "Noto Sans KR", "맑은 고딕", sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  var lh = fontSize * 1.3;
+  var baseY = position === 'top' ? fontSize + 80 : position === 'center' ? H/2 : H - 80;
+  var startY = position === 'center' ? baseY - ((lines.length-1)*lh)/2 : baseY - (lines.length-1)*lh;
+  for (var li = 0; li < lines.length; li++) {
+    var line = lines[li]; var ly = startY + li * lh;
+    var tw = ctx.measureText(line).width;
+    if (bgStyle === 'box') {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(W/2-tw/2-10, ly-fontSize, tw+20, fontSize+8);
+    }
+    if (bgStyle === 'outline') { ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.lineWidth=6; ctx.strokeText(line, W/2, ly); }
+    if (bgStyle === 'shadow')  { ctx.shadowColor='rgba(0,0,0,0.75)'; ctx.shadowBlur=6; ctx.shadowOffsetX=2; ctx.shadowOffsetY=2; }
+    ctx.fillStyle = hexColor;
+    ctx.fillText(line, W/2, ly);
+  }
+  ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+  ctx.restore();
+}
+
+function _renderMakeProgressUI(btn) {
+  var pc = document.getElementById('renderProgressContainer');
+  if (!pc) {
+    pc = document.createElement('div'); pc.id = 'renderProgressContainer';
+    pc.style.cssText = 'margin-top:15px;width:100%;background:#1a1a2e;border-radius:8px;border:1px solid #ffcc00;overflow:hidden;height:24px;position:relative;';
+    var pb = document.createElement('div'); pb.id = 'renderProgressBar';
+    pb.style.cssText = 'width:0%;height:100%;background:#ffcc00;transition:width 0.3s;';
+    var pt = document.createElement('div'); pt.id = 'renderProgressText';
+    pt.style.cssText = 'position:absolute;width:100%;text-align:center;top:2px;color:#fff;font-size:12px;font-weight:bold;text-shadow:1px 1px 2px #000;';
+    pt.textContent = '0%';
+    pc.appendChild(pb); pc.appendChild(pt); btn.parentNode.appendChild(pc);
   } else {
-      document.getElementById('renderProgressBar').style.width = '0%';
-      document.getElementById('renderProgressText').textContent = '0% 완료 (준비 중...)';
-      progressContainer.style.display = 'block';
+    document.getElementById('renderProgressBar').style.width = '0%';
+    document.getElementById('renderProgressText').textContent = '0%';
+    pc.style.display = 'block';
   }
-
-  var statusEl = document.getElementById('vidStatus');
-  statusEl.textContent = 'FFmpeg 렌더링 중... 하단의 퍼센트 게이지를 확인해주세요.';
-  var manualSaveBtn = document.getElementById('vidManualSaveBtn');
-  if (manualSaveBtn) {
-    manualSaveBtn.style.display = 'none';
-    manualSaveBtn.disabled = false;
-  }
-  
-  // 주기적으로 진행률 폴링
-  var pollInterval = setInterval(async function() {
-      try {
-          var pRes = await fetch('/api/progress');
-          if (pRes.ok) {
-              var pData = await pRes.json();
-              if (pData.total > 0) {
-                  var pct = Math.floor((pData.completed / pData.total) * 100);
-                  var txt = pct + '% 완료 (' + pData.completed + '/' + pData.total + ' 장면 처리 중...)';
-                  if (pData.status === 'concatenating') {
-                      pct = 99;
-                      txt = '99% 완료 (최종 병합 및 재인코딩 중... 잠시만 기다려주세요)';
-                  }
-                  document.getElementById('renderProgressBar').style.width = pct + '%';
-                  document.getElementById('renderProgressText').textContent = txt;
-              }
-          }
-      } catch (err) { }
-  }, 1000);
-
-  // 데이터 변환
-  var subColorHex = document.getElementById('vid-subcolor').value || '#FFFFFF';
-  var bgrColor = "&H00" + subColorHex.substring(5,7) + subColorHex.substring(3,5) + subColorHex.substring(1,3);
-  var zoomCtrl = document.getElementById('vid-zoom-speed');
-  var zoomSpeedVal = parseFloat(zoomCtrl ? zoomCtrl.value : '1.0');
-  if (!isFinite(zoomSpeedVal)) zoomSpeedVal = 1.0;
-  var useZoomPan = !!(zoomCtrl && !zoomCtrl.disabled && zoomSpeedVal > 1.0);
-  
-  var payload = {
-    scenes: [],
-    w: W,
-    h: H,
-    fps: fps,
-    grok_download_folder: document.getElementById('grokDownloadFolder') ? document.getElementById('grokDownloadFolder').value.trim() : null,
-    subtitle_font: document.getElementById('vid-subfont').value || '맑은 고딕',
-    subtitle_size: parseInt(document.getElementById('vid-subfontsize').value) || 45,
-    subtitle_position: document.getElementById('vid-subposition') ? document.getElementById('vid-subposition').value : 'bottom',
-    subtitle_color: bgrColor,
-    subtitle_bg: document.getElementById('vid-subbg').value || 'box',
-    subtitle_bgcolor: document.getElementById('vid-subbgcolor') ? document.getElementById('vid-subbgcolor').value : '#000000',
-    transition_type: document.getElementById('vid-transition').value || 'hard',
-    zoom_speed: useZoomPan ? zoomSpeedVal : 1.0,
-    use_zoompan: useZoomPan,
-    show_subtitle: document.getElementById('vid-show-subtitle') ? document.getElementById('vid-show-subtitle').checked : true,
-    audio_passthrough: true,
-    subtitle_refine_mode: document.getElementById('vid-sub-refine-mode') ? document.getElementById('vid-sub-refine-mode').value : 'basic',
-    subtitle_refine_model: _getSubRefineModel(),
-    subtitle_preview_locked: _vidSubtitlePreviewApplied
+  return function(pct, msg) {
+    document.getElementById('renderProgressBar').style.width = pct + '%';
+    document.getElementById('renderProgressText').textContent = pct + '% ' + (msg || '');
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function videoExportFFmpeg() {
+  if (!(_vidSubtitlePreviewApplied && vidScenes.length)) videoLoadFromStudio();
+  if (!vidScenes.length) { alert('먼저 데이터를 불러오세요.'); return; }
+  if (typeof VideoEncoder === 'undefined') {
+    alert('이 브라우저는 WebCodecs를 지원하지 않습니다.\nChrome 94+ 또는 Edge 94+에서 사용해주세요.');
+    return;
+  }
+
+  var res = vidGetResolution();
+  var W = parseInt(res.w, 10); var H = parseInt(res.h, 10);
+  if (!isFinite(W)||!isFinite(H)||W<128||H<128){W=1920;H=1080;}
+  if (W%2!==0) W-=1; if (H%2!==0) H-=1;
+  var fps = parseInt(document.getElementById('vid-fps').value)||30;
+  var gapSec = parseFloat(document.getElementById('vid-gap').value)||0;
+  var fixDur = parseFloat(document.getElementById('vid-fixdur').value)||4;
+
+  var btn = document.getElementById('vidFfmpegBtn'); btn.disabled = true;
+  var setProgress = _renderMakeProgressUI(btn);
+  var statusEl = document.getElementById('vidStatus');
+  statusEl.style.color = 'var(--text2)';
+  statusEl.textContent = '렌더링 준비 중...';
+  var manualSaveBtn = document.getElementById('vidManualSaveBtn');
+  if (manualSaveBtn) manualSaveBtn.style.display = 'none';
+
+  var subColorHex = document.getElementById('vid-subcolor').value || '#FFFFFF';
+  var zoomCtrl = document.getElementById('vid-zoom-speed');
+  var zoomSpeedVal = parseFloat(zoomCtrl ? zoomCtrl.value : '1.08');
+  if (!isFinite(zoomSpeedVal)) zoomSpeedVal = 1.08;
+  var useZoom = !!(zoomCtrl && !zoomCtrl.disabled && zoomSpeedVal > 1.0);
+  var showSub = document.getElementById('vid-show-subtitle') ? document.getElementById('vid-show-subtitle').checked : true;
+  var subFont = document.getElementById('vid-subfont').value || 'Noto Sans KR';
+  var subSize = parseInt(document.getElementById('vid-subfontsize').value)||45;
+  var subPos  = document.getElementById('vid-subposition') ? document.getElementById('vid-subposition').value : 'bottom';
+  var subBg   = document.getElementById('vid-subbg').value || 'box';
+
+  // Canvas for frame rendering
+  var canvas = document.createElement('canvas'); canvas.width=W; canvas.height=H;
+  var ctx = canvas.getContext('2d');
+
+  // Detect audio parameters from first scene with audio
+  var sampleRate = 44100; var numChannels = 2;
+  var hasAnyAudio = false;
+  for (var _si = 0; _si < vidScenes.length; _si++) {
+    var _s = vidScenes[_si];
+    if (_s.audioBuf) { sampleRate=_s.audioBuf.sampleRate; numChannels=_s.audioBuf.numberOfChannels; hasAnyAudio=true; break; }
+    if (_s.audioUrl) { hasAnyAudio=true; }
+  }
+
+  // mp4-muxer setup
+  var Mp4 = window.Mp4Muxer;
+  if (!Mp4) { statusEl.textContent='✗ mp4-muxer 없음. 페이지 새로고침 해주세요.'; btn.disabled=false; return; }
+  var muxTarget = new Mp4.ArrayBufferTarget();
+  var muxOpts = { target: muxTarget, video: { codec:'avc', width:W, height:H }, fastStart:'in-memory' };
+  if (hasAnyAudio) muxOpts.audio = { codec:'aac', sampleRate:sampleRate, numberOfChannels:numChannels };
+  var muxer = new Mp4.Muxer(muxOpts);
+
+  // VideoEncoder — pick highest supported codec/level
+  var _vEncErr = null;
+  var videoEncoder = new VideoEncoder({
+    output: function(chunk, meta) { muxer.addVideoChunk(chunk, meta); },
+    error: function(e) { _vEncErr = e; console.error('VideoEncoder error:', e); }
+  });
+  // avc1.640034 = High L5.2 (handles 4K), 4d002a = Main L4.2 (1080p), fallback 42002a = Baseline L4.2
+  var _vcConfigs = [
+    { codec:'avc1.640034', width:W, height:H, bitrate:8000000, framerate:fps, hardwareAcceleration:'prefer-hardware', avc:{format:'avc'} },
+    { codec:'avc1.4d002a', width:W, height:H, bitrate:6000000, framerate:fps, hardwareAcceleration:'prefer-hardware', avc:{format:'avc'} },
+    { codec:'avc1.42002a', width:W, height:H, bitrate:6000000, framerate:fps, hardwareAcceleration:'prefer-hardware', avc:{format:'avc'} },
+    { codec:'avc1.4d002a', width:W, height:H, bitrate:6000000, framerate:fps, hardwareAcceleration:'prefer-software', avc:{format:'avc'} }
+  ];
+  var _vcChosen = null;
+  for (var _ci = 0; _ci < _vcConfigs.length; _ci++) {
+    try {
+      var _sup = await VideoEncoder.isConfigSupported(_vcConfigs[_ci]);
+      if (_sup && _sup.supported) { _vcChosen = _vcConfigs[_ci]; break; }
+    } catch(e) {}
+  }
+  if (!_vcChosen) { statusEl.textContent='✗ H.264 VideoEncoder를 지원하지 않습니다. Chrome 94+에서 사용해주세요.'; btn.disabled=false; return; }
+  videoEncoder.configure(_vcChosen);
+  // configure is async internally — wait a tick to let error callback fire if it fails
+  await new Promise(function(r){setTimeout(r,50);});
+  if (_vEncErr || videoEncoder.state === 'closed') {
+    statusEl.textContent='✗ VideoEncoder 초기화 실패 (코덱: '+_vcChosen.codec+'). 다른 브라우저를 사용해주세요.';
+    btn.disabled=false; return;
+  }
+
+  // AudioEncoder
+  var _aEncErr = null;
+  var audioEncoder = null;
+  if (hasAnyAudio) {
+    audioEncoder = new AudioEncoder({
+      output: function(chunk, meta) { muxer.addAudioChunk(chunk, meta); },
+      error: function(e) { _aEncErr = e; console.error('AudioEncoder error:', e); }
+    });
+    audioEncoder.configure({ codec:'mp4a.40.2', sampleRate:sampleRate, numberOfChannels:numChannels, bitrate:128000 });
+    await new Promise(function(r){setTimeout(r,50);});
+    if (_aEncErr || audioEncoder.state === 'closed') {
+      statusEl.textContent='✗ AudioEncoder 초기화 실패. Chrome 94+에서 사용해주세요.';
+      btn.disabled=false; return;
+    }
+  }
 
   try {
-    for (var i = 0; i < vidScenes.length; i++) {
+    var totalScenes = vidScenes.length;
+    var globalFrame = 0; var globalAudioSample = 0;
+    var frameDurUs = Math.round(1000000 / fps);
+
+    for (var i = 0; i < totalScenes; i++) {
       var s = vidScenes[i];
-      var baseDur = fixDur;
-      var audioDataUrl = null;
-      var audioPath = null;
-      if (s.audioBuf) {
-        baseDur = s.audioBuf.duration;
-        var wavBytes = audioBufferToWav(s.audioBuf);
-        var blob = new Blob([wavBytes], { type: 'audio/wav' });
+      setProgress(Math.floor((i/totalScenes)*92), '(씬 '+(i+1)+'/'+totalScenes+' 렌더링 중...)');
+      statusEl.textContent = '씬 '+(i+1)+'/'+totalScenes+' 렌더링 중...';
+
+      var dur = fixDur;
+      if (s.audioBuf && isFinite(s.audioBuf.duration) && s.audioBuf.duration>0) dur=s.audioBuf.duration;
+      else if (s.audioDuration && isFinite(s.audioDuration) && s.audioDuration>0) dur=s.audioDuration;
+      var clipDur = (i < totalScenes-1) ? dur+gapSec : dur;
+      var clipFrames = Math.max(1, Math.round(clipDur * fps));
+      var audioDurFrames = Math.max(1, Math.round(dur * fps));
+
+      // Load image as ImageBitmap
+      var imgSrc = s.imgDataUrl || null;
+      var imgBitmap = null;
+      if (imgSrc && !imgSrc.startsWith('data:video')) {
         try {
-          var fd = new FormData();
-          fd.append('audio', blob, 'audio.wav');
-          var ar = await fetch('/api/upload-audio', { method: 'POST', body: fd });
-          var ad = await ar.json();
-          if (ad.status === 'ok') {
-            audioPath = ad.path;
+          var imgBlob;
+          if (imgSrc.startsWith('data:')) {
+            var m = imgSrc.match(/^data:([^;]+)/); var arr = new Uint8Array(atob(imgSrc.split(',')[1]).split('').map(function(c){return c.charCodeAt(0);}));
+            imgBlob = new Blob([arr], {type: m?m[1]:'image/png'});
           } else {
-            audioDataUrl = await blobToBase64(blob);
+            imgBlob = await fetch(imgSrc).then(function(r){return r.blob();});
           }
-        } catch(e) {
-          audioDataUrl = await blobToBase64(blob);
+          imgBitmap = await createImageBitmap(imgBlob);
+        } catch(e) {}
+      }
+
+      // Subtitle data
+      var finalChunks = s.textChunks && s.textChunks.length ? s.textChunks : (s.script ? [s.script] : []);
+      var stTimings = s.subtitleTimings || null;
+      var motion = (document.getElementById('vidSceneMotion_'+i)||{}).value || s.motionEffect || 'zoom_in';
+
+      // Render video frames
+      for (var fi = 0; fi < clipFrames; fi++) {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+        if (imgBitmap) _canvasDrawZoom(ctx, imgBitmap, W, H, useZoom?motion:'none', zoomSpeedVal, fi, Math.max(1,audioDurFrames));
+        var timeSec = fi / fps;
+        if (showSub && finalChunks.length > 0 && timeSec < dur) {
+          var subTxt = _subAtTime(timeSec, stTimings, finalChunks, dur);
+          if (subTxt) _canvasDrawSubtitle(ctx, subTxt, W, H, subFont, subSize, subColorHex, subBg, subPos);
         }
-      } else if (s.audioUrl) {
-        audioPath = s.audioUrl;
-        if (s.audioDuration) baseDur = s.audioDuration;
+        if (_vEncErr) throw _vEncErr;
+        // back-pressure: drain queue if too full to avoid OOM
+        while (videoEncoder.encodeQueueSize > 20) {
+          await new Promise(function(r){setTimeout(r,20);});
+        }
+        var vf = new VideoFrame(canvas, { timestamp: globalFrame * frameDurUs, duration: frameDurUs });
+        videoEncoder.encode(vf, { keyFrame: fi===0 || fi%(fps*2)===0 });
+        vf.close();
+        globalFrame++;
+        if (fi % 10 === 0) await new Promise(function(r){setTimeout(r,0);});
       }
+      if (imgBitmap) { imgBitmap.close(); imgBitmap=null; }
 
-      // 대용량 base64 이미지는 서버에 미리 업로드해서 URL로 대체 (Invalid string length 방지)
-      var imgForRender = s.imgDataUrl || null;
-      if (imgForRender && imgForRender.startsWith('data:') && imgForRender.length > 500) {
-        try {
-          var b64Data = imgForRender.includes(',') ? imgForRender.split(',')[1] : imgForRender;
-          var extMatch = imgForRender.match(/data:(?:image|video)\/(\w+)/);
-          var imgExt = extMatch ? extMatch[1] : 'png';
-          if (imgExt === 'jpeg') imgExt = 'jpg';
-          var imgUpRes = await fetch('/api/save-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: b64Data, ext: imgExt, filename: 'render_scene_' + i + '_' + Date.now() + '.' + imgExt })
-          });
-          var imgUpData = await imgUpRes.json();
-          if (imgUpData.status === 'ok') imgForRender = imgUpData.url;
-        } catch(e) { /* 업로드 실패 시 원본 유지 */ }
+      // Encode audio
+      if (audioEncoder) {
+        var clipSamples = Math.round(clipDur * sampleRate);
+        var audioBuf = s.audioBuf;
+        if (!audioBuf && s.audioUrl) {
+          try {
+            var ar = await fetch(s.audioUrl);
+            if (ar.ok) {
+              var actx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:sampleRate});
+              audioBuf = await actx.decodeAudioData(await ar.arrayBuffer());
+              actx.close();
+            }
+          } catch(e) {}
+        }
+        var CHUNK = 1024;
+        for (var ao = 0; ao < clipSamples; ao += CHUNK) {
+          var cnt = Math.min(CHUNK, clipSamples - ao);
+          var data = new Float32Array(cnt * numChannels);
+          for (var ch = 0; ch < numChannels; ch++) {
+            var src = audioBuf && ch < audioBuf.numberOfChannels ? audioBuf.getChannelData(ch) : null;
+            for (var si = 0; si < cnt; si++) {
+              data[ch*cnt+si] = (src && (ao+si) < audioBuf.length) ? src[ao+si] : 0;
+            }
+          }
+          if (_aEncErr) throw _aEncErr;
+          while (audioEncoder.encodeQueueSize > 20) { await new Promise(function(r){setTimeout(r,20);}); }
+          var ad = new AudioData({ format:'f32-planar', sampleRate:sampleRate, numberOfFrames:cnt, numberOfChannels:numChannels, timestamp: Math.round(globalAudioSample/sampleRate*1000000), data:data.buffer });
+          audioEncoder.encode(ad); ad.close();
+          globalAudioSample += cnt;
+        }
       }
-
-      var sceneMotionRender = (document.getElementById('vidSceneMotion_' + i) || {}).value || s.motionEffect || 'zoom_in';
-      var sData = {
-        id: i,
-        script: s.script || '',
-        imgDataUrl: imgForRender,
-        audioDataUrl: audioDataUrl,
-        audioPath: audioPath,
-        dur: baseDur,
-        gapSec: gapSec,
-        subtitleTimings: s.subtitleTimings || null,
-        textChunks: s.textChunks || [],
-        subtitlePreviewLocked: !!s.subtitlePreviewLocked,
-        grokVideo: s.grokVideo || false,
-        grokVideoPath: s.grokVideoPath || null,
-        motionEffect: sceneMotionRender
-      };
-      payload.scenes.push(sData);
     }
 
-    const response = await fetch('/api/render', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    clearInterval(pollInterval);
-    const result = await response.json();
-    if (result.status === 'success') {
-      document.getElementById('renderProgressBar').style.width = '100%';
-      document.getElementById('renderProgressText').textContent = '100% 렌더링 완료!';
-      statusEl.style.color = 'var(--ok)';
-      statusEl.textContent = '✓ FFmpeg 렌더링 완료!';
+    // Flush & finalize
+    setProgress(93, '(인코딩 마무리 중...)');
+    statusEl.textContent = '인코딩 마무리 중...';
+    await videoEncoder.flush();
+    if (audioEncoder) await audioEncoder.flush();
+    setProgress(97, '(MP4 생성 중...)');
+    muxer.finalize();
 
-      // Electron/브라우저 공통: 자동 저장창 대신 수동 저장 버튼 노출
-      var downloadUrl = '/download/' + encodeURIComponent(result.file);
-      _vidPendingDownload = { url: downloadUrl, name: result.file };
-      var saveBtn = document.getElementById('vidManualSaveBtn');
-      if (!saveBtn) {
-        saveBtn = document.createElement('button');
-        saveBtn.id = 'vidManualSaveBtn';
-        saveBtn.className = 'btn btn-ok';
-        saveBtn.style.marginTop = '10px';
-        saveBtn.style.fontSize = '13px';
-        saveBtn.style.padding = '8px 18px';
-        saveBtn.textContent = '💾 다른 이름으로 저장';
-        saveBtn.onclick = vidSaveRenderedFileManual;
-        statusEl.parentNode.appendChild(saveBtn);
-      }
-      saveBtn.style.display = '';
-      saveBtn.disabled = false;
-      statusEl.textContent = '✓ FFmpeg 렌더링 완료! 아래 "다른 이름으로 저장" 버튼을 눌러 저장하세요.';
-    } else {
-      document.getElementById('renderProgressContainer').style.display = 'none';
-      statusEl.style.color = 'var(--err)';
-      statusEl.textContent = '✗ 오류: ' + (result.message || '알 수 없는 오류');
+    var outBlob = new Blob([muxTarget.buffer], {type:'video/mp4'});
+    var blobUrl = URL.createObjectURL(outBlob);
+    setProgress(100, '렌더링 완료!');
+    statusEl.style.color = 'var(--ok)';
+    statusEl.textContent = '✓ 렌더링 완료! 아래 버튼으로 저장하세요.';
+
+    _vidPendingDownload = { url: blobUrl, name: 'ScriptStudio_output.mp4' };
+    var saveBtn = document.getElementById('vidManualSaveBtn');
+    if (!saveBtn) {
+      saveBtn = document.createElement('button'); saveBtn.id='vidManualSaveBtn';
+      saveBtn.className='btn btn-ok'; saveBtn.style.cssText='margin-top:10px;font-size:13px;padding:8px 18px;';
+      saveBtn.textContent='💾 다른 이름으로 저장'; saveBtn.onclick=vidSaveRenderedFileManual;
+      statusEl.parentNode.appendChild(saveBtn);
     }
+    saveBtn.style.display=''; saveBtn.disabled=false;
+
   } catch(err) {
-    clearInterval(pollInterval);
-    document.getElementById('renderProgressContainer').style.display = 'none';
-    statusEl.textContent = '✗ 오류: ' + err.message;
+    var pc2 = document.getElementById('renderProgressContainer');
+    if (pc2) pc2.style.display='none';
+    statusEl.style.color='var(--err)';
+    statusEl.textContent='✗ 오류: '+err.message;
+    console.error('[WebCodecs render]', err);
   }
   btn.disabled = false;
 }
@@ -5821,10 +6024,51 @@ var VERTEX_LOCATION = 'us-central1';        // 이미지(Imagen) 전용
 var VERTEX_LOCATION_TEXT = 'us-central1'; // 텍스트(Gemini) — 전체 모델 지원
 var VERTEX_LOCATION_TTS = 'us-central1';    // TTS(Gemini Audio) — 안정 리전
 
+async function _vertexGenerateTokenFromKey(keyJson) {
+  try {
+    var now = Math.floor(Date.now() / 1000);
+    var header = btoa(JSON.stringify({alg:'RS256',typ:'JWT'})).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    var claim = btoa(JSON.stringify({
+      iss: keyJson.client_email,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600, iat: now
+    })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    var pem = keyJson.private_key.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
+    var keyBuf = Uint8Array.from(atob(pem), function(c){return c.charCodeAt(0);});
+    var cryptoKey = await crypto.subtle.importKey('pkcs8', keyBuf, {name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'}, false, ['sign']);
+    var sigInput = header + '.' + claim;
+    var sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(sigInput));
+    var sigB64 = btoa(String.fromCharCode.apply(null, new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    var jwt = sigInput + '.' + sigB64;
+    var tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + jwt
+    });
+    var tokenData = await tokenRes.json();
+    return tokenData.access_token || null;
+  } catch(e) { console.error('Vertex token gen error:', e); return null; }
+}
+
 async function ensureVertexToken(forceRefresh) {
   if (!forceRefresh && vertexToken && Date.now() / 1000 < vertexTokenExpiry - 60) return true;
+  // 로컬 서비스 계정 키로 토큰 발급 (브라우저 직접, Railway 안 거침)
   try {
-    var res = await fetch('/api/vertex-token');
+    var savedKey = localStorage.getItem('vertex_service_account_key');
+    if (savedKey) {
+      var keyJson = JSON.parse(savedKey);
+      var token = await _vertexGenerateTokenFromKey(keyJson);
+      if (token) {
+        vertexToken = token;
+        vertexProjectId = keyJson.project_id || '';
+        vertexTokenExpiry = Date.now() / 1000 + 3500;
+        return true;
+      }
+    }
+  } catch(e) {}
+  // 폴백: Railway OAuth 토큰
+  try {
+    var res = await fetch((window.SS_SERVER||'') + '/api/vertex-token');
     var d = await res.json();
     if (d.status === 'ok') {
       vertexToken = d.token;
@@ -6020,41 +6264,34 @@ async function uploadVertexKeyFile(input) {
   statusEl.style.background = 'rgba(66,133,244,.15)';
   statusEl.style.color = '#4285f4';
   statusEl.style.border = '1px solid #4285f455';
-  statusEl.textContent = '업로드 중…';
+  statusEl.textContent = '처리 중…';
 
   try {
-    var formData = new FormData();
-    formData.append('file', file);
-    var res = await fetch('/api/vertex-key-upload', { method: 'POST', body: formData });
-    var d = await res.json();
-    if (d.status === 'ok') {
-      statusEl.style.background = 'rgba(54,214,138,.15)';
-      statusEl.style.color = '#36d68a';
-      statusEl.style.border = '1px solid #36d68a55';
-      statusEl.textContent = '✅ 키 파일 등록 완료! (프로젝트: ' + (d.project_id || '?') + ')';
-      // Vertex AI 자동 활성화
-      vertexProjectId = d.project_id || '';
-      var ok = await ensureVertexToken();
-      if (ok) {
-        vertexMode = true;
-        var vBtn = document.getElementById('vertexToggleBtn');
-        vBtn.textContent = 'Vertex AI: ON ✓';
-        vBtn.style.background = 'var(--ok)';
-        vBtn.style.color = '#000';
-        vBtn.style.borderColor = 'var(--ok)';
-      }
-      setTimeout(closeVertexLoginModal, 1500);
-    } else {
-      statusEl.style.background = 'rgba(255,80,80,.15)';
-      statusEl.style.color = '#ff5050';
-      statusEl.style.border = '1px solid #ff505055';
-      statusEl.textContent = '오류: ' + (d.message || '알 수 없는 오류');
+    var text = await file.text();
+    var keyJson = JSON.parse(text);
+    if (keyJson.type !== 'service_account') throw new Error('서비스 계정 키 파일이 아닙니다');
+    // 브라우저 localStorage에 저장 (Railway 전송 없음)
+    localStorage.setItem('vertex_service_account_key', text);
+    vertexProjectId = keyJson.project_id || '';
+    statusEl.style.background = 'rgba(54,214,138,.15)';
+    statusEl.style.color = '#36d68a';
+    statusEl.style.border = '1px solid #36d68a55';
+    statusEl.textContent = '✅ 키 파일 등록 완료! (프로젝트: ' + (vertexProjectId || '?') + ')';
+    var ok = await ensureVertexToken();
+    if (ok) {
+      vertexMode = true;
+      var vBtn = document.getElementById('vertexToggleBtn');
+      vBtn.textContent = 'Vertex AI: ON ✓';
+      vBtn.style.background = 'var(--ok)';
+      vBtn.style.color = '#000';
+      vBtn.style.borderColor = 'var(--ok)';
     }
+    setTimeout(closeVertexLoginModal, 1500);
   } catch(e) {
     statusEl.style.background = 'rgba(255,80,80,.15)';
     statusEl.style.color = '#ff5050';
     statusEl.style.border = '1px solid #ff505055';
-    statusEl.textContent = '서버 연결 실패: ' + e.message;
+    statusEl.textContent = '오류: ' + e.message;
   }
   input.value = '';
 }
@@ -7709,6 +7946,25 @@ function clearCharRef() {
   
   showToast('캐릭터 레퍼런스가 해제되었습니다.');
 }
+// Companion 버전 체크 (게이트와 독립적, 앱 로드 시 항상 실행)
+(async function checkCompanionUpdate() {
+  var LATEST = '1.2.5';
+  var bar = document.getElementById('ss-update-bar');
+  var desc = document.getElementById('ss-update-bar-desc');
+  var title = document.getElementById('ss-update-bar-title');
+  try {
+    var r = await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(2000) });
+    if (!r.ok) return;
+    var d = await r.json();
+    var installed = d.version || '1.0.0';
+    if (installed !== LATEST) {
+      if (title) title.textContent = 'Companion 업데이트 있음';
+      if (desc) desc.textContent = '(설치됨: v' + installed + ' → 최신: v' + LATEST + ')';
+      if (bar) bar.style.display = 'flex';
+    }
+  } catch(e) {}
+})();
+
 document.addEventListener('DOMContentLoaded', function() {
   var adm = localStorage.getItem('clipflow_license_admin_key') || '';
   if (adm && document.getElementById('license-admin-key')) document.getElementById('license-admin-key').value = adm;
@@ -7866,9 +8122,11 @@ document.addEventListener('DOMContentLoaded', function() {
       var name = chip.dataset.tipName || '';
       var src = stylePreviewUrl(name);
       var safeName = name.replace(/"/g, '&quot;');
+      var grad = chip.dataset.tipGradient || 'linear-gradient(135deg,#1f2533,#2a3347)';
       var thumb = src
-        ? '<img src="' + src + '" alt="' + safeName + '" loading="lazy">'
-        : '<div style="height:140px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1f2533,#2a3347);color:var(--text2);font-size:22px">' + (chip.dataset.tipEmoji || '🎨') + '</div>';
+        ? '<img src="' + src + '" alt="' + safeName + '" loading="lazy" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
+          '<div style="display:none;height:90px;align-items:center;justify-content:center;background:' + grad + ';color:#fff;font-size:28px;border-radius:6px 6px 0 0">' + (chip.dataset.tipEmoji || '🎨') + '</div>'
+        : '<div style="height:90px;display:flex;align-items:center;justify-content:center;background:' + grad + ';color:#fff;font-size:28px;border-radius:6px 6px 0 0">' + (chip.dataset.tipEmoji || '🎨') + '</div>';
       return '<button class="style-preset-card" data-style-name="' + safeName + '" onclick="this.blur(); this._srcChip && this._srcChip.click(); return false;">'
         + thumb
         + '<span class="style-preset-card-label">' + safeName + '</span>'
@@ -8280,8 +8538,19 @@ function buildSceneCardHTML(s, idx) {
   else if (s.status === 'error') statusTagHtml = '<span class="scene-status-tag err">✗ 실패</span>';
 
   var imgColInner = '';
-  if (s.imgDataUrl) {
-    if (s.imgDataUrl.startsWith('data:video')) {
+  if (s.grokVideoConverting) {
+    var _pct = s.grokVideoProgress || 0;
+    imgColInner = '<div style="position:relative;width:100%;border-radius:6px;overflow:hidden;background:#111;aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">'
+      + (s.imgDataUrl ? '<img src="' + s.imgDataUrl + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.35;border-radius:6px">' : '')
+      + '<div style="position:relative;z-index:1;text-align:center">'
+      + '<div style="font-size:22px;font-weight:700;color:#a78bfa">🎬 ' + _pct + '%</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:4px">Grok 영상 변환 중...</div>'
+      + '<div style="width:120px;height:4px;background:rgba(167,139,250,.2);border-radius:2px;margin-top:8px;overflow:hidden">'
+      + '<div style="height:100%;width:' + _pct + '%;background:#a78bfa;border-radius:2px;transition:width .5s"></div>'
+      + '</div></div></div>';
+  } else if (s.imgDataUrl) {
+    var _isVidSrc = s.grokVideo || s.imgDataUrl.startsWith('data:video') || /\.(mp4|webm|mov)(\?|$)/i.test(s.imgDataUrl);
+    if (_isVidSrc) {
       imgColInner = '<video src="' + s.imgDataUrl + '" controls style="width:100%;border-radius:6px;display:block;background:#000"></video>'
     } else {
       imgColInner = '<img src="' + s.imgDataUrl + '" onclick="downloadSceneImage(' + s.id + ')" title="클릭하여 다운로드" style="width:100%;border-radius:6px;display:block;cursor:pointer">'
@@ -8292,9 +8561,16 @@ function buildSceneCardHTML(s, idx) {
       + '<button class="btn btn-sm btn-err" onclick="retrySceneImage(' + s.id + ')">↻ 재생성</button>'
       + (s.imgModel === 'schnell' ? '<button class="btn btn-sm" onclick="upgradeSceneImage(' + s.id + ')" style="background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#818cf8;font-weight:700" title="Dev 20 steps 최종 품질로 재생성">⬆ Dev</button>' : '')
       + '<button class="btn btn-sm btn-cyan" onclick="generateSceneVariants(' + s.id + ', 2)" title="추가 2장 생성 (총 최대 4개)">⊞ 변형</button>'
+      + '<button class="btn btn-sm ss-master-only" onclick="grokEditToggle(' + s.id + ')" style="background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa" title="Grok으로 이미지 편집">✏️ 편집</button>'
       + '<label class="btn btn-sm" style="cursor:pointer;padding:3px 6px;border:1px dashed var(--border2);background:var(--s2);color:var(--text2)">업로드<input type="file" accept="image/*,video/*" style="display:none" onchange="uploadSceneImage(this, ' + s.id + ')"></label>'
       + '<button class="btn btn-sm" onclick="downloadSceneImage(' + s.id + ')">↓</button>'
-      + '</div>';
+      + '</div>'
+      + '<div id="grok-edit-box-' + s.id + '" style="display:none;margin-top:6px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:8px;padding:8px;gap:6px;flex-direction:column">'
+      + '<textarea id="grok-edit-prompt-' + s.id + '" rows="2" placeholder="예: 빨간 옷을 파란색으로 바꿔줘, 배경을 밤하늘로..." style="width:100%;background:var(--s2);border:1px solid rgba(167,139,250,.3);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;resize:none;box-sizing:border-box;outline:none"></textarea>'
+      + '<div style="display:flex;gap:6px">'
+      + '<button class="btn btn-sm" onclick="grokEditToggle(' + s.id + ')" style="background:var(--s3);border-color:var(--border)">취소</button>'
+      + '<button class="btn btn-sm" onclick="grokEditApply(' + s.id + ')" style="flex:1;background:rgba(167,139,250,.2);border-color:rgba(167,139,250,.5);color:#a78bfa;font-weight:700">✨ Grok 편집 적용</button>'
+      + '</div></div>';
   } else if (s.imgStatus === 'loading') {
     imgColInner = '<div class="img-placeholder"><div class="spin"></div><div class="img-placeholder-lbl">생성 중…</div></div>';
   } else if (s.imgStatus === 'error') {
@@ -8355,7 +8631,7 @@ function buildSceneCardHTML(s, idx) {
     + '<div class="scene-ta-box"><textarea class="vprompt-ta" id="vprompt-' + s.id + '" rows="3" placeholder="동영상 프롬프트를 생성하세요..." oninput="_sceneDirty=true">' + esc(s.videoPrompt||'') + '</textarea></div>'
     + '<div class="scene-row-btns">'
     + '<button class="icon-btn" onclick="grokGenOneFromCard(' + s.id + ')" title="동영상 프롬프트 생성" style="color:#4dd8ac">✨</button>'
-    + '<button class="icon-btn" onclick="grokSendOneFromCard(' + s.id + ')" title="Grok으로 전송" style="color:#a78bfa">▶</button>'
+    + '<button class="icon-btn ss-master-only" onclick="grokProxyVideoGen(' + s.id + ')" title="Grok 이미지→영상 변환" style="color:#a78bfa">▶</button>'
     + '</div>'
     + '</div></div>'
 
@@ -9753,7 +10029,7 @@ async function applyInlineData(scene, inlineData, ext) {
     });
     var d = await res.json();
     if (d.status === 'ok') {
-      scene.imgDataUrl = d.url;
+      scene.imgDataUrl = (d.url && d.url.startsWith('/') && window.SS_SERVER) ? window.SS_SERVER + d.url : d.url;
       scene.imgB64 = inlineData.data;
       scene.imgFilename = filename;
       scene.grokVideo = false;
@@ -14754,7 +15030,7 @@ function sgSendToInput() {
   var txt = document.getElementById('sg-result').value.trim();
   if (!txt) return;
   document.getElementById('si-text').value = txt;
-  switchTab('studio');
+  siApply();
 }
 
 async function siAnalyzeWithAI() {
@@ -14943,70 +15219,206 @@ var qwenFinalBlobs = [];
 var qwenVoiceProfiles = [];
 var qwenSelectedVoice = null;
 var QWEN_SERVER = 'http://127.0.0.1:8880';
-var QWEN_CHAR_VOICES = [
-  {id:'소희',   model:'sohee',    gender:'여성', color:'#FF6B9D', bg:'rgba(255,107,157,0.13)'},
-  {id:'세레나', model:'serena',   gender:'여성', color:'#C77DFF', bg:'rgba(199,125,255,0.13)'},
-  {id:'비비안', model:'vivian',   gender:'여성', color:'#A78BFA', bg:'rgba(167,139,250,0.13)'},
-  {id:'아나',   model:'ono_anna', gender:'여성', color:'#F472B6', bg:'rgba(244,114,182,0.13)'},
-  {id:'에이든', model:'aiden',    gender:'남성', color:'#60A5FA', bg:'rgba(96,165,250,0.13)'},
-  {id:'딜런',   model:'dylan',    gender:'남성', color:'#34D399', bg:'rgba(52,211,153,0.13)'},
-  {id:'에릭',   model:'eric',     gender:'남성', color:'#FBBF24', bg:'rgba(251,191,36,0.13)'},
-  {id:'라이언', model:'ryan',     gender:'남성', color:'#38BDF8', bg:'rgba(56,189,248,0.13)'},
-  {id:'엉클푸', model:'uncle_fu', gender:'남성', color:'#FB923C', bg:'rgba(251,146,60,0.13)'},
-];
-function qwenResolveVoice(v) {
-  if (!v) return v;
-  if (v.startsWith('clone:')) return v;
-  var ch = QWEN_CHAR_VOICES.find(function(c){ return c.id === v; });
-  return ch ? ch.model : v;
+
+// ── 외부 서버 URL (Kaggle/ngrok) ──────────────────────────────────────
+(function() {
+  var saved = localStorage.getItem('qwen_external_url');
+  if (saved) {
+    QWEN_SERVER = saved;
+    setTimeout(function() {
+      var inp = document.getElementById('qwen-external-url');
+      if (inp) inp.value = saved;
+    }, 500);
+  }
+})();
+
+function qwenExternalUrlChanged(val) {
+  val = val.trim().replace(/\/$/, '');
+  if (val) {
+    QWEN_SERVER = val;
+    localStorage.setItem('qwen_external_url', val);
+  } else {
+    QWEN_SERVER = 'http://127.0.0.1:8880';
+    localStorage.removeItem('qwen_external_url');
+  }
+  var st = document.getElementById('qwen-external-status');
+  if (st) { st.style.display = val ? '' : 'none'; st.textContent = val ? ('현재 서버: ' + val) : ''; st.style.color = 'var(--text3)'; }
 }
-function qwenURL() { return window._masterKaggleURL || QWEN_SERVER; }
-async function qwenInitURL() {
-  if (window._masterKaggleURL) return;
+
+async function qwenTestExternalUrl() {
+  var inp = document.getElementById('qwen-external-url');
+  var st = document.getElementById('qwen-external-status');
+  var url = (inp ? inp.value.trim().replace(/\/$/, '') : '');
+  if (!url) { if (st) { st.style.display = ''; st.textContent = 'URL을 입력하세요.'; st.style.color = '#f87171'; } return; }
+  if (st) { st.style.display = ''; st.textContent = '연결 확인 중...'; st.style.color = 'var(--text3)'; }
   try {
-    var r = await fetch(window.SS_SERVER + '/api/qwen-url', { signal: AbortSignal.timeout(5000) });
-    if (r.ok) { var d = await r.json(); if (d.url) window._masterKaggleURL = d.url; }
+    var r = await fetch(url + '/health', { signal: AbortSignal.timeout(5000) });
+    var d = await r.json();
+    if (st) { st.textContent = '✅ 연결 성공! ' + (d.version ? ('v' + d.version) : ''); st.style.color = '#34d399'; }
+    QWEN_SERVER = url;
+    localStorage.setItem('qwen_external_url', url);
+  } catch(e) {
+    if (st) { st.textContent = '❌ 연결 실패: ' + e.message; st.style.color = '#f87171'; }
+  }
+}
+
+function qwenClearExternalUrl() {
+  var inp = document.getElementById('qwen-external-url');
+  if (inp) inp.value = '';
+  var st = document.getElementById('qwen-external-status');
+  if (st) { st.style.display = 'none'; st.textContent = ''; }
+  QWEN_SERVER = 'http://127.0.0.1:8880';
+  localStorage.removeItem('qwen_external_url');
+}
+
+async function qwenRestartServer() {
+  var btn = document.getElementById('qwen-restart-btn');
+  var statusEl = document.getElementById('qwen-server-status');
+  var dot = document.getElementById('qwen-server-dot');
+  var progress = document.getElementById('qwen-server-progress');
+  if (btn) { btn.disabled = true; btn.textContent = '재시작 중...'; }
+  if (statusEl) { statusEl.style.color = 'var(--acc2)'; statusEl.textContent = '서버 재시작 중...'; }
+  if (progress) { progress.style.display = ''; progress.innerHTML = '<div style="color:var(--acc2);font-size:12px;padding:6px 0">서버 재시작 중... (최대 2분 소요)</div>'; }
+  try {
+    await fetch('http://127.0.0.1:19283/restart-qwen', { method: 'POST', signal: AbortSignal.timeout(5000) });
   } catch(e) {}
+  for (var i = 0; i < 24; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+      var r = await fetch('http://127.0.0.1:8880/health', { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        QWEN_SERVER = 'http://127.0.0.1:8880';
+        if (dot) { dot.style.background = 'var(--ok)'; dot.style.boxShadow = '0 0 6px var(--ok)'; }
+        if (statusEl) { statusEl.style.color = 'var(--ok)'; statusEl.textContent = '로컬 GPU 연결됨 · 준비됨'; }
+        if (progress) progress.style.display = 'none';
+        if (btn) { btn.disabled = false; btn.textContent = '↺ 재시작'; }
+        qwenLoadVoices();
+        return;
+      }
+    } catch(e2) {}
+  }
+  if (statusEl) { statusEl.style.color = 'var(--err)'; statusEl.textContent = '재시작 실패 — D:\\Qwen3-TTS-API\\start.bat 직접 실행하세요'; }
+  if (progress) progress.style.display = 'none';
+  if (btn) { btn.disabled = false; btn.textContent = '↺ 재시작'; }
 }
 
 async function qwenStartServer() {
   var btn = document.getElementById('qwen-start-btn');
+  var statusEl = document.getElementById('qwen-server-status');
+  var progress = document.getElementById('qwen-server-progress');
+  var progBar = document.getElementById('qwen-server-prog-bar');
+  var progLabel = document.getElementById('qwen-server-prog-label');
+  var dot = document.getElementById('qwen-server-dot');
+
   if (btn) { btn.textContent = '시작 중...'; btn.disabled = true; }
+  if (progress) progress.style.display = '';
+  if (progBar) progBar.style.width = '5%';
+  if (statusEl) { statusEl.style.color = 'var(--acc2)'; statusEl.textContent = 'Companion으로 서버 시작 요청 중...'; }
+
   try {
-    var res = await fetch('/api/start-qwen-server', { method: 'POST' });
+    var res = await fetch('http://127.0.0.1:19283/start-qwen', { method: 'POST', signal: AbortSignal.timeout(3000) });
     var data = await res.json();
-    if (data.ok) {
-      if (btn) { btn.textContent = '✓ 시작됨'; }
-      setTimeout(function(){ qwenCheckServer(); }, 5000);
-      setTimeout(function(){ if(btn){ btn.textContent = '▶ 서버 시작'; btn.disabled = false; } }, 8000);
-    } else {
-      if (btn) { btn.textContent = '오류'; btn.disabled = false; }
-      alert('서버 시작 실패: ' + (data.error || ''));
+    if (!data.ok) {
+      if (statusEl) { statusEl.style.color = 'var(--err)'; statusEl.textContent = '시작 실패: ' + (data.message || ''); }
+      if (btn) { btn.textContent = '▶ 서버 시작'; btn.disabled = false; }
+      if (progress) progress.style.display = 'none';
+      return;
     }
   } catch(e) {
+    // Companion 연결 실패 시 8880 직접 체크
+    try {
+      var directRes = await fetch('http://127.0.0.1:8880/health', { signal: AbortSignal.timeout(4000) });
+      if (directRes.ok) {
+        // 이미 서버가 켜져 있음 — 바로 성공 처리
+        QWEN_SERVER = 'http://127.0.0.1:8880';
+        if (dot) { dot.style.background = 'var(--ok)'; dot.style.boxShadow = '0 0 6px var(--ok)'; }
+        if (statusEl) { statusEl.style.color = 'var(--ok)'; statusEl.textContent = '로컬 GPU 연결됨 · 준비됨'; }
+        if (btn) { btn.textContent = '▶ 서버 시작'; btn.disabled = false; }
+        if (progress) progress.style.display = 'none';
+        qwenLoadVoices();
+        return;
+      }
+    } catch(e2) {}
+    if (statusEl) { statusEl.style.color = 'var(--err)'; statusEl.textContent = 'start.bat를 직접 실행하세요: D:\\Qwen3-TTS-API\\start.bat'; }
     if (btn) { btn.textContent = '▶ 서버 시작'; btn.disabled = false; }
-    alert('오류: ' + e.message);
+    if (progress) progress.style.display = 'none';
+    return;
   }
+
+  // 폴링: 최대 2분, 5초마다
+  if (statusEl) statusEl.textContent = '서버 시작 중... (최대 2분 소요)';
+  for (var i = 0; i < 24; i++) {
+    await new Promise(function(r){ setTimeout(r, 5000); });
+    var pct = Math.min(10 + (i + 1) * 4, 95);
+    if (progBar) progBar.style.width = pct + '%';
+    if (progLabel) progLabel.textContent = (i + 1) * 5 + '초 경과...';
+    try {
+      var r2 = await fetch('http://127.0.0.1:19283/qwen-status', { signal: AbortSignal.timeout(3000) });
+      if (r2.ok) { var _qs = await r2.json(); if (!_qs.running) continue; } else { continue; }
+      if (true) {
+        QWEN_SERVER = 'http://127.0.0.1:8880';
+        if (progBar) progBar.style.width = '100%';
+        if (progLabel) progLabel.textContent = '준비됨!';
+        if (dot) { dot.style.background = 'var(--ok)'; dot.style.boxShadow = '0 0 6px var(--ok)'; }
+        if (statusEl) { statusEl.style.color = 'var(--ok)'; statusEl.textContent = '✅ 로컬 GPU 서버 준비됨'; }
+        if (btn) { btn.textContent = '▶ 서버 시작'; btn.disabled = false; }
+        setTimeout(function(){ if(progress) progress.style.display = 'none'; }, 2000);
+        qwenLoadVoices();
+        return;
+      }
+    } catch(e) {}
+    if (statusEl) statusEl.textContent = '서버 시작 중... ' + (i + 1) * 5 + 's';
+  }
+
+  // 타임아웃
+  if (statusEl) { statusEl.style.color = 'var(--err)'; statusEl.textContent = '시간 초과 — GPU 메모리 부족이거나 서버 오류'; }
+  if (btn) { btn.textContent = '▶ 서버 시작'; btn.disabled = false; }
+  if (progress) progress.style.display = 'none';
 }
 
 async function qwenCheckServer() {
-  await qwenInitURL();
   var dot = document.getElementById('qwen-server-dot');
   var status = document.getElementById('qwen-server-status');
-  if (dot) { dot.style.background = 'var(--text3)'; dot.style.boxShadow = 'none'; }
-  if (status) { status.style.color = 'var(--text3)'; status.textContent = '확인 중...'; }
+  // 1순위: 8880 직접 체크 (PNA 헤더 있음, Chrome도 허용)
   try {
-    var res = await fetch(qwenURL() + '/health', { signal: AbortSignal.timeout(3000) });
+    var directRes = await fetch('http://127.0.0.1:8880/health', { signal: AbortSignal.timeout(4000) });
+    if (directRes.ok) {
+      QWEN_SERVER = 'http://127.0.0.1:8880';
+      if (dot) { dot.style.background = 'var(--ok)'; dot.style.boxShadow = '0 0 6px var(--ok)'; }
+      if (status) { status.style.color = 'var(--ok)'; status.textContent = '로컬 GPU 연결됨 · 준비됨'; }
+      qwenLoadVoices();
+      return true;
+    }
+  } catch(e) {}
+  // 2순위: Companion 프록시 경유
+  try {
+    var localRes = await fetch('http://127.0.0.1:19283/qwen-status', { signal: AbortSignal.timeout(3000) });
+    if (localRes.ok) {
+      var ld = await localRes.json();
+      if (ld.running) {
+        QWEN_SERVER = 'http://127.0.0.1:8880';
+        if (dot) { dot.style.background = 'var(--ok)'; dot.style.boxShadow = '0 0 6px var(--ok)'; }
+        if (status) { status.style.color = 'var(--ok)'; status.textContent = '로컬 GPU 연결됨 · 준비됨'; }
+        qwenLoadVoices();
+        return true;
+      }
+    }
+  } catch(e) {}
+  // 로컬 없으면 Kaggle/원격 URL 폴백
+  try {
+    var _kr = await fetch((window.SS_SERVER||'') + '/api/qwen-url', {signal: AbortSignal.timeout(5000)});
+    if (_kr.ok) { var _kd = await _kr.json(); if (_kd.url) QWEN_SERVER = _kd.url; }
+  } catch(e) {}
+  try {
+    var res = await fetch(QWEN_SERVER + '/health', { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       var data = await res.json();
       if (dot) { dot.style.background = 'var(--ok)'; dot.style.boxShadow = '0 0 6px var(--ok)'; }
       if (status) {
         status.style.color = 'var(--ok)';
         var modelStatus = data.backend?.ready ? '준비됨' : '모델 로딩 중...';
-        status.textContent = '연결됨 · ' + modelStatus;
+        status.textContent = '원격 서버 연결됨 · ' + modelStatus;
       }
-      var banner = document.getElementById('qwen-switch-banner');
-      if (banner) banner.style.display = 'none';
       qwenLoadVoices();
       return true;
     }
@@ -15014,138 +15426,116 @@ async function qwenCheckServer() {
   if (dot) { dot.style.background = 'var(--err)'; dot.style.boxShadow = 'none'; }
   if (status) {
     status.style.color = 'var(--err)';
-    status.textContent = '연결 실패';
+    status.textContent = '연결 실패 — 로컬 서버를 시작하거나 Kaggle 노트북을 실행하세요';
   }
-  // 마스터 전용 서버 교체 배너
-  var banner = document.getElementById('qwen-switch-banner');
-  var _em = localStorage.getItem('ss_auth_email') || '';
-  if (banner && _em === window.SS_MASTER_EMAIL) banner.style.display = 'block';
   qwenLoadVoices();
   return false;
-}
-
-var _kagglePollingTimer = null;
-
-async function kaggleStartServer() {
-  var btn = document.getElementById('kaggle-start-btn');
-  var st = document.getElementById('kaggle-start-status');
-  if (btn) { btn.disabled = true; btn.textContent = '시작 중...'; }
-  if (st) st.textContent = '';
-
-  try {
-    var email = localStorage.getItem('ss_auth_email') || '';
-    var r = await fetch(window.SS_SERVER + '/api/start-kaggle', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email: email}) });
-    var d = await r.json();
-    if (!r.ok) {
-      if (st) st.textContent = '❌ ' + (d.message || '오류');
-      if (btn) { btn.disabled = false; btn.textContent = '☁ Kaggle 시작'; }
-      return;
-    }
-  } catch(e) {
-    if (st) st.textContent = '❌ 연결 실패';
-    if (btn) { btn.disabled = false; btn.textContent = '☁ Kaggle 시작'; }
-    return;
-  }
-
-  // 새 커널 시작 — 이전 세션 URL 무효화
-  window._masterKaggleURL = null;
-  if (st) st.textContent = '⏳ GPU 할당 대기 중...';
-  if (_kagglePollingTimer) clearInterval(_kagglePollingTimer);
-  _kagglePollingTimer = setInterval(async function() {
-    try {
-      var r2 = await fetch(window.SS_SERVER + '/api/kaggle-status');
-      var d2 = await r2.json();
-      if (st) st.textContent = d2.message || '';
-      if (d2.status === 'ready') {
-        clearInterval(_kagglePollingTimer);
-        _kagglePollingTimer = null;
-        window._masterKaggleURL = d2.url;
-        if (btn) { btn.disabled = false; btn.textContent = '☁ Kaggle 시작'; }
-        qwenCheckServer();
-      } else if (d2.status === 'error') {
-        clearInterval(_kagglePollingTimer);
-        _kagglePollingTimer = null;
-        if (btn) { btn.disabled = false; btn.textContent = '☁ Kaggle 시작'; }
-      }
-    } catch(e) {}
-  }, 10000);
-}
-
-async function kaggleStopServer() {
-  if (!confirm('Kaggle 서버를 중지하시겠습니까?')) return;
-  var st = document.getElementById('kaggle-start-status');
-  if (st) st.textContent = '중지 중...';
-  if (_kagglePollingTimer) { clearInterval(_kagglePollingTimer); _kagglePollingTimer = null; }
-  try {
-    var email = localStorage.getItem('ss_auth_email') || '';
-    await fetch(window.SS_SERVER + '/api/stop-kaggle', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email: email}) });
-    window._masterKaggleURL = null;
-    if (st) st.textContent = '서버 중지됨';
-    var dot = document.getElementById('qwen-server-dot');
-    var status = document.getElementById('qwen-server-status');
-    if (dot) { dot.style.background = 'var(--text3)'; dot.style.boxShadow = 'none'; }
-    if (status) { status.style.color = 'var(--err)'; status.textContent = '오프라인'; }
-  } catch(e) {
-    if (st) st.textContent = '❌ 중지 실패';
-  }
 }
 
 async function qwenLoadVoices() {
   var list = document.getElementById('qwen-voice-list');
   var count = document.getElementById('qwen-voice-count');
   if (!list) return;
-  function _charGrid(selectedId) {
-    var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">';
-    html += QWEN_CHAR_VOICES.map(function(ch) {
-      var sel = ch.id === selectedId;
-      return '<div onclick="qwenSelectVoice(\'' + ch.id + '\')" style="cursor:pointer;border-radius:12px;border:2px solid ' + (sel ? ch.color : 'var(--border)') + ';background:' + (sel ? ch.bg : 'var(--s3)') + ';padding:12px 8px;text-align:center;transition:all 0.15s' + (sel ? ';box-shadow:0 0 14px ' + ch.color + '55' : '') + '">' +
-        '<div style="width:48px;height:48px;border-radius:50%;background:' + ch.color + ';color:#fff;font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;box-shadow:0 2px 8px ' + ch.color + '77">' + ch.id.charAt(0) + '</div>' +
-        '<div style="font-size:13px;font-weight:700;color:' + (sel ? ch.color : 'var(--text)') + ';margin-bottom:4px">' + ch.id + (sel ? ' ✓' : '') + '</div>' +
-        '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:' + (ch.gender==='여성' ? 'rgba(255,107,157,0.18)' : 'rgba(96,165,250,0.18)') + ';color:' + (ch.gender==='여성' ? '#FF6B9D' : '#60A5FA') + ';font-weight:600">' + ch.gender + '</span>' +
-        '<button id="qwen-sample-btn-' + ch.model + '" onclick="event.stopPropagation();qwenPlaySample(\'' + ch.model + '\',\'' + ch.id + '\')" style="display:block;margin:6px auto 0;font-size:10px;padding:2px 10px;background:transparent;border:1px solid ' + ch.color + '66;color:' + ch.color + ';border-radius:20px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background=\'' + ch.bg + '\'" onmouseout="this.style.background=\'transparent\'">▶ 샘플</button>' +
-      '</div>';
-    }).join('');
-    html += '</div>';
-    return html;
+  var QWEN_BUILTIN = ['Vivian','Ryan','sohee'];
+  var EDGE_BUILTIN = ['SunHi','InJoon'];
+  var VOICE_META = {
+    'Vivian':  {emoji:'🌸', label:'Vivian', desc:'여성 · Female · Qwen3'},
+    'vivian':  {emoji:'🌸', label:'Vivian', desc:'여성 · Female · Qwen3'},
+    'Ryan':    {emoji:'🌊', label:'Ryan',   desc:'남성 · Male · Qwen3'},
+    'ryan':    {emoji:'🌊', label:'Ryan',   desc:'남성 · Male · Qwen3'},
+    'sohee':   {emoji:'🇰🇷', label:'Sohee', desc:'여성 · 한국어 · Qwen3'},
+    'SunHi':   {emoji:'☀️', label:'SunHi',  desc:'여성 · 한국어 · Edge TTS · 빠름'},
+    'InJoon':  {emoji:'🎙', label:'InJoon', desc:'남성 · 한국어 · Edge TTS · 빠름'},
+    'HyunSu':  {emoji:'🔵', label:'HyunSu', desc:'남성 · 한국어 · Edge TTS · 빠름'},
+    'Aria':    {emoji:'🌟', label:'Aria',   desc:'여성 · English · Edge TTS · 빠름'},
+    'Guy':     {emoji:'🎯', label:'Guy',    desc:'남성 · English · Edge TTS · 빠름'},
+    'serena':  {emoji:'✨', label:'Serena', desc:'여성 · Female'},
+    'ono_anna':{emoji:'🌺', label:'Ono Anna',desc:'여성 · Japanese'},
+    'aiden':   {emoji:'⚡', label:'Aiden',  desc:'남성 · Male'},
+    'eric':    {emoji:'🎯', label:'Eric',   desc:'남성 · Male'},
+    'dylan':   {emoji:'🎸', label:'Dylan',  desc:'남성 · Male'},
+    'uncle_fu':{emoji:'🐉', label:'Uncle Fu',desc:'남성 · Chinese'},
+  };
+  var ALL_BUILTIN = QWEN_BUILTIN.concat(EDGE_BUILTIN);
+  // localStorage에서 선택된 보이스 복원
+  if (!qwenSelectedVoice) {
+    var _saved = localStorage.getItem('qwen_selected_voice');
+    qwenSelectedVoice = (_saved && ALL_BUILTIN.indexOf(_saved) >= 0) ? _saved : QWEN_BUILTIN[0];
   }
+  var _makeVoiceCard = function(id, extraStyle) {
+    var isSelected = id === qwenSelectedVoice;
+    var meta = VOICE_META[id] || VOICE_META[id.toLowerCase()] || {};
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;min-height:52px;box-sizing:border-box;background:' + (isSelected ? 'rgba(54,214,138,.12)' : 'var(--s3)') + ';border:1px solid ' + (isSelected ? 'rgba(54,214,138,.4)' : 'var(--border)') + ';border-radius:10px;cursor:pointer;margin-bottom:5px' + (extraStyle||'') + '" onclick="qwenSelectVoice(\'' + id.replace(/'/g,"\\'") + '\')">' +
+      '<span style="font-size:26px;line-height:1">' + (meta.emoji||'🎵') + '</span><div style="flex:1">' +
+      '<div style="font-size:13px;font-weight:700;color:' + (isSelected ? 'var(--ok)' : 'var(--text)') + '">' + (meta.label||id) + ' <span style="font-size:10px;color:var(--ok);font-weight:400;visibility:' + (isSelected ? 'visible' : 'hidden') + '">✓ 선택됨</span></div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:1px">' + (meta.desc||'내장 목소리 · 빠름') + '</div></div>' +
+      '<span style="font-size:15px;visibility:' + (isSelected ? 'visible' : 'hidden') + '">✅</span></div>';
+  };
+  // Edge TTS 섹션 (항상 표시 — 서버 상태 무관)
+  var _edgeHtml = '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ Edge TTS (한국어 · 빠름)</div>';
+  _edgeHtml += EDGE_BUILTIN.map(function(id){ return _makeVoiceCard(id); }).join('');
+  list.innerHTML = '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🤖 Qwen3 TTS</div>' +
+    QWEN_BUILTIN.map(function(id){ return _makeVoiceCard(id); }).join('') + _edgeHtml;
+  qwenUpdateSelectedVoiceInfo();
   try {
-    var res = await fetch(qwenURL() + '/v1/voices');
+    // Base 모델 여부 확인 — Base 모델은 내장 목소리 없음
+    var isBaseModel = false;
+    try {
+      var hr = await fetch(QWEN_SERVER + '/health', {signal: AbortSignal.timeout(5000)});
+      if (hr.ok) { var hd = await hr.json();
+        var _bn = (hd.backend && hd.backend.name) || '';
+        var _mid = (hd.backend && hd.backend.model_id) || '';
+        isBaseModel = _bn !== 'optimized' && _mid.toLowerCase().includes('base') && !_mid.toLowerCase().includes('customvoice');
+      }
+    } catch(e) {}
+
+    var res = await fetch(QWEN_SERVER + '/v1/voices', {signal: AbortSignal.timeout(6000)});
     if (!res.ok) throw new Error('서버 응답 오류');
     var data = await res.json();
-    var allVoices = data.voices || [];
+    var _OPENAI_ALIASES = ['alloy','echo','fable','onyx','nova','shimmer'];
+    var allVoices = (data.voices || []).filter(function(v){ return _OPENAI_ALIASES.indexOf(v.id) < 0; });
+    var qwenVoices = isBaseModel ? [] : QWEN_BUILTIN.map(function(name){
+      return allVoices.find(function(v){ return v.id && v.id.toLowerCase() === name.toLowerCase(); }) || {id: name, description: ''};
+    });
     var cloneVoices = allVoices.filter(function(v){ return v.id && v.id.startsWith('clone:'); });
     qwenVoiceProfiles = allVoices.map(function(v){ return v.id; });
     if (count) count.textContent = cloneVoices.length ? '(' + cloneVoices.length + '개 클론)' : '';
 
-    var validIds = QWEN_CHAR_VOICES.map(function(c){return c.id;}).concat(cloneVoices.map(function(v){return v.id;}));
-    if (!qwenSelectedVoice || !validIds.includes(qwenSelectedVoice)) {
-      qwenSelectedVoice = cloneVoices.length ? cloneVoices[0].id : QWEN_CHAR_VOICES[0].id;
+    // Edge TTS 보이스는 항상 선택 가능 (서버와 무관)
+    var ALL_VALID = qwenVoiceProfiles.concat(EDGE_BUILTIN);
+    if (!qwenSelectedVoice || !ALL_VALID.includes(qwenSelectedVoice)) {
+      qwenSelectedVoice = cloneVoices.length ? cloneVoices[0].id : QWEN_BUILTIN[0];
     }
 
-    var html = '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ 기본 내장 목소리 (빠름 · 1~2초)</div>';
-    html += _charGrid(qwenSelectedVoice);
+    var html = '';
+    if (qwenVoices.length) {
+      html += '<div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🤖 Qwen3 TTS</div>';
+      html += qwenVoices.map(function(v) { return _makeVoiceCard(v.id); }).join('');
+    }
+    // Edge TTS 섹션 — 항상 표시
+    html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ Edge TTS (한국어 · 빠름)</div>';
+    html += EDGE_BUILTIN.map(function(id){ return _makeVoiceCard(id); }).join('');
     if (cloneVoices.length) {
-      html += '<div style="font-size:11px;color:var(--text3);margin-top:4px;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🎙 내 클론 목소리</div>';
+      html += '<div style="font-size:11px;color:var(--text3);margin-top:10px;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🎙 내 클론 목소리</div>';
       html += cloneVoices.map(function(v) {
-        var id = v.id; var name = id.replace('clone:', ''); var sel = id === qwenSelectedVoice;
-        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:' + (sel ? 'var(--acc-dim)' : 'var(--s3)') + ';border:1px solid ' + (sel ? 'var(--acc-glow)' : 'var(--border)') + ';border-radius:8px;cursor:pointer;margin-bottom:4px" onclick="qwenSelectVoice(\'' + id.replace(/'/g,"\\'") + '\')">' +
-          '<span style="font-size:18px">🎙</span>' +
-          '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:' + (sel ? 'var(--acc2)' : 'var(--text)') + '">' + name + (sel ? ' <span style="font-size:10px;color:var(--acc2)">✓ 선택됨</span>' : '') + '</div><div style="font-size:11px;color:var(--text3)">' + (v.description||'Voice clone profile') + '</div></div>' +
-          '<button onclick="event.stopPropagation();qwenDeleteVoice(\'' + name.replace(/'/g,"\\'") + '\')" class="btn btn-sm btn-err" style="padding:3px 9px;font-size:11px">🗑</button>' +
-        '</div>';
+        var id = v.id; var name = id.replace('clone:', ''); var isSelected = id === qwenSelectedVoice;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;min-height:52px;box-sizing:border-box;background:' + (isSelected ? 'var(--acc-dim)' : 'var(--s3)') + ';border:1px solid ' + (isSelected ? 'var(--acc-glow)' : 'var(--border)') + ';border-radius:8px;cursor:pointer" onclick="qwenSelectVoice(\'' + id.replace(/'/g, "\\'") + '\')">' +
+          '<span style="font-size:18px">🎙</span><div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:600;color:' + (isSelected ? 'var(--acc2)' : 'var(--text)') + '">' + name + ' <span style="font-size:10px;color:var(--acc2);visibility:' + (isSelected ? 'visible' : 'hidden') + '">✓ 선택됨</span></div>' +
+          '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + (v.description || 'Voice clone profile') + '</div></div>' +
+          '<button onclick="event.stopPropagation();qwenDeleteVoice(\'' + name.replace(/'/g, "\\'") + '\')" class="btn btn-sm btn-err" style="padding:3px 9px;font-size:11px">🗑</button></div>';
       }).join('');
     } else {
-      html += '<div style="color:var(--text3);font-size:12px;padding:8px 0 4px;text-align:center">클론 없음 — <b>＋ 보이스 등록</b>으로 추가</div>';
+      html += '<div style="color:var(--text3);font-size:12px;padding:10px 0 4px;text-align:center">' + (isBaseModel ? '⚠ Base 모델 — 클론 목소리가 없습니다. <b>＋ 보이스 등록</b>으로 추가하세요.' : '클론 없음 — <b>＋ 보이스 등록</b>으로 추가') + '</div>';
     }
     list.innerHTML = html;
     qwenUpdateSelectedVoiceInfo();
   } catch(e) {
-    if (!qwenSelectedVoice || !QWEN_CHAR_VOICES.some(function(c){return c.id===qwenSelectedVoice;})) {
-      qwenSelectedVoice = QWEN_CHAR_VOICES[0].id;
-    }
-    var html = '<div style="color:var(--err);font-size:11px;padding:4px 8px;margin-bottom:8px;background:rgba(255,80,80,.08);border-radius:6px">⚠ 서버 오프라인 — 기본 목소리만 표시</div>';
-    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ 기본 내장 목소리</div>';
-    html += _charGrid(qwenSelectedVoice);
+    var html = '<div style="color:var(--err);font-size:11px;padding:4px 8px;margin-bottom:6px;background:rgba(255,80,80,.08);border-radius:6px">⚠ Kaggle 오프라인 — 기본 목소리만 사용 가능</div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🤖 Qwen3 TTS</div>';
+    html += QWEN_BUILTIN.map(function(id){ return _makeVoiceCard(id); }).join('');
+    html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">⚡ Edge TTS (한국어 · 빠름)</div>';
+    html += EDGE_BUILTIN.map(function(id){ return _makeVoiceCard(id); }).join('');
     list.innerHTML = html;
     qwenUpdateSelectedVoiceInfo();
   }
@@ -15153,6 +15543,7 @@ async function qwenLoadVoices() {
 
 function qwenSelectVoice(name) {
   qwenSelectedVoice = name;
+  localStorage.setItem('qwen_selected_voice', name);
   qwenLoadVoices();
 }
 
@@ -15208,12 +15599,29 @@ async function qwenRegisterVoice() {
   fd.append('x_vector_only_mode', refText ? 'false' : 'true');
   fd.append('ref_audio', fileInput.files[0]);
 
+  var saveToRailway = async function() {
+    var fd2 = new FormData();
+    fd2.append('name', name);
+    fd2.append('language', lang);
+    fd2.append('ref_text', refText);
+    fd2.append('ref_audio', fileInput.files[0]);
+    var r2 = await fetch((window.SS_SERVER || '') + '/api/voice-profile/save', { method: 'POST', body: fd2 });
+    if (!r2.ok) throw new Error('Railway 저장 실패');
+  };
+
   try {
-    var res = await fetch(qwenURL() + '/v1/voice-library/profiles', { method: 'POST', body: fd });
+    var res = await fetch(QWEN_SERVER + '/v1/voice-library/profiles', { method: 'POST', body: fd, signal: AbortSignal.timeout(10000) });
     var data = await res.json();
     if (res.ok) {
-      statusEl.style.color = 'var(--ok)'; statusEl.textContent = '✓ 등록 완료! 잠시 후 닫힙니다.';
-      setTimeout(function(){ qwenHideAddVoice(); qwenLoadVoices(); }, 1200);
+      var serverLabel = QWEN_SERVER.includes('127.0.0.1') ? '로컬' : 'Kaggle';
+      statusEl.style.color = 'var(--ok)'; statusEl.textContent = '✓ ' + serverLabel + ' 등록 완료, Railway에 백업 중...';
+      try {
+        await saveToRailway();
+        statusEl.textContent = '✓ 등록 완료! (Railway 백업됨)';
+      } catch(e2) {
+        statusEl.textContent = '✓ 등록 완료! (Railway 백업 실패 — 세션 중에만 유효)';
+      }
+      setTimeout(function(){ qwenHideAddVoice(); qwenLoadVoices(); }, 1500);
     } else {
       var errMsg = (data.detail && typeof data.detail === 'object' && data.detail.message)
         ? data.detail.message
@@ -15222,15 +15630,24 @@ async function qwenRegisterVoice() {
       btn.disabled = false; btn.textContent = '등록';
     }
   } catch(e) {
-    statusEl.style.color = 'var(--err)'; statusEl.textContent = '서버 오류: ' + e.message;
-    btn.disabled = false; btn.textContent = '등록';
+    // Kaggle 오프라인 — Railway에만 저장 후 Kaggle 시작 시 자동 등록
+    statusEl.style.color = 'var(--text3)'; statusEl.textContent = '서버 오프라인 — Railway에 저장 중...';
+    try {
+      await saveToRailway();
+      statusEl.style.color = 'var(--ok)';
+      statusEl.textContent = '✓ Railway에 저장됨 — 서버 시작 시 자동으로 등록됩니다';
+      setTimeout(function(){ qwenHideAddVoice(); qwenLoadVoices(); }, 2500);
+    } catch(e2) {
+      statusEl.style.color = 'var(--err)'; statusEl.textContent = '저장 실패: ' + e2.message;
+      btn.disabled = false; btn.textContent = '등록';
+    }
   }
 }
 
 async function qwenDeleteVoice(name) {
   if (!confirm('"' + name + '" 프로필을 삭제하시겠습니까?')) return;
   try {
-    var res = await fetch(qwenURL() + '/v1/voice-library/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
+    var res = await fetch(QWEN_SERVER + '/v1/voice-library/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
     if (res.ok) {
       if (qwenSelectedVoice === 'clone:' + name) qwenSelectedVoice = null;
       qwenLoadVoices();
@@ -15280,33 +15697,82 @@ function qwenUpdateSceneRow(i) {
   el.parentNode.replaceChild(tmp.firstChild, el);
 }
 
-var _qwenSampleAudio = null;
-async function qwenPlaySample(modelId, name) {
-  var btn = document.getElementById('qwen-sample-btn-' + modelId);
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-  if (_qwenSampleAudio) { _qwenSampleAudio.pause(); _qwenSampleAudio = null; }
-  try {
-    var res = await fetch(qwenURL() + '/v1/audio/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'tts-1', input: '안녕하세요, 저는 ' + name + '입니다. 반갑습니다.', voice: modelId, language: 'Korean' })
-    });
-    if (!res.ok) throw new Error('생성 실패');
-    var blob = await res.blob();
-    var url = URL.createObjectURL(blob);
-    _qwenSampleAudio = new Audio(url);
-    _qwenSampleAudio.play();
-    if (btn) { btn.textContent = '▶ 샘플'; btn.disabled = false; }
-  } catch(e) {
-    if (btn) { btn.textContent = '▶ 샘플'; btn.disabled = false; }
-    alert('샘플 생성 실패: ' + e.message);
-  }
+function qwenReverbToggle() {
+  var on = document.getElementById('qwen-reverb-on').checked;
+  var ctrl = document.getElementById('qwen-reverb-controls');
+  if (ctrl) ctrl.style.display = on ? 'flex' : 'none';
+  if (on) qwenSetReverb(0.3, 10, 1); // 기본값: 약하게
+}
+function qwenSetReverb(room, wet, btnId) {
+  document.getElementById('qwen-reverb-room').value = room;
+  document.getElementById('qwen-reverb-wet').value  = wet;
+  var descs = {1:'살짝 울림 · 깔끔한 목소리', 2:'풍성한 울림 · 나레이션 최적', 3:'웅장한 울림 · 홀/방송 느낌'};
+  var desc = document.getElementById('qwen-rv-desc');
+  if (desc) desc.textContent = descs[btnId] || '';
+  [1,2,3].forEach(function(n) {
+    var b = document.getElementById('qwen-rv-btn-'+n);
+    if (!b) return;
+    if (n === btnId) {
+      b.style.border = '1px solid rgba(54,214,138,.5)'; b.style.background = 'rgba(54,214,138,.15)'; b.style.color = 'var(--ok)';
+    } else {
+      b.style.border = '1px solid var(--border)'; b.style.background = 'var(--s3)'; b.style.color = 'var(--text2)';
+    }
+  });
 }
 
-function qwenPreviewScene(i) {
+async function applyReverbToBuffer(audioBuffer) {
+  var roomSize = parseFloat(document.getElementById('qwen-reverb-room').value) || 0.5;
+  var wetPct   = parseFloat(document.getElementById('qwen-reverb-wet').value) || 15;
+  var wet = wetPct / 100;
+  var dry = 1.0;
+
+  var sr  = audioBuffer.sampleRate;
+  var ch  = audioBuffer.numberOfChannels;
+  var irLen = Math.floor(roomSize * sr);
+  var outLen = audioBuffer.length + irLen;
+
+  var offCtx = new OfflineAudioContext(ch, outLen, sr);
+
+  // 합성 임펄스 응답 (exponential decay noise)
+  var ir = offCtx.createBuffer(2, irLen, sr);
+  for (var c = 0; c < 2; c++) {
+    var d = ir.getChannelData(c);
+    for (var k = 0; k < irLen; k++) {
+      d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / irLen, 2.5);
+    }
+  }
+
+  var src = offCtx.createBufferSource();
+  src.buffer = audioBuffer;
+
+  var dryGain = offCtx.createGain(); dryGain.gain.value = dry;
+  var wetGain = offCtx.createGain(); wetGain.gain.value = wet;
+  var conv    = offCtx.createConvolver(); conv.buffer = ir;
+
+  src.connect(dryGain); dryGain.connect(offCtx.destination);
+  src.connect(conv);    conv.connect(wetGain); wetGain.connect(offCtx.destination);
+  src.start(0);
+
+  return offCtx.startRendering();
+}
+
+async function blobWithReverb(blob) {
+  var on = document.getElementById('qwen-reverb-on') && document.getElementById('qwen-reverb-on').checked;
+  if (!on) return blob;
+  var ctx = new (window.AudioContext || window.webkitAudioContext)();
+  var ab  = await blob.arrayBuffer();
+  var buf = await ctx.decodeAudioData(ab);
+  ctx.close();
+  var reverbBuf = await applyReverbToBuffer(buf);
+  var wav = audioBufferToWav(reverbBuf);
+  return new Blob([wav], { type: 'audio/wav' });
+}
+
+async function qwenPreviewScene(i) {
   var s = qwenScenes[i];
   if (!s || !s.blob) return;
-  var url = URL.createObjectURL(s.blob);
+  var playBlob = await blobWithReverb(s.blob);
+  var url = URL.createObjectURL(playBlob);
   var audio = new Audio(url);
   audio.play();
   audio.onended = function(){ URL.revokeObjectURL(url); };
@@ -15320,18 +15786,34 @@ async function qwenGenerateScene(idx) {
   qwenScenes[idx].status = 'loading';
   qwenUpdateSceneRow(idx);
 
+  var EDGE_VOICES_SET = ['SunHi','InJoon','HyunSu','Aria','Guy'];
+  var isEdge = EDGE_VOICES_SET.includes(qwenSelectedVoice);
   try {
-    var res = await fetch(qwenURL() + '/v1/audio/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: scene.text,
-        voice: qwenResolveVoice(qwenSelectedVoice),
-        language: document.getElementById('qwen-language').value,
-        response_format: document.getElementById('qwen-format').value
-      })
-    });
+    var res;
+    if (isEdge) {
+      res = await fetch((window.SS_SERVER || '') + '/api/edge-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: scene.text,
+          voice: qwenSelectedVoice,
+          speed: parseFloat(document.getElementById('qwen-speed').value) || 1.0
+        })
+      });
+    } else {
+      res = await fetch(QWEN_SERVER + '/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: scene.text,
+          voice: qwenSelectedVoice,
+          language: document.getElementById('qwen-language').value,
+          response_format: document.getElementById('qwen-format').value,
+          speed: parseFloat(document.getElementById('qwen-speed').value) || 1.0
+        })
+      });
+    }
     if (!res.ok) { var err = await res.json(); throw new Error(err.detail?.message || '생성 실패'); }
     var blob = await res.blob();
     qwenScenes[idx].blob = blob;
@@ -15347,11 +15829,58 @@ async function qwenGenerateScene(idx) {
   qwenUpdateSceneRow(idx);
 }
 
+async function qwenEnsureLocalServer() {
+  // 외부 서버 URL 설정 시 로컬 체크 생략
+  var extUrl = localStorage.getItem('qwen_external_url');
+  if (extUrl) {
+    try {
+      var rx = await fetch(extUrl + '/health', { signal: AbortSignal.timeout(5000) });
+      if (rx.ok) { QWEN_SERVER = extUrl; return true; }
+    } catch(e) {}
+    var stEl = document.getElementById('qwen-server-status');
+    if (stEl) { stEl.style.color = '#f87171'; stEl.textContent = '❌ 외부 서버 연결 실패: ' + extUrl; }
+    return false;
+  }
+  // 1순위: 8880 직접 체크 (가장 빠름)
+  try {
+    var r0 = await fetch('http://127.0.0.1:8880/health', { signal: AbortSignal.timeout(3000) });
+    if (r0.ok) { QWEN_SERVER = 'http://127.0.0.1:8880'; return true; }
+  } catch(e) {}
+  // 2순위: Companion 프록시 경유
+  try {
+    var r = await fetch('http://127.0.0.1:19283/qwen-status', { signal: AbortSignal.timeout(2000) });
+    if (r.ok) { var d = await r.json(); if (d.running) return true; }
+  } catch(e) {}
+
+  // Companion으로 서버 시작 요청
+  var status = document.getElementById('qwen-server-status');
+  if (status) { status.style.color = 'var(--acc2)'; status.textContent = '로컬 서버 시작 중... (최대 2분 소요)'; }
+  try {
+    await fetch('http://127.0.0.1:19283/start-qwen', { method: 'POST', signal: AbortSignal.timeout(3000) });
+  } catch(e) {}
+
+  // 최대 120초 폴링
+  for (var i = 0; i < 24; i++) {
+    await new Promise(function(r){ setTimeout(r, 5000); });
+    try {
+      var r2 = await fetch('http://127.0.0.1:19283/qwen-status', { signal: AbortSignal.timeout(3000) });
+      if (r2.ok) { var _qs = await r2.json(); if (!_qs.running) continue; } else { continue; }
+      if (true) {
+        QWEN_SERVER = 'http://127.0.0.1:8880';
+        if (status) { status.style.color = 'var(--ok)'; status.textContent = '로컬 GPU 연결됨'; }
+        return true;
+      }
+    } catch(e) {}
+    if (status) status.textContent = '로컬 서버 시작 중... (' + ((i+1)*5) + 's)';
+  }
+  return false;
+}
+
 async function qwenGenerateAll() {
   if (!qwenScenes.length) { alert('먼저 스튜디오에서 대본을 가져오세요.'); return; }
   if (!qwenSelectedVoice) { alert('먼저 보이스를 선택하세요.'); return; }
 
-  await qwenCheckServer();
+  // UI 먼저 업데이트 (클릭 즉시 피드백)
   qwenRunning = true;
   var genBtn = document.getElementById('qwenGenBtn');
   var stopBtn = document.getElementById('qwenStopBtn');
@@ -15361,6 +15890,12 @@ async function qwenGenerateAll() {
   var progLabel = document.getElementById('qwenProgLabel');
   document.getElementById('qwenProgWrap').style.display = '';
   genBtn.disabled = true; stopBtn.style.display = ''; dlBtn.disabled = true;
+  statusEl.textContent = '서버 확인 중...';
+  if (prog) prog.style.width = '0%';
+
+  // 서버 확인 (8880 직접 먼저, 그 다음 Companion)
+  await qwenEnsureLocalServer();
+  await qwenCheckServer();
 
   var total = qwenScenes.length;
   var lang = document.getElementById('qwen-language').value;
@@ -15378,17 +15913,32 @@ async function qwenGenerateAll() {
     if (progLabel) progLabel.textContent = '장면 ' + (i + 1) + ' / ' + total;
 
     try {
-      var res = await fetch(qwenURL() + '/v1/audio/speech', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'tts-1',
-          input: scene.text,
-          voice: qwenResolveVoice(qwenSelectedVoice),
-          language: lang,
-          response_format: fmt
-        })
-      });
+      var _edgeSet = ['SunHi','InJoon','HyunSu','Aria','Guy'];
+      var _isEdge = _edgeSet.includes(qwenSelectedVoice);
+      var res;
+      if (_isEdge) {
+        res = await fetch((window.SS_SERVER || '') + '/api/edge-tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: scene.text,
+            voice: qwenSelectedVoice,
+            speed: parseFloat(document.getElementById('qwen-speed').value) || 1.0
+          })
+        });
+      } else {
+        res = await fetch(QWEN_SERVER + '/v1/audio/speech', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'tts-1',
+            input: scene.text,
+            voice: qwenSelectedVoice,
+            language: lang,
+            response_format: fmt
+          })
+        });
+      }
       if (!res.ok) { var errData = await res.json(); throw new Error(errData.detail?.message || '생성 실패'); }
       var blob = await res.blob();
       qwenScenes[i].blob = blob;
@@ -15459,7 +16009,8 @@ async function qwenDownload() {
   var ext = fmt === 'mp3' ? 'mp3' : 'wav';
 
   if (qwenFinalBlobs.length === 1) {
-    var url = URL.createObjectURL(qwenFinalBlobs[0]);
+    var dlBlob = await blobWithReverb(qwenFinalBlobs[0]);
+    var url = URL.createObjectURL(dlBlob);
     var a = document.createElement('a'); a.href = url; a.download = 'qwen_tts.' + ext; a.click();
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
     return;
@@ -15482,7 +16033,10 @@ async function qwenDownload() {
       offset += b.length;
     });
     _ctx2.close();
-    var wav = audioBufferToWav(merged2);
+    var finalBuf = merged2;
+    var reverbOn = document.getElementById('qwen-reverb-on') && document.getElementById('qwen-reverb-on').checked;
+    if (reverbOn) { statusEl.textContent = '리버브 적용 중...'; finalBuf = await applyReverbToBuffer(merged2); }
+    var wav = audioBufferToWav(finalBuf);
     var mergedBlob = new Blob([wav], { type: 'audio/wav' });
     var url = URL.createObjectURL(mergedBlob);
     var a = document.createElement('a'); a.href = url; a.download = 'qwen_tts_merged.wav'; a.click();
@@ -16576,6 +17130,217 @@ async function _checkGrokServerReady() {
   }
 }
 
+// ── Grok 전체 영상 변환 ───────────────────────────────────────────────────
+var _grokVideoAllRunning = false;
+
+function grokVideoAllStop() {
+  _grokVideoAllRunning = false;
+  document.getElementById('grokVideoAllStopBtn').style.display = 'none';
+  document.getElementById('grokVideoAllBtn').style.display = '';
+  document.getElementById('studioStatus').textContent = '⏹ 전체 영상 변환 중지됨';
+}
+
+async function grokProxyVideoGenAll() {
+  syncAllScenes();
+  var targets = scenes.filter(function(s){ return s.imgDataUrl && !s.grokVideo && !s.grokVideoConverting; });
+  if (!targets.length) { alert('변환할 이미지가 있는 장면이 없습니다.'); return; }
+
+  var conc = parseInt(document.getElementById('s-conc').value) || 2;
+  _grokVideoAllRunning = true;
+  document.getElementById('grokVideoAllBtn').style.display = 'none';
+  document.getElementById('grokVideoAllStopBtn').style.display = '';
+
+  var statusEl = document.getElementById('studioStatus');
+  var total = targets.length;
+  var done = 0;
+
+  // 동시 처리: conc개씩 묶어서 순차 실행
+  for (var i = 0; i < targets.length; i += conc) {
+    if (!_grokVideoAllRunning) break;
+    var batch = targets.slice(i, i + conc);
+    if (statusEl) statusEl.textContent = '🎬 전체 영상 변환 중... ' + done + '/' + total;
+    await Promise.all(batch.map(function(s) {
+      return grokProxyVideoGen(s.id).then(function(){ done++; });
+    }));
+  }
+
+  _grokVideoAllRunning = false;
+  document.getElementById('grokVideoAllStopBtn').style.display = 'none';
+  document.getElementById('grokVideoAllBtn').style.display = '';
+  if (statusEl) statusEl.textContent = '✅ 전체 영상 변환 완료! (' + done + '/' + total + ')';
+}
+
+// ── Grok 이미지 편집 ─────────────────────────────────────────────────────
+function grokEditToggle(id) {
+  var box = document.getElementById('grok-edit-box-' + id);
+  if (!box) return;
+  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+  if (box.style.display === 'flex') {
+    var ta = document.getElementById('grok-edit-prompt-' + id);
+    if (ta) setTimeout(function(){ ta.focus(); }, 50);
+  }
+}
+
+async function grokEditApply(id) {
+  syncAllScenes();
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s || !s.imgDataUrl) { alert('이미지가 없습니다.'); return; }
+  var ta = document.getElementById('grok-edit-prompt-' + id);
+  var prompt = ta ? ta.value.trim() : '';
+  if (!prompt) { alert('편집 내용을 입력하세요.'); return; }
+
+  // 편집창 닫고 로딩 표시
+  var box = document.getElementById('grok-edit-box-' + id);
+  if (box) box.style.display = 'none';
+  var origImg = s.imgDataUrl;
+  s.imgStatus = 'loading';
+  renderSceneList();
+
+  try {
+    // 이미지 공개 URL 획득
+    var imgPublicUrl;
+    if (s.imgDataUrl.startsWith('/download-image/') || s.imgDataUrl.startsWith('http')) {
+      imgPublicUrl = s.imgDataUrl.startsWith('http') ? s.imgDataUrl : window.SS_SERVER + s.imgDataUrl;
+    } else {
+      var uploadRes = await fetch(window.SS_SERVER + '/api/save-image', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({image: s.imgDataUrl})
+      });
+      var uploadData = await uploadRes.json();
+      imgPublicUrl = window.SS_SERVER + uploadData.url;
+    }
+
+    var res = await fetch(window.GROK_PROXY_URL + '/v1/images/edits', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ' + window.GROK_PROXY_KEY},
+      body: JSON.stringify({ model: 'grok-imagine-image', prompt: prompt, image_url: imgPublicUrl, n: 1 })
+    });
+    if (!res.ok) { var err = await res.json(); throw new Error(err.error || err.message || '편집 실패'); }
+    var data = await res.json();
+    var newUrl = data.data && data.data[0] && (data.data[0].url || data.data[0].b64_json);
+    if (!newUrl) throw new Error('결과 없음: ' + JSON.stringify(data));
+    if (data.data[0].b64_json) newUrl = 'data:image/png;base64,' + data.data[0].b64_json;
+
+    s.imgDataUrl = newUrl;
+    s.imgStatus = 'done';
+    renderSceneList();
+    var statusEl = document.getElementById('studioStatus');
+    if (statusEl) statusEl.textContent = '✅ Grok 이미지 편집 완료! (씬 ' + (scenes.findIndex(function(x){return x.id===id;})+1) + ')';
+  } catch(e) {
+    s.imgDataUrl = origImg;
+    s.imgStatus = 'done';
+    renderSceneList();
+    alert('Grok 편집 실패: ' + e.message);
+  }
+}
+
+// ── Grok 프록시 직접 호출 (이미지 → 영상) ──────────────────────────────
+async function grokProxyVideoGen(id) {
+  // syncAllScenes 전에 먼저 프롬프트 읽기 (sync 후 DOM 교체되면 값 사라짐)
+  var _vpEl = document.getElementById('vprompt-' + id);
+  var _promptBeforeSync = _vpEl ? _vpEl.value.trim() : '';
+  syncAllScenes();
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s || !s.imgDataUrl) { alert('이미지가 없습니다. 먼저 이미지를 생성하세요.'); return; }
+  var prompt = _promptBeforeSync || s.videoPrompt || s.script || '';
+  if (!prompt) { prompt = 'Cinematic motion, smooth camera movement'; }
+
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '🎬 Grok 영상 변환 중... 프롬프트: ' + prompt.slice(0, 60) + (prompt.length > 60 ? '...' : '');
+  s.grokVideoConverting = true;
+  s.grokVideoProgress = 0;
+  renderSceneList();
+
+  // 이미지 base64 추출
+  async function toBase64(src) {
+    if (!src) return null;
+    if (src.startsWith('data:')) return src.split(',')[1];
+    var resp = await fetch(src);
+    var blob = await resp.blob();
+    return new Promise(function(resolve) {
+      var r = new FileReader();
+      r.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  try {
+    var imgB64 = await toBase64(s.imgDataUrl);
+    // 이미지를 URL로 서버에 업로드해서 공개 URL 획득
+    var imgPublicUrl = null;
+    if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
+      imgPublicUrl = window.SS_SERVER + s.imgDataUrl;
+    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('http')) {
+      imgPublicUrl = s.imgDataUrl;
+    } else {
+      // base64 → 서버에 업로드
+      var uploadRes = await fetch(window.SS_SERVER + '/api/save-image', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({image: s.imgDataUrl})
+      });
+      var uploadData = await uploadRes.json();
+      imgPublicUrl = window.SS_SERVER + uploadData.url;
+    }
+
+    // 1. 영상 생성 요청 (/v1/videos/generations + image)
+    // xAI는 image_url 대신 base64 image 직접 전송 필요
+    var imgMime = 'image/jpeg';
+    if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
+      var mMatch = s.imgDataUrl.match(/^data:([^;]+);/);
+      if (mMatch) imgMime = mMatch[1];
+    }
+    var videoBody = { model: 'grok-imagine-video', prompt: prompt };
+    if (imgB64) {
+      videoBody.image = imgB64;
+      videoBody.image_type = imgMime.split('/')[1] || 'jpeg';
+    } else if (imgPublicUrl) {
+      videoBody.image_url = imgPublicUrl;
+    }
+    var res = await fetch(window.GROK_PROXY_URL + '/v1/videos/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY },
+      body: JSON.stringify(videoBody)
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error(e.error || e.message || '요청 실패'); }
+    var job = await res.json();
+    var jobId = job.request_id || job.id;
+    if (!jobId) throw new Error('job id 없음: ' + JSON.stringify(job));
+
+    // 2. 폴링 (완료까지 대기)
+    var videoUrl = null;
+    for (var i = 0; i < 60; i++) {
+      await new Promise(function(r){ setTimeout(r, 5000); });
+      var poll = await fetch(window.GROK_PROXY_URL + '/v1/videos/' + jobId, {
+        headers: { 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY }
+      });
+      var pdata = await poll.json();
+      if (pdata.status === 'done') {
+        videoUrl = pdata.video && pdata.video.url;
+        break;
+      }
+      if (pdata.status === 'failed') throw new Error('Grok 영상 생성 실패');
+      s.grokVideoProgress = pdata.progress || 0;
+      renderSceneList();
+      if (statusEl) statusEl.textContent = '🎬 Grok 영상 변환 중... ' + (pdata.progress || 0) + '%';
+    }
+    if (!videoUrl) throw new Error('타임아웃 — Grok 응답 없음');
+
+    // 3. 씬에 영상 적용
+    s.imgDataUrl = videoUrl;
+    s.grokVideo = true;
+    s.grokVideoConverting = false;
+    s.grokVideoProgress = 100;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '✅ Grok 영상 완료! (씬 ' + (scenes.findIndex(function(x){return x.id===id;})+1) + ')';
+  } catch(e) {
+    s.grokVideoConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '❌ Grok 영상 실패: ' + e.message;
+    alert('Grok 영상 생성 실패: ' + e.message);
+  }
+}
+
 async function grokSendOneFromCard(id) {
   syncAllScenes();
   var s = scenes.find(function(x){ return x.id === id; });
@@ -17546,30 +18311,24 @@ async function retryFailedPrompts() {
     <button onclick="ssDoLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">입장</button>
   </div>
 </div>
-
-<!-- 로그아웃 버튼 (우하단) -->
-<div id="ss-user-bar" style="display:none;position:fixed;bottom:20px;right:20px;z-index:99998;align-items:center;gap:8px;background:#1a1a2e;border:1px solid #3b3b55;border-radius:10px;padding:6px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
-  <span id="ss-user-email" style="font-size:11px;color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-  <button onclick="ssLogout()" style="font-size:11px;padding:3px 10px;background:#2d1f1f;border:1px solid #7f1d1d;color:#f87171;border-radius:6px;cursor:pointer;font-weight:600">로그아웃</button>
-</div>
-
 <script>
 window.SS_MASTER_EMAIL = 'master@gmail.com';
-window.ssLogout = function() {
-  localStorage.removeItem('ss_auth');
-  localStorage.removeItem('ss_auth_email');
-  location.reload();
-};
 window.ssMasterUIInit = function() {
   var email = localStorage.getItem('ss_auth_email') || '';
   var isMaster = (email === window.SS_MASTER_EMAIL);
   document.querySelectorAll('.ss-master-only').forEach(function(el) {
     el.style.display = isMaster ? '' : 'none';
   });
-  var bar = document.getElementById('ss-user-bar');
-  var emailEl = document.getElementById('ss-user-email');
-  if (bar) { bar.style.display = 'flex'; }
-  if (emailEl) { emailEl.textContent = email; }
+  var label = document.getElementById('ss-user-label');
+  var logoutBtn = document.getElementById('ss-logout-btn');
+  if (label) { label.textContent = email.split('@')[0]; label.style.display = ''; }
+  if (logoutBtn) logoutBtn.style.display = '';
+};
+
+window.ssLogout = function() {
+  localStorage.removeItem('ss_auth');
+  localStorage.removeItem('ss_auth_email');
+  location.reload();
 };
 
 var masterBlobs = [];
@@ -17626,21 +18385,20 @@ window.masterGenerateAll = async function() {
         body: JSON.stringify({
           model: 'tts-1',
           input: scene.text,
-          voice: qwenResolveVoice(qwenSelectedVoice),
+          voice: qwenSelectedVoice,
           language: lang,
-          response_format: fmt
+          response_format: fmt,
+          speed: parseFloat(document.getElementById('qwen-speed').value) || 1.0
         })
       });
       if (!res.ok) { var e = await res.json(); throw new Error(e.detail?.message || '생성 실패'); }
-      var _blob = await res.blob();
-      masterBlobs.push(_blob);
-      qwenScenes[i].blob = _blob;
+      var blob = await res.blob();
+      masterBlobs.push(blob);
+      qwenScenes[i].blob = blob;
       qwenScenes[i].status = 'done';
       qwenUpdateSceneRow(i);
     } catch(e) {
       masterBlobs.push(null);
-      qwenScenes[i].status = 'error';
-      qwenUpdateSceneRow(i);
       statusEl.textContent = '❌ ' + e.message;
     }
   }
@@ -17649,20 +18407,7 @@ window.masterGenerateAll = async function() {
   genBtn.disabled = false; stopBtn.style.display = 'none';
   var ok = masterBlobs.filter(function(b){ return b; }).length;
   statusEl.textContent = '✓ ' + ok + '/' + total + ' 완료';
-  if (ok > 0) {
-    dlBtn.disabled = false;
-    // AudioBuffer 디코딩해서 video export에 연동
-    try {
-      var _actx = new (window.AudioContext || window.webkitAudioContext)();
-      window.masterAudioBuffers = new Array(masterBlobs.length).fill(null);
-      for (var _j = 0; _j < masterBlobs.length; _j++) {
-        if (masterBlobs[_j]) {
-          var _ab = await masterBlobs[_j].arrayBuffer();
-          window.masterAudioBuffers[_j] = await _actx.decodeAudioData(_ab);
-        }
-      }
-    } catch(_e) { window.masterAudioBuffers = []; }
-  }
+  if (ok > 0) dlBtn.disabled = false;
   masterRunning = false;
 };
 
@@ -17675,13 +18420,12 @@ window.masterDownload = async function() {
     var a = document.createElement('a'); a.href = URL.createObjectURL(blobs[0]);
     a.download = 'master_tts.wav'; a.click(); return;
   }
-  // 여러 개: 순차 다운로드
+  // 여러 개: zip으로
   for (var i = 0; i < masterBlobs.length; i++) {
     if (!masterBlobs[i]) continue;
     var a2 = document.createElement('a'); a2.href = URL.createObjectURL(masterBlobs[i]);
-    a2.download = 'scene_' + (i+1) + '.wav';
-    document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
-    await new Promise(function(r){ setTimeout(r, 1000); });
+    a2.download = 'scene_' + (i+1) + '.wav'; a2.click();
+    await new Promise(function(r){ setTimeout(r, 200); });
   }
 };
 
@@ -17727,6 +18471,39 @@ window.ssDoLogin = async function() {
   <button onclick="document.getElementById('ss-cloud-notice').style.display='none'" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:14px;padding:0 4px">×</button>
 </div>
 
+<!-- Companion 미감지 시 설치 안내 팝업 (CapCut 내보내기 전용) -->
+<div id="ss-companion-banner" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;align-items:center;justify-content:center;flex-direction:column;">
+  <div style="background:#1a1a2e;border:1px solid #059669;border-radius:16px;padding:40px 48px;max-width:500px;width:90%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,0.5)">
+    <div style="font-size:48px;margin-bottom:16px">✂️</div>
+    <h2 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 10px">ScriptStudio Companion 필요</h2>
+    <p style="color:#a0aec0;font-size:14px;line-height:1.7;margin:0 0 24px">
+      CapCut 자동 내보내기를 사용하려면<br>
+      <b style="color:#34d399">ScriptStudio Companion</b>을 설치해야 합니다.<br>
+      <span style="color:#6b7280;font-size:12px">백그라운드에서 조용히 실행되며, CapCut에 자동으로 프로젝트를 추가합니다.</span>
+    </p>
+    <a href="https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudioCompanion.exe"
+       download
+       style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#0891b2);color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.4);margin-bottom:16px">
+      ⬇️ Companion 다운로드 (8MB)
+    </a>
+    <div style="color:#6b7280;font-size:12px;margin-bottom:20px;line-height:1.6">
+      1. 위 버튼으로 <b style="color:#9ca3af">ScriptStudioCompanion.exe</b> 다운로드<br>
+      2. 실행 — Windows 보안 경고 시 "추가 정보 → 실행" 클릭<br>
+      3. 아래 "설치 완료 후 다시 시도" 클릭
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button onclick="(async function(){var ok=await _ccCheckCompanion();if(ok){document.getElementById('ss-companion-banner').style.display='none';videoExportCapCut();}else{alert('Companion이 아직 실행되지 않았습니다. 실행 후 다시 시도하세요.');}})();"
+        style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">
+        ✓ 설치 완료 후 다시 시도
+      </button>
+      <button onclick="document.getElementById('ss-companion-banner').style.display='none'"
+        style="background:none;border:1px solid #374151;color:#9ca3af;font-size:13px;padding:10px 20px;border-radius:8px;cursor:pointer">
+        취소
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- 서버 미감지 시 설치 안내 배너 (로컬 AI 기능용) -->
 <div id="ss-install-banner" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;align-items:center;justify-content:center;flex-direction:column;">
   <div style="background:#1a1a2e;border:1px solid #4f46e5;border-radius:16px;padding:40px 48px;max-width:480px;width:90%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,0.5)">
@@ -17756,7 +18533,7 @@ window.ssDoLogin = async function() {
 
 <script>
 (function() {
-  var SS_AI_URL = 'https://your-r2-url/ScriptStudio_AI_Setup.exe';
+  var SS_AI_URL = 'https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudio_AI_Setup.bat';
   var RAILWAY_URL = 'https://web-production-11acd.up.railway.app';
 
   function ssHideBanner() {
@@ -17787,10 +18564,195 @@ window.ssDoLogin = async function() {
   };
 
   document.addEventListener('DOMContentLoaded', function() {
+    // Companion 필수 게이트 체크
+    (async function() {
+      var gate = document.getElementById('ss-mandatory-gate');
+      if (!gate) return;
+      // 24시간 보지 않기 체크
+      var dismissed = localStorage.getItem('ss_gate_dismissed');
+      if (dismissed && (Date.now() - parseInt(dismissed)) < 86400000) {
+        gate.style.display = 'none';
+        return;
+      }
+      gate.style.display = 'flex';
+      document.getElementById('ss-gate-checking').style.display = 'block';
+      document.getElementById('ss-gate-no-companion').style.display = 'none';
+      document.getElementById('ss-gate-has-companion').style.display = 'none';
+      var LATEST_COMPANION_VERSION = '1.2.5';
+      var ok = await _ccCheckCompanion();
+      document.getElementById('ss-gate-checking').style.display = 'none';
+      if (ok) {
+        document.getElementById('ss-gate-has-companion').style.display = 'block';
+        // 버전 체크 → 업데이트 배너
+        try {
+          var vRes = await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(2000) });
+          var vData = await vRes.json();
+          var installed = vData.version || '1.0.0';
+          if (installed !== LATEST_COMPANION_VERSION) {
+            var banner = document.getElementById('ss-companion-update-banner');
+            var desc = document.getElementById('ss-companion-update-desc');
+            if (banner) banner.style.display = 'flex';
+            if (desc) desc.textContent = '설치됨: v' + installed + ' → 최신: v' + LATEST_COMPANION_VERSION;
+          }
+        } catch(e) {}
+        // 로컬 AI 설치 여부 체크
+        try {
+          var aiRes = await fetch('http://127.0.0.1:19283/check-ai', { signal: AbortSignal.timeout(2000) });
+          var aiData = await aiRes.json();
+          if (aiData.installed) {
+            var aiRow = document.getElementById('ss-gate-ai-row');
+            if (aiRow) aiRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤖</div><div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#36d68a;">로컬 AI 설치 완료</div><div style="font-size:12px;color:#36d68a;margin-top:2px;opacity:0.7;">Qwen3 TTS · DeepSeek · Ollama</div></div><span style="font-size:20px;">✅</span>';
+          }
+        } catch(e) {}
+      } else {
+        document.getElementById('ss-gate-no-companion').style.display = 'block';
+      }
+    })();
+
     setTimeout(window.ssCheckServer, 1500);
+    // AI 버튼 href 설정
+    var aiBtn = document.getElementById('ss-ai-btn');
+    if (aiBtn) aiBtn.href = SS_AI_URL;
+    // Qwen3 TTS 기본 목소리 즉시 표시
+    setTimeout(function() {
+      if (typeof qwenLoadVoices === 'function') qwenLoadVoices();
+    }, 500);
+    // Railway 서버 keep-alive: 5분마다 핑해서 콜드스타트 방지
+    setInterval(function() {
+      fetch(RAILWAY_URL + '/api/status', { signal: AbortSignal.timeout(5000) }).catch(function(){});
+    }, 5 * 60 * 1000);
   });
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════
+     MANDATORY COMPANION GATE
+══════════════════════════════════════════════════════ -->
+<div id="ss-mandatory-gate" style="display:none;position:fixed;inset:0;z-index:999999;background:#08080c;overflow-y:auto;align-items:center;justify-content:center;flex-direction:column;font-family:'Noto Sans KR',sans-serif;">
+
+  <!-- 배경 orbs -->
+  <div style="position:fixed;inset:0;pointer-events:none;overflow:hidden;">
+    <div style="position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(124,92,252,0.12) 0%,transparent 70%);top:-100px;left:-100px;"></div>
+    <div style="position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(64,212,245,0.08) 0%,transparent 70%);bottom:-50px;right:-50px;"></div>
+  </div>
+
+  <!-- 로딩 상태 -->
+  <div id="ss-gate-checking" style="display:none;text-align:center;color:#8080aa;">
+    <div style="width:40px;height:40px;border:3px solid #2e2e44;border-top-color:#7c5cfc;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+    <div style="font-size:14px;">Companion 확인 중...</div>
+  </div>
+
+  <!-- ── 미설치 뷰: Companion 없음 ── -->
+  <div id="ss-gate-no-companion" style="display:none;width:100%;max-width:680px;padding:24px;position:relative;z-index:1;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="width:44px;height:44px;background:linear-gradient(135deg,#7c5cfc,#40d4f5);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;">⚡</div>
+        <span style="font-size:26px;font-weight:800;background:linear-gradient(135deg,#fff,#b09fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ClipFlow</span>
+      </div>
+      <h1 style="font-size:20px;font-weight:700;color:#f4f4fc;margin:0 0 8px;">시작하기 전에 딱 하나만 설치하세요</h1>
+      <p style="font-size:13px;color:#8080aa;margin:0;">ClipFlow는 PC에 설치된 Companion 앱을 통해 동작합니다. 한 번만 설치하면 이후 자동 실행됩니다.</p>
+    </div>
+
+    <!-- 다운로드 버튼 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup.bat" download
+         style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;background:linear-gradient(135deg,rgba(124,92,252,0.15),rgba(64,212,245,0.08));border:1px solid rgba(124,92,252,0.4);border-radius:16px;text-decoration:none;position:relative;transition:all 0.2s;"
+         onmouseover="this.style.borderColor='rgba(124,92,252,0.8)';this.style.transform='translateY(-2px)';"
+         onmouseout="this.style.borderColor='rgba(124,92,252,0.4)';this.style.transform='none';">
+        <div style="width:44px;height:44px;background:linear-gradient(135deg,#7c5cfc,#5a3fd4);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">⬇</div>
+        <div style="text-align:center;">
+          <div style="font-size:14px;font-weight:700;color:#f4f4fc;margin-bottom:3px;">Companion 설치</div>
+          <div style="font-size:11px;color:#8080aa;">ScriptStudio_Companion_Setup.bat</div>
+        </div>
+        <div style="position:absolute;top:8px;right:8px;background:rgba(124,92,252,0.2);border:1px solid rgba(124,92,252,0.4);border-radius:5px;padding:1px 7px;font-size:10px;color:#b09fff;font-weight:600;">필수</div>
+      </a>
+      <a href="https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudio_AI_Setup.bat" download
+         style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;background:linear-gradient(135deg,rgba(54,214,138,0.08),rgba(64,212,245,0.05));border:1px solid rgba(54,214,138,0.25);border-radius:16px;text-decoration:none;position:relative;transition:all 0.2s;"
+         onmouseover="this.style.borderColor='rgba(54,214,138,0.6)';this.style.transform='translateY(-2px)';"
+         onmouseout="this.style.borderColor='rgba(54,214,138,0.25)';this.style.transform='none';">
+        <div style="width:44px;height:44px;background:linear-gradient(135deg,#36d68a,#0891b2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+        <div style="text-align:center;">
+          <div style="font-size:14px;font-weight:700;color:#f4f4fc;margin-bottom:3px;">로컬 AI 설치</div>
+          <div style="font-size:11px;color:#8080aa;">Qwen TTS · DeepSeek · Ollama</div>
+        </div>
+        <div style="position:absolute;top:8px;right:8px;background:rgba(54,214,138,0.12);border:1px solid rgba(54,214,138,0.3);border-radius:5px;padding:1px 7px;font-size:10px;color:#36d68a;font-weight:600;">선택</div>
+      </a>
+    </div>
+
+    <div style="font-size:12px;color:#6060aa;text-align:center;margin-bottom:20px;">
+      ① Companion 설치 클릭 → bat 파일 더블클릭 → CMD 자동 설치 완료 → 아래 버튼 클릭
+    </div>
+    <div style="text-align:center;">
+      <button onclick="(async function(){var ok=await _ccCheckCompanion();if(ok){document.getElementById('ss-gate-no-companion').style.display='none';document.getElementById('ss-gate-has-companion').style.display='block';}else{alert('Companion이 아직 실행되지 않았습니다.\n설치 후 다시 시도해주세요.');}})();"
+        style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;border:none;padding:13px 44px;border-radius:12px;cursor:pointer;font-size:15px;font-weight:700;box-shadow:0 4px 24px rgba(124,92,252,0.4);">
+        ✓ Companion 설치 완료 — 확인
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 설치 완료 뷰: Companion 있음 ── -->
+  <div id="ss-gate-has-companion" style="display:none;width:100%;max-width:560px;padding:24px;position:relative;z-index:1;">
+    <!-- 업데이트 배너 (버전 구버전일 때만 표시) -->
+    <div id="ss-companion-update-banner" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:20px;">🔔</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;">Companion 업데이트 있음</div>
+        <div style="font-size:11px;color:#a08030;margin-top:2px;" id="ss-companion-update-desc"></div>
+      </div>
+      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup.bat" download
+         style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
+        ⬇ 업데이트
+      </a>
+    </div>
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="width:44px;height:44px;background:linear-gradient(135deg,#7c5cfc,#40d4f5);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;">⚡</div>
+        <span style="font-size:26px;font-weight:800;background:linear-gradient(135deg,#fff,#b09fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ClipFlow</span>
+      </div>
+    </div>
+
+    <!-- 설치 상태 -->
+    <div style="background:#0f0f16;border:1px solid #2e2e44;border-radius:14px;padding:20px;margin-bottom:20px;">
+      <!-- Companion 완료 -->
+      <div style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(54,214,138,0.06);border:1px solid rgba(54,214,138,0.2);border-radius:10px;margin-bottom:12px;">
+        <div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#36d68a;">Companion 설치 완료</div>
+          <div style="font-size:12px;color:#6080a0;margin-top:2px;">백그라운드에서 실행 중 · PC 시작 시 자동 실행</div>
+        </div>
+      </div>
+      <!-- 로컬 AI 선택 -->
+      <div id="ss-gate-ai-row" style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(124,92,252,0.05);border:1px solid rgba(124,92,252,0.15);border-radius:10px;">
+        <div style="width:36px;height:36px;background:rgba(124,92,252,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤖</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;color:#b09fff;">로컬 AI 추가 설치 <span style="font-size:11px;color:#6060aa;font-weight:400;">(선택)</span></div>
+          <div style="font-size:12px;color:#6060aa;margin-top:2px;">Qwen3 TTS · DeepSeek · Ollama — 약 15~20GB</div>
+        </div>
+        <a href="https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudio_AI_Setup.bat" download
+           style="background:linear-gradient(135deg,#36d68a,#0891b2);color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
+          ⬇ 다운로드
+        </a>
+      </div>
+    </div>
+
+    <!-- 24시간 보지 않기 + 시작 버튼 -->
+    <div style="text-align:center;">
+      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#6060aa;margin-bottom:16px;">
+        <input type="checkbox" id="ss-gate-24h" style="width:15px;height:15px;accent-color:#7c5cfc;cursor:pointer;">
+        24시간 이 창 보지 않기
+      </label><br>
+      <button onclick="(function(){var cb=document.getElementById('ss-gate-24h');if(cb&&cb.checked){localStorage.setItem('ss_gate_dismissed',Date.now().toString());}document.getElementById('ss-mandatory-gate').style.display='none';})()"
+        style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;border:none;padding:13px 52px;border-radius:12px;cursor:pointer;font-size:15px;font-weight:700;box-shadow:0 4px 24px rgba(124,92,252,0.4);">
+        시작하기 →
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 </body>
 </html>

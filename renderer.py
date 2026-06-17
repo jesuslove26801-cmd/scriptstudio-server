@@ -592,15 +592,12 @@ async def render_video(req: Any) -> str:
             ]
             logger.info("FFmpeg 동영상 클립 명령어: " + " ".join(str(c) for c in cmd))
             await run_ffmpeg(cmd)
-        elif getattr(req, 'use_zoompan', True):
+        elif getattr(req, 'use_zoompan', True) and sys.platform == "win32":
+            # 줌/패닝: Windows 로컬에서만 (OpenCV, 메모리 충분할 때)
             zoom_speed_val = getattr(req, 'zoom_speed', 1.08)
             scene_zoom_type = getattr(scene, 'zoom_type', None) or getattr(scene, 'motionEffect', None) or getattr(req, 'global_zoom_type', 'zoom_in')
-            # Linux(Railway)에서는 메모리 절약을 위해 FFmpeg zoompan 필터 사용
-            if sys.platform != "win32":
-                await run_ffmpeg(await _render_zoom_ffmpeg(img_path, w_int, h_int, dur, fps_int, audio_path, ass_path_escaped, clip_path, show_subtitle, zoom_speed_val, scene_zoom_type))
-            else:
-                loop = asyncio.get_running_loop()
-                await loop.run_in_executor(None, _render_zoom_pipe, img_path, w_int, h_int, dur, fps_int, audio_path, ass_path_escaped, clip_path, show_subtitle, zoom_speed_val, scene_zoom_type)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, _render_zoom_pipe, img_path, w_int, h_int, dur, fps_int, audio_path, ass_path_escaped, clip_path, show_subtitle, zoom_speed_val, scene_zoom_type)
         else:
             vf_parts = [
                 f"scale={w_int}:{h_int}:force_original_aspect_ratio=increase:flags=lanczos",
