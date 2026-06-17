@@ -17280,8 +17280,16 @@ async function grokProxyVideoGen(id) {
         body: JSON.stringify({image: s.imgDataUrl})
       });
       var uploadData = await uploadRes.json();
-      imgPublicUrl = window.SS_SERVER + uploadData.url;
+      if (uploadData.url) {
+        imgPublicUrl = window.SS_SERVER + uploadData.url;
+      } else {
+        console.error('[Grok Video] 이미지 업로드 실패:', uploadData);
+        throw new Error('이미지 업로드 실패: ' + (uploadData.message || JSON.stringify(uploadData)));
+      }
     }
+    console.log('[Grok Video] imgDataUrl 타입:', s.imgDataUrl ? s.imgDataUrl.slice(0,50) : 'null');
+    console.log('[Grok Video] imgPublicUrl:', imgPublicUrl);
+    if (!imgPublicUrl) throw new Error('이미지 URL을 만들 수 없습니다.');
 
     // 1. 영상 생성 요청 (/v1/videos/generations + image_url)
     var res = await fetch(window.GROK_PROXY_URL + '/v1/videos/generations', {
