@@ -8674,6 +8674,9 @@ function vsRender() {
   container.querySelectorAll('img[data-src]').forEach(function(img) { getImgObserver().observe(img); });
 
   document.getElementById('sceneCountBadge').textContent = scenes.length + ' 장면';
+
+  // 동적 렌더링 후 마스터 UI 재적용
+  if (typeof ssMasterUIInit === 'function') ssMasterUIInit();
 }
 
 function renderSceneList(scrollToBottom) {
