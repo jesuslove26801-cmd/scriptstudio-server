@@ -8921,9 +8921,9 @@ async function buildPromptForScene(scene) {
   // 내 스타일 우선 모드: 채널 기본 스타일 무시, 입력 스타일이 핵심 지시
   var styleInstruction = '';
   if (styleOverride && style) {
-    styleInstruction = 'PRIMARY STYLE DIRECTIVE (OVERRIDE CHANNEL DEFAULT — use this style above all else): ' + style + '\n\n';
+    styleInstruction = 'PRIMARY STYLE DIRECTIVE (OVERRIDE CHANNEL DEFAULT — use this style above all else): ' + style + '\n\nIMPORTANT ERA RULE: Apply ONLY the art technique, rendering style, and color palette from the above directive. If the script describes a modern city (New York, Paris, Seoul offices, etc.) or foreign setting, DO NOT include historical Korean clothing (hanbok, gat), Joseon architecture, or period-specific elements from the style directive. Match the era of the script first, style second.\n\n';
   } else if (style) {
-    styleInstruction = 'ADDITIONAL STYLE NOTES: ' + style + '\n\n';
+    styleInstruction = 'ADDITIONAL STYLE NOTES (art technique and color palette only — era and setting must match the script): ' + style + '\n\nERA OVERRIDE RULE: If style keywords conflict with the script\'s era (e.g., "Joseon dynasty" style on a modern NYC scene), ignore the era-specific keywords and keep only the rendering technique (illustration style, color palette, line art, etc.).\n\n';
   }
 
   // 앞뒤 장면 컨텍스트 (시각적 연속성)
