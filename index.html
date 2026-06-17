@@ -17267,29 +17267,17 @@ async function grokProxyVideoGen(id) {
   try {
     var imgB64 = await toBase64(s.imgDataUrl);
     // 이미지를 URL로 서버에 업로드해서 공개 URL 획득
+    // data URI 직접 전달 (업로드 없이 base64 그대로)
     var imgPublicUrl = null;
-    if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
+    if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
+      imgPublicUrl = s.imgDataUrl; // xAI는 data URI 지원
+    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
       imgPublicUrl = window.SS_SERVER + s.imgDataUrl;
     } else if (s.imgDataUrl && s.imgDataUrl.startsWith('http')) {
       imgPublicUrl = s.imgDataUrl;
-    } else {
-      // base64 → 서버에 업로드
-      var uploadRes = await fetch(window.SS_SERVER + '/api/save-image', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({image: s.imgDataUrl})
-      });
-      var uploadData = await uploadRes.json();
-      if (uploadData.url) {
-        imgPublicUrl = window.SS_SERVER + uploadData.url;
-      } else {
-        console.error('[Grok Video] 이미지 업로드 실패:', uploadData);
-        throw new Error('이미지 업로드 실패: ' + (uploadData.message || JSON.stringify(uploadData)));
-      }
     }
-    console.log('[Grok Video] imgDataUrl 타입:', s.imgDataUrl ? s.imgDataUrl.slice(0,50) : 'null');
-    console.log('[Grok Video] imgPublicUrl:', imgPublicUrl);
-    if (!imgPublicUrl) throw new Error('이미지 URL을 만들 수 없습니다.');
+    console.log('[Grok Video] imgPublicUrl 타입:', imgPublicUrl ? imgPublicUrl.slice(0,60) : 'null');
+    if (!imgPublicUrl) throw new Error('이미지가 없습니다.');
 
     // 1. 영상 생성 요청 (/v1/videos/generations + image_url)
     var res = await fetch(window.GROK_PROXY_URL + '/v1/videos/generations', {
