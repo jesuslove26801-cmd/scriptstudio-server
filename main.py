@@ -1282,8 +1282,15 @@ async def upload_audio(file: UploadFile = File(...)):
 async def save_image(request: Request):
     """base64 이미지를 outputs 폴더에 저장 후 다운로드 URL 반환"""
     data = await request.json()
-    b64 = data.get("data", "")
+    b64 = data.get("data", "") or data.get("image", "")
+    # data URL 형식(data:image/png;base64,xxx)이면 base64 부분만 추출
+    if b64 and "," in b64:
+        b64 = b64.split(",", 1)[1]
     ext = data.get("ext", "png")
+    if not ext or ext == "png":
+        raw = data.get("image", data.get("data", ""))
+        if "jpeg" in raw or "jpg" in raw:
+            ext = "jpg"
     filename = data.get("filename", f"image_{int(time.time())}.{ext}")
     if not b64:
         return JSONResponse(status_code=400, content={"status": "error", "message": "데이터 없음"})
