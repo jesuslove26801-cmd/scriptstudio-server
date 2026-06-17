@@ -17283,24 +17283,11 @@ async function grokProxyVideoGen(id) {
       imgPublicUrl = window.SS_SERVER + uploadData.url;
     }
 
-    // 1. 영상 생성 요청 (/v1/videos/generations + image)
-    // xAI는 image_url 대신 base64 image 직접 전송 필요
-    var imgMime = 'image/jpeg';
-    if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
-      var mMatch = s.imgDataUrl.match(/^data:([^;]+);/);
-      if (mMatch) imgMime = mMatch[1];
-    }
-    var videoBody = { model: 'grok-imagine-video', prompt: prompt };
-    if (imgB64) {
-      videoBody.image = imgB64;
-      videoBody.image_type = imgMime.split('/')[1] || 'jpeg';
-    } else if (imgPublicUrl) {
-      videoBody.image_url = imgPublicUrl;
-    }
+    // 1. 영상 생성 요청 (/v1/videos/generations + image_url)
     var res = await fetch(window.GROK_PROXY_URL + '/v1/videos/generations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY },
-      body: JSON.stringify(videoBody)
+      body: JSON.stringify({ model: 'grok-imagine-video', prompt: prompt, image_url: imgPublicUrl })
     });
     if (!res.ok) { var e = await res.json(); throw new Error(e.error || e.message || '요청 실패'); }
     var job = await res.json();
