@@ -17248,38 +17248,23 @@ async function overlayKoreanText(imgDataUrl, text, aspect) {
         lines = [text.slice(0, mid), text.slice(mid)];
       }
 
-      var lineH = fontSize * 1.35;
-      var totalH = lines.length * lineH;
-      var padX = w * 0.06, padY = h * 0.04;
-      var maxLineW = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
-      var boxW = maxLineW + padX * 2;
-      var boxH = totalH + padY * 2;
-      var boxX = (w - boxW) / 2;
-      var boxY = h * 0.72 - boxH / 2;
+      var lineH = fontSize * 1.45;
 
-      // 반투명 배경
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      var r = fontSize * 0.4;
-      ctx.beginPath();
-      ctx.moveTo(boxX + r, boxY);
-      ctx.lineTo(boxX + boxW - r, boxY);
-      ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
-      ctx.lineTo(boxX + boxW, boxY + boxH - r);
-      ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
-      ctx.lineTo(boxX + r, boxY + boxH);
-      ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
-      ctx.lineTo(boxX, boxY + r);
-      ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
-      ctx.closePath();
-      ctx.fill();
+      // 하단 그라디언트 페이드
+      var gradH = h * 0.42;
+      var grad = ctx.createLinearGradient(0, h - gradH, 0, h);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.72)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, h - gradH, w, gradH);
 
-      // 텍스트
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = fontSize * 0.15;
+      // 텍스트 (하단 중앙)
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = fontSize * 0.2;
       ctx.fillStyle = '#ffffff';
+      var textStartY = h - (lines.length * lineH) - h * 0.05;
       lines.forEach(function(line, i) {
-        var y = boxY + padY + (i + 0.5) * lineH;
-        ctx.fillText(line, w / 2, y);
+        ctx.fillText(line, w / 2, textStartY + i * lineH);
       });
 
       resolve(canvas.toDataURL('image/png'));
