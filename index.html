@@ -1070,7 +1070,10 @@ input[type=password]:focus { border-color: var(--acc); }
       </div>
 
       <!-- 보내기 버튼 -->
-      <button id="sg-send-btn" onclick="sgSendToInput()" disabled style="padding:10px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:13px;cursor:not-allowed">→ 스튜디오 탭으로 보내기</button>
+      <div style="display:flex;gap:8px">
+        <button id="sg-send-btn" onclick="sgSendToInput()" disabled style="flex:1;padding:10px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:13px;cursor:not-allowed">✓ 적용</button>
+        <button id="sg-next-btn" onclick="sgSendToInput(); switchTab('style');" disabled style="flex:1;padding:10px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:13px;cursor:not-allowed">→ 다음</button>
+      </div>
     </div>
 
     <!-- 오른쪽: 결과 -->
@@ -14849,18 +14852,24 @@ function sgResultChange() {
   var cnt = document.getElementById('sg-char-count');
   cnt.textContent = txt.length > 0 ? txt.length + '자' : '';
   var sendBtn = document.getElementById('sg-send-btn');
+  var nextBtn = document.getElementById('sg-next-btn');
   if (txt.trim().length > 0) {
-    sendBtn.disabled = false;
-    sendBtn.style.background = 'var(--acc)';
-    sendBtn.style.color = '#fff';
-    sendBtn.style.cursor = 'pointer';
-    sendBtn.style.borderColor = 'var(--acc)';
+    [sendBtn, nextBtn].forEach(function(b) {
+      b.disabled = false;
+      b.style.background = 'var(--acc)';
+      b.style.color = '#fff';
+      b.style.cursor = 'pointer';
+      b.style.borderColor = 'var(--acc)';
+    });
+    if (nextBtn) { nextBtn.style.background = 'linear-gradient(135deg,#7c3aed,#a78bfa)'; nextBtn.style.borderColor = 'transparent'; }
   } else {
-    sendBtn.disabled = true;
-    sendBtn.style.background = 'var(--s2)';
-    sendBtn.style.color = 'var(--text2)';
-    sendBtn.style.cursor = 'not-allowed';
-    sendBtn.style.borderColor = 'var(--border)';
+    [sendBtn, nextBtn].forEach(function(b) {
+      b.disabled = true;
+      b.style.background = 'var(--s2)';
+      b.style.color = 'var(--text2)';
+      b.style.cursor = 'not-allowed';
+      b.style.borderColor = 'var(--border)';
+    });
   }
 }
 
