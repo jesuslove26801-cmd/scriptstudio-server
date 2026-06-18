@@ -8771,6 +8771,8 @@ function updateSceneCard(id) {
       + '<button class="btn btn-sm btn-err" onclick="retrySceneImage(' + id + ')">↻ 재생성</button>'
       + (s.imgModel === 'schnell' ? '<button class="btn btn-sm" onclick="upgradeSceneImage(' + id + ')" style="background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#818cf8;font-weight:700" title="Dev 20 steps 최종 품질로 재생성">⬆ Dev</button>' : '')
       + '<button class="btn btn-sm btn-cyan" onclick="generateSceneVariants(' + id + ', 2)" title="추가 2장 생성 (총 최대 4개)">⊞ 변형</button>'
+      + '<button class="btn btn-sm" onclick="generateTextCard(' + id + ')" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24" title="나레이션 핵심 텍스트를 이미지에 자연스럽게 포함">📊 텍스트 카드</button>'
+      + '<button class="btn btn-sm ss-master-only" onclick="grokEditToggle(' + id + ')" style="background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa" title="Grok으로 이미지 편집">✏️ 편집</button>'
       + '<label class="btn btn-sm" style="cursor:pointer;padding:3px 6px;border:1px dashed var(--border2);background:var(--s2);color:var(--text2)">업로드<input type="file" accept="image/*,video/*" style="display:none" onchange="uploadSceneImage(this, ' + id + ')"></label>'
       + '<button class="btn btn-sm" onclick="downloadSceneImage(' + id + ')">↓</button>'
       + '</div>';
