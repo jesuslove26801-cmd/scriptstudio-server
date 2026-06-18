@@ -8579,7 +8579,7 @@ function buildSceneCardHTML(s, idx) {
     }
     var variantHtml = buildVariantGridHTML(s);
     imgColInner += variantHtml;
-    imgColInner += '<div class="img-actions" style="margin-top:4px">'
+    imgColInner += '<div class="img-actions" style="margin-top:4px;flex-wrap:wrap;gap:4px">'
       + '<button class="btn btn-sm btn-err" onclick="retrySceneImage(' + s.id + ')">↻ 재생성</button>'
       + (s.imgModel === 'schnell' ? '<button class="btn btn-sm" onclick="upgradeSceneImage(' + s.id + ')" style="background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#818cf8;font-weight:700" title="Dev 20 steps 최종 품질로 재생성">⬆ Dev</button>' : '')
       + '<button class="btn btn-sm btn-cyan" onclick="generateSceneVariants(' + s.id + ', 2)" title="추가 2장 생성 (총 최대 4개)">⊞ 변형</button>'
