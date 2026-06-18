@@ -828,12 +828,12 @@ input[type=password]:focus { border-color: var(--acc); }
   <!-- 2줄: 탭 전체 -->
   <div style="border-bottom:1px solid var(--border);padding:0 12px">
     <div class="tabs" style="flex-wrap:wrap;overflow-x:visible;align-items:center">
-      <button type="button" class="tab-btn" data-tab="script" onclick="switchTab('script')" style="color:#a78bfa;font-weight:700">📄 대본</button>
-      <button type="button" class="tab-btn active" data-tab="studio" onclick="switchTab('studio')">스튜디오</button>
-      <button type="button" class="tab-btn" data-tab="elevenlabs" onclick="switchTab('elevenlabs')">TTS 생성</button>
+      <button type="button" class="tab-btn" data-tab="script" onclick="switchTab('script')">① 대본 작성</button>
+      <button type="button" class="tab-btn active" data-tab="studio" onclick="switchTab('studio')">② 이미지 생성</button>
+      <button type="button" class="tab-btn" data-tab="elevenlabs" onclick="switchTab('elevenlabs')">③ TTS 음성</button>
+      <button type="button" class="tab-btn" data-tab="video" onclick="switchTab('video')">④ 영상 내보내기</button>
+      <button type="button" class="tab-btn" data-tab="thumb" onclick="switchTab('thumb')">⑤ 썸네일</button>
       <button type="button" class="tab-btn" data-tab="extract" onclick="switchTab('extract')" style="display:none">대본 추출</button>
-      <button type="button" class="tab-btn" data-tab="video" onclick="switchTab('video')">영상 내보내기</button>
-      <button type="button" class="tab-btn" data-tab="thumb" onclick="switchTab('thumb')">썸네일 제작</button>
       <button type="button" class="tab-btn" data-tab="grok" onclick="switchTab('grok')" style="display:none">동영상 변환</button>
     </div>
   </div>
