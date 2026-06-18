@@ -16,6 +16,8 @@ import time
 import asyncio
 import base64
 import httpx
+import hmac
+import hashlib
 from renderer import render_video
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -982,6 +984,33 @@ class EmailCheckReq(BaseModel):
     email: str
     password: str
 
+USER_DATA_FILE = "outputs/user_data.json"
+USER_DATA_TTL = 7 * 24 * 3600  # 1주일
+
+def _get_secret():
+    return os.environ.get("SECRET_KEY", "ss-secret-2026-xK9")
+
+def _make_token(email: str) -> str:
+    return hmac.new(_get_secret().encode(), email.lower().encode(), hashlib.sha256).hexdigest()
+
+def _verify_token(email: str, token: str) -> bool:
+    try:
+        return hmac.compare_digest(_make_token(email.lower()), token)
+    except Exception:
+        return False
+
+def _load_all_user_data() -> dict:
+    try:
+        with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _persist_all_user_data(data: dict):
+    os.makedirs("outputs", exist_ok=True)
+    with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
 @app.post("/api/check-access")
 async def check_access(req: EmailCheckReq):
     # USERS 형식: "email1:pass1,email2:pass2" (개별 비밀번호)
@@ -997,7 +1026,7 @@ async def check_access(req: EmailCheckReq):
             return JSONResponse(status_code=500, content={"status": "error", "message": "서버 설정 오류"})
         stored = user_map.get(req.email.strip().lower())
         if stored and req.password == stored:
-            return {"status": "ok"}
+            return {"status": "ok", "token": _make_token(req.email.strip().lower())}
         return JSONResponse(status_code=401, content={"status": "error", "message": "이메일 또는 비밀번호가 올바르지 않습니다"})
     # 하위 호환: ALLOWED_EMAILS + ACCESS_PASSWORD
     allowed = os.environ.get("ALLOWED_EMAILS", "")
@@ -1006,8 +1035,38 @@ async def check_access(req: EmailCheckReq):
     if not allowed_list or not password:
         return JSONResponse(status_code=500, content={"status": "error", "message": "서버 설정 오류"})
     if req.email.strip().lower() in allowed_list and req.password == password:
-        return {"status": "ok"}
+        return {"status": "ok", "token": _make_token(req.email.strip().lower())}
     return JSONResponse(status_code=401, content={"status": "error", "message": "이메일 또는 비밀번호가 올바르지 않습니다"})
+
+class UserSaveReq(BaseModel):
+    email: str
+    token: str
+    data: dict
+
+@app.post("/api/user/save")
+async def user_save(req: UserSaveReq):
+    if not _verify_token(req.email, req.token):
+        return JSONResponse(status_code=401, content={"status": "error", "message": "인증 실패"})
+    all_data = _load_all_user_data()
+    now = time.time()
+    all_data[req.email.strip().lower()] = {"saved_at": now, "data": req.data}
+    # 만료된 데이터 정리
+    all_data = {k: v for k, v in all_data.items() if now - v.get("saved_at", 0) < USER_DATA_TTL}
+    _persist_all_user_data(all_data)
+    return {"status": "ok"}
+
+@app.get("/api/user/load")
+async def user_load(email: str, token: str):
+    if not _verify_token(email, token):
+        return JSONResponse(status_code=401, content={"status": "error", "message": "인증 실패"})
+    all_data = _load_all_user_data()
+    entry = all_data.get(email.strip().lower())
+    if not entry:
+        return {"status": "not_found"}
+    if time.time() - entry.get("saved_at", 0) > USER_DATA_TTL:
+        return {"status": "expired"}
+    days_left = round((USER_DATA_TTL - (time.time() - entry["saved_at"])) / 86400, 1)
+    return {"status": "ok", "data": entry["data"], "saved_at": entry["saved_at"], "days_left": days_left}
 
 @app.get("/api/progress")
 async def api_progress():
