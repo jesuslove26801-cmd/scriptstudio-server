@@ -6778,7 +6778,7 @@ async function analyzeStyleImage(input) {
       var text = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!text) throw new Error('분석 결과 없음');
       document.getElementById('s-style').value = text;
-      document.getElementById('styleBarPreview').textContent = text;
+      var sbp = document.getElementById('styleBarPreview'); if (sbp) sbp.textContent = text;
       document.getElementById('s-style-override').checked = true;
       if (statusEl) {
         statusEl.style.color = 'var(--ok)';
@@ -14557,9 +14557,10 @@ async function licenseSaveInterval() {
 function toggleStyleBar() {
   var c = document.getElementById('styleBarContent');
   var btn = document.getElementById('styleBarToggleBtn');
+  if (!c) return;
   var open = c.style.display === 'none';
   c.style.display = open ? 'block' : 'none';
-  btn.textContent = open ? '🎨 추가 스타일 ▴' : '🎨 추가 스타일 ▾';
+  if (btn) btn.textContent = open ? '🎨 추가 스타일 ▴' : '🎨 추가 스타일 ▾';
 }
 function switchStudioSubTab(tab) {
   var scenesPane = document.getElementById('studio-scenes-pane');
