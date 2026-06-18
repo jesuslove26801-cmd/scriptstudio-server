@@ -1156,10 +1156,16 @@ input[type=password]:focus { border-color: var(--acc); }
       </div>
       <!-- 적용 버튼 -->
       <div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
-        <button onclick="siApply()" id="si-apply-btn" disabled
-          style="width:100%;padding:12px;font-size:13px;font-weight:800;border-radius:8px;border:none;background:var(--acc);color:#fff;cursor:pointer;opacity:.4;transition:opacity .15s">
-          적용 → 스튜디오로 이동
-        </button>
+        <div style="display:flex;gap:8px">
+          <button onclick="siApply()" id="si-apply-btn" disabled
+            style="flex:1;padding:12px;font-size:13px;font-weight:800;border-radius:8px;border:none;background:var(--acc);color:#fff;cursor:pointer;opacity:.4;transition:opacity .15s">
+            ✓ 적용
+          </button>
+          <button onclick="siApply(); switchTab('style');" id="si-next-btn" disabled
+            style="flex:1;padding:12px;font-size:13px;font-weight:800;border-radius:8px;border:none;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;cursor:pointer;opacity:.4;transition:opacity .15s">
+            → 다음
+          </button>
+        </div>
         <div id="si-status" style="font-size:11px;color:var(--ok);font-family:var(--mono);text-align:center;margin-top:6px;min-height:14px"></div>
       </div>
     </div>
@@ -15164,7 +15170,7 @@ async function siAnalyzeWithAI() {
       '</div>';
     }).join('');
     list.querySelectorAll('.si-scene-edit').forEach(siAutoResize);
-    applyBtn.disabled = false; applyBtn.style.opacity = '1';
+    applyBtn.disabled = false; applyBtn.style.opacity = '1'; var nb1=document.getElementById('si-next-btn'); if(nb1){nb1.disabled=false;nb1.style.opacity='1';}
     statusEl.textContent = '✓ ' + scenes.length + '장면';
 
   } catch(e) {
@@ -15183,7 +15189,7 @@ function siPreview() {
 
   if (!text) {
     list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:30px 16px;line-height:1.8">대본을 입력하면<br>장면이 여기에 표시됩니다<br><span style="font-size:11px;opacity:.6">각 장면을 직접 수정할 수 있습니다</span></div>';
-    applyBtn.disabled = true; applyBtn.style.opacity = '.4';
+    applyBtn.disabled = true; applyBtn.style.opacity = '.4'; var nb2=document.getElementById('si-next-btn'); if(nb2){nb2.disabled=true;nb2.style.opacity='.4';}
     count.textContent = '';
     return;
   }
@@ -15191,7 +15197,7 @@ function siPreview() {
   var parts = siSplitText(text, 'auto');
   if (!parts.length) {
     list.innerHTML = '';
-    applyBtn.disabled = true; applyBtn.style.opacity = '.4';
+    applyBtn.disabled = true; applyBtn.style.opacity = '.4'; var nb2=document.getElementById('si-next-btn'); if(nb2){nb2.disabled=true;nb2.style.opacity='.4';}
     count.textContent = '';
     return;
   }
@@ -15210,7 +15216,7 @@ function siPreview() {
   }).join('');
 
   list.querySelectorAll('.si-scene-edit').forEach(siAutoResize);
-  applyBtn.disabled = false; applyBtn.style.opacity = '1';
+  applyBtn.disabled = false; applyBtn.style.opacity = '1'; var nb3=document.getElementById('si-next-btn'); if(nb3){nb3.disabled=false;nb3.style.opacity='1';}
 }
 
 function siApply() {
@@ -15232,8 +15238,6 @@ function siApply() {
 
   document.getElementById('si-status').textContent = '✓ ' + parts.length + '개 장면 적용됨';
   document.getElementById('studioStatus').textContent = '✓ ' + parts.length + '개 장면 불러옴';
-
-  setTimeout(function() { switchTab('studio'); }, 300);
 }
 
 // ── Qwen3 TTS ──
