@@ -17186,35 +17186,34 @@ async function generateTextCard(id) {
     var aspect = document.getElementById('s-aspect').value || '16:9';
     var style = document.getElementById('s-style').value.trim();
 
-    // Gemini로 핵심 텍스트 + 영어 번역 추출
+    // Gemini로 핵심 텍스트 추출 (한국어)
     var keywordRes = await callGeminiTextWithRetry(key, {
       contents: [{ parts: [{ text:
-        '다음 나레이션에서 인포그래픽 이미지에 넣을 핵심 문구를 추출하고 영어로도 번역해줘.\n'
-        + '숫자, 통계, 핵심 키워드 1~2개를 짧게.\n'
-        + '출력 형식 (JSON만, 설명 없이):\n'
-        + '{"ko":"80개국 수출","en":"Exported to 80 Countries"}\n'
-        + '나레이션: "' + s.script + '"'
+        '다음 나레이션에서 인포그래픽 카드에 넣을 핵심 문구를 한국어로 추출해줘.\n'
+        + '숫자/통계/핵심 키워드 1~2줄, 최대 20자.\n'
+        + '예: "80개국 수출" / "1000년의 역사" / "하루 3번 먹으면"\n'
+        + '나레이션: "' + s.script + '"\n'
+        + '출력: 핵심 문구만 (설명 없이)'
       }] }]
     });
-    var rawText = keywordRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
-    var keyData = {};
-    try { var m = rawText.match(/\{[\s\S]*\}/); if (m) keyData = JSON.parse(m[0]); } catch(_) {}
-    var keyTextKo = keyData.ko || s.script.slice(0, 20);
-    var keyTextEn = keyData.en || keyTextKo;
+    var keyTextKo = keywordRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || s.script.slice(0, 20);
 
-    // 텍스트 포함 이미지 프롬프트 생성 (영어 텍스트로 생성 후 한국어 설명 포함)
-    var textCardPrompt = 'A cinematic infographic-style image with the bold text "' + keyTextEn + '" displayed prominently as elegant typography. '
-      + 'The text is large, clearly readable, naturally embedded into the scene composition — like a title card or motion graphic overlay. '
-      + 'Background: visually relevant to "' + s.script + '". '
+    // 배경 이미지 생성 (텍스트 없이)
+    var bgPrompt = 'Cinematic background scene, visually relevant to: "' + s.script + '". '
       + (style ? 'Art style: ' + style + '. ' : '')
-      + 'Cinematic composition, high quality, --ar ' + aspect
-      + ' --no watermarks logos unrelated text';
+      + 'No text, no letters, no captions. Clean composition with space for title overlay. '
+      + 'High quality, --ar ' + aspect;
 
-    // 이미지 생성
     var origPrompt = s.prompt;
-    s.prompt = textCardPrompt;
+    s.prompt = bgPrompt;
     await generateSceneImage(id);
-    s.prompt = origPrompt; // 원래 프롬프트 복원 (재생성 시 사용)
+    s.prompt = origPrompt;
+
+    // Canvas로 한국어 텍스트 오버레이
+    if (s.imgDataUrl) {
+      s.imgDataUrl = await overlayKoreanText(s.imgDataUrl, keyTextKo, aspect);
+      updateSceneCard(id);
+    }
 
     if (statusEl) statusEl.textContent = '✅ 텍스트 카드 생성 완료';
   } catch(e) {
@@ -17222,6 +17221,72 @@ async function generateTextCard(id) {
     if (statusEl) statusEl.textContent = '✗ 텍스트 카드 생성 실패';
     alert('텍스트 카드 생성 실패: ' + e.message);
   }
+}
+
+async function overlayKoreanText(imgDataUrl, text, aspect) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      var w = canvas.width, h = canvas.height;
+      var fontSize = Math.round(w * 0.065);
+      ctx.font = 'bold ' + fontSize + 'px "Noto Sans KR", "Apple SD Gothic Neo", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // 텍스트 줄바꿈 처리 (20자 초과 시)
+      var lines = [];
+      if (text.length <= 14) {
+        lines = [text];
+      } else {
+        var mid = Math.ceil(text.length / 2);
+        lines = [text.slice(0, mid), text.slice(mid)];
+      }
+
+      var lineH = fontSize * 1.35;
+      var totalH = lines.length * lineH;
+      var padX = w * 0.06, padY = h * 0.04;
+      var maxLineW = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
+      var boxW = maxLineW + padX * 2;
+      var boxH = totalH + padY * 2;
+      var boxX = (w - boxW) / 2;
+      var boxY = h * 0.72 - boxH / 2;
+
+      // 반투명 배경
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      var r = fontSize * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(boxX + r, boxY);
+      ctx.lineTo(boxX + boxW - r, boxY);
+      ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
+      ctx.lineTo(boxX + boxW, boxY + boxH - r);
+      ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
+      ctx.lineTo(boxX + r, boxY + boxH);
+      ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
+      ctx.lineTo(boxX, boxY + r);
+      ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+      ctx.closePath();
+      ctx.fill();
+
+      // 텍스트
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = fontSize * 0.15;
+      ctx.fillStyle = '#ffffff';
+      lines.forEach(function(line, i) {
+        var y = boxY + padY + (i + 0.5) * lineH;
+        ctx.fillText(line, w / 2, y);
+      });
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function() { resolve(imgDataUrl); };
+    img.src = imgDataUrl;
+  });
 }
 
 async function grokLocalLogin() {
