@@ -829,10 +829,11 @@ input[type=password]:focus { border-color: var(--acc); }
   <div style="border-bottom:1px solid var(--border);padding:0 12px">
     <div class="tabs" style="flex-wrap:wrap;overflow-x:visible;align-items:center">
       <button type="button" class="tab-btn" data-tab="script" onclick="switchTab('script')">① 대본 작성</button>
-      <button type="button" class="tab-btn active" data-tab="studio" onclick="switchTab('studio')">② 이미지 생성</button>
-      <button type="button" class="tab-btn" data-tab="elevenlabs" onclick="switchTab('elevenlabs')">③ TTS 음성</button>
-      <button type="button" class="tab-btn" data-tab="video" onclick="switchTab('video')">④ 영상 내보내기</button>
-      <button type="button" class="tab-btn" data-tab="thumb" onclick="switchTab('thumb')">⑤ 썸네일</button>
+      <button type="button" class="tab-btn" data-tab="style" onclick="switchTab('style')">② 스타일 설정</button>
+      <button type="button" class="tab-btn active" data-tab="studio" onclick="switchTab('studio')">③ 이미지 생성</button>
+      <button type="button" class="tab-btn" data-tab="elevenlabs" onclick="switchTab('elevenlabs')">④ TTS 음성</button>
+      <button type="button" class="tab-btn" data-tab="video" onclick="switchTab('video')">⑤ 영상 내보내기</button>
+      <button type="button" class="tab-btn" data-tab="thumb" onclick="switchTab('thumb')">⑥ 썸네일</button>
       <button type="button" class="tab-btn" data-tab="extract" onclick="switchTab('extract')" style="display:none">대본 추출</button>
       <button type="button" class="tab-btn" data-tab="grok" onclick="switchTab('grok')" style="display:none">동영상 변환</button>
     </div>
@@ -1224,61 +1225,47 @@ input[type=password]:focus { border-color: var(--acc); }
 </div><!-- end subtab-polish -->
 </div><!-- end tab-script -->
 
-<!-- ═══════════ TAB 1: STUDIO ═══════════ -->
-<div class="tab-content active" id="tab-studio">
+<!-- ═══════════ TAB 2: STYLE SETTINGS ═══════════ -->
+<div class="tab-content" id="tab-style">
+  <div style="padding:16px 16px 0 16px">
+    <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:12px">🎨 이미지 스타일 설정</div>
 
-  <!-- Options bar -->
-  <div class="opts-bar">
-    <div class="opt-item"><div class="opt-label">이미지 비율</div>
-      <select id="s-aspect"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:3">4:3</option></select></div>
-    <div class="opt-item"><div class="opt-label">동시 처리</div>
-      <select id="s-conc"><option value="1">1개</option><option value="2" selected>2개</option><option value="3">3개</option><option value="5">5개</option></select></div>
-    <div class="opt-item"><div class="opt-label">재시도</div>
-      <select id="s-retry"><option value="2">2회</option><option value="3" selected>3회</option><option value="5">5회</option></select></div>
-    <div class="opt-item"><div class="opt-label">저장 형식</div>
-      <select id="s-ext"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
-    <div class="opt-item"><div class="opt-label">텍스트 모델</div>
-      <select id="s-model-text" style="font-size:11px" onchange="onTextModelChange(this.value)">
-        <optgroup label="── Gemini 3.x ──">
-          <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (최고성능)</option>
-          <option value="gemini-3-flash-preview">Gemini 3 Flash (빠름)</option>
-          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (저렴)</option>
-        </optgroup>
-        <optgroup label="── Gemini 2.x ──">
-          <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (권장)</option>
-          <option value="gemini-2.5-pro">Gemini 2.5 Pro (고품질)</option>
-        </optgroup>
-        <optgroup label="── ChatGPT (ChatMock) ──" id="chatmock-optgroup" style="display:none">
-          <option value="chatmock:gpt-5.5">GPT-5.5 ★</option>
-        </optgroup>
-      </select></div>
-    <div class="opt-item"><div class="opt-label">이미지 모델</div>
-      <select id="s-model-img" style="font-size:11px">
-        <optgroup label="── Gemini (AI Studio / Vertex) ──">
-          <option value="gemini-2.5-flash-image" selected>Gemini 2.5 Flash (빠름)</option>
-          <option value="gemini-3.1-flash-image">Gemini 3.1 Flash (최신/4K)</option>
-          <option value="gemini-3-pro-image">Gemini 3 Pro (고품질)</option>
-        </optgroup>
-        <optgroup label="── Imagen (Vertex AI 전용) ──">
-          <option value="imagen-4.0-ultra-generate-001">Imagen 4 Ultra ★ (최고품질)</option>
-          <option value="imagen-4.0-generate-001">Imagen 4 (고품질)</option>
-          <option value="imagen-4.0-fast-generate-001">Imagen 4 Fast (빠름)</option>
-          <option value="imagen-3.0-generate-002">Imagen 3 v2 (안정)</option>
-          <option value="imagen-3.0-generate-001">Imagen 3 (표준)</option>
-          <option value="imagen-3.0-fast-generate-001">Imagen 3 Fast (빠름)</option>
-        </optgroup>
-        <optgroup label="── OpenAI (Codex) ──" id="codex-img-optgroup" style="display:none">
-          <option value="codex:gpt-image-2">gpt-image-2 ★ (최고품질)</option>
-          <option value="codex:gpt-image-1">gpt-image-1 (고품질)</option>
-        </optgroup>
-        <optgroup label="── Hugging Face (무료 API) ──">
-          <option value="hf-flux-schnell">FLUX.1-schnell (초고속/추천)</option>
-          <option value="hf-sdxl-base" disabled>Stable Diffusion XL (무료 API 지원종료)</option>
-          <option value="hf-custom">직접 입력 (커스텀 모델)</option>
-        </optgroup>
-      </select></div>
+    <!-- 모델 + 비율 -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      <div class="opt-item"><div class="opt-label">이미지 모델</div>
+        <select id="s-model-img" style="font-size:11px">
+          <optgroup label="── Gemini (AI Studio / Vertex) ──">
+            <option value="gemini-2.5-flash-image" selected>Gemini 2.5 Flash (빠름)</option>
+            <option value="gemini-3.1-flash-image">Gemini 3.1 Flash (최신/4K)</option>
+            <option value="gemini-3-pro-image">Gemini 3 Pro (고품질)</option>
+          </optgroup>
+          <optgroup label="── Imagen (Vertex AI 전용) ──">
+            <option value="imagen-4.0-ultra-generate-001">Imagen 4 Ultra ★ (최고품질)</option>
+            <option value="imagen-4.0-generate-001">Imagen 4 (고품질)</option>
+            <option value="imagen-4.0-fast-generate-001">Imagen 4 Fast (빠름)</option>
+            <option value="imagen-3.0-generate-002">Imagen 3 v2 (안정)</option>
+            <option value="imagen-3.0-generate-001">Imagen 3 (표준)</option>
+            <option value="imagen-3.0-fast-generate-001">Imagen 3 Fast (빠름)</option>
+          </optgroup>
+          <optgroup label="── OpenAI (Codex) ──" id="codex-img-optgroup" style="display:none">
+            <option value="codex:gpt-image-2">gpt-image-2 ★ (최고품질)</option>
+            <option value="codex:gpt-image-1">gpt-image-1 (고품질)</option>
+          </optgroup>
+          <optgroup label="── Hugging Face (무료 API) ──">
+            <option value="hf-flux-schnell">FLUX.1-schnell (초고속/추천)</option>
+            <option value="hf-sdxl-base" disabled>Stable Diffusion XL (무료 API 지원종료)</option>
+            <option value="hf-custom">직접 입력 (커스텀 모델)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="opt-item"><div class="opt-label">이미지 비율</div>
+        <select id="s-aspect"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:3">4:3</option></select>
+      </div>
+      <div id="model-cost-img" style="font-size:10px;color:var(--ok);font-family:var(--mono);font-weight:700;white-space:nowrap;align-self:center">장당 예상 비용: -</div>
+    </div>
+
     <!-- Codex 화풍 참조 이미지 업로드 -->
-    <div id="codex-style-ref-area" style="display:none;padding:7px 12px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:6px;margin:4px 12px;gap:6px;flex-direction:column">
+    <div id="codex-style-ref-area" style="display:none;padding:7px 12px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:6px;margin-bottom:10px;gap:6px;flex-direction:column">
       <div style="font-size:10px;font-weight:700;color:#818cf8">🎨 화풍 참조 이미지 (선택)</div>
       <div style="display:flex;gap:6px;align-items:center">
         <label style="flex:1;cursor:pointer;display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--s2);border:1px dashed rgba(99,102,241,.4);border-radius:5px;font-size:10px;color:var(--text2)">
@@ -1293,8 +1280,8 @@ input[type=password]:focus { border-color: var(--acc); }
       </div>
       <div id="codex-style-ref-desc" style="display:none;font-size:9px;color:var(--text3);line-height:1.5;padding:4px 6px;background:var(--s1);border-radius:4px;border:1px solid rgba(99,102,241,.2);max-height:60px;overflow-y:auto"></div>
     </div>
-    <!-- Hugging Face 추가 설정 영역 (토글형) -->
-    <div id="hf-settings-area" style="display:none;padding:8px;background:rgba(212,175,55,0.06);border:1px solid rgba(212,175,55,0.25);border-radius:6px;margin: 5px 12px;flex-direction:column;gap:6px">
+    <!-- Hugging Face 추가 설정 영역 -->
+    <div id="hf-settings-area" style="display:none;padding:8px;background:rgba(212,175,55,0.06);border:1px solid rgba(212,175,55,0.25);border-radius:6px;margin-bottom:10px;flex-direction:column;gap:6px">
       <div style="font-size:10px;font-weight:700;color:var(--gold);display:flex;align-items:center;justify-content:space-between">
         <span>🤗 Hugging Face 설정</span>
         <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--text3);text-decoration:none;font-size:9px">토큰 발급 ↗</a>
@@ -1310,6 +1297,7 @@ input[type=password]:focus { border-color: var(--acc); }
                style="width:100%;font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);outline:none;box-sizing:border-box">
       </div>
     </div>
+    <!-- FLUX 관련 옵션들 -->
     <input type="checkbox" id="s-auto-crop" checked style="display:none">
     <div class="opt-item" id="flux-korean-area" style="flex-direction:row;align-items:center;gap:6px;display:none!important;visibility:hidden;height:0;overflow:hidden">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
@@ -1332,7 +1320,6 @@ input[type=password]:focus { border-color: var(--acc); }
         </optgroup>
       </select>
     </div>
-    <!-- FLUX 2단 파이프라인: Schnell 미리보기 / Dev 최종 -->
     <div class="opt-item" id="flux-mode-area" style="flex-direction:row;align-items:center;gap:6px;display:none">
       <button id="flux-mode-btn" onclick="toggleFluxPreviewMode()"
         style="font-size:10px;padding:4px 12px;border-radius:12px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;cursor:pointer;font-weight:700;white-space:nowrap">
@@ -1386,30 +1373,9 @@ input[type=password]:focus { border-color: var(--acc); }
         </select>
       </div>
     </div>
-    <div class="opt-item" style="margin-left:auto;justify-content:flex-end">
-      <div id="model-cost-img" style="font-size:10px;color:var(--ok);font-family:var(--mono);font-weight:700;white-space:nowrap">장당 예상 비용: -</div>
-    </div>
-  </div>
 
-  <!-- Studio sub tabs -->
-  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 4px 8px 4px;margin-bottom:8px">
-    <button id="studio-sub-scenes-btn" onclick="switchStudioSubTab('scenes')"
-      style="padding:7px 14px;font-size:12px;font-weight:700;border:none;border-bottom:2px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer">
-      🧩 장면 편집
-    </button>
-    <button id="studio-sub-style-btn" onclick="switchStudioSubTab('styles')"
-      style="padding:7px 14px;font-size:12px;font-weight:700;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text3);cursor:pointer">
-      🎨 추가 스타일
-    </button>
-  </div>
-
-  <!-- Style bar -->
-  <div class="style-bar" id="studio-style-pane" style="display:none">
-    <div style="display:flex;align-items:center;gap:6px;padding:4px 0">
-      <button onclick="toggleStyleBar()" id="styleBarToggleBtn" style="padding:4px 12px;font-size:11px;border-radius:6px;border:1px solid var(--border2);background:var(--s3);color:var(--text2);cursor:pointer;white-space:nowrap">🎨 추가 스타일 ▾</button>
-      <span id="styleBarPreview" style="font-size:11px;color:var(--text3);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px"></span>
-    </div>
-    <div id="styleBarContent" style="display:none">
+    <!-- 화풍 + 추가 스타일 영역 (항상 표시) -->
+    <div class="style-bar" style="border:none;padding:0;background:transparent">
     <div class="style-row1" style="align-items:center;margin-bottom:6px">
       <span class="style-label">캐릭터 레퍼런스</span>
       <div style="display:flex;align-items:center;gap:6px;position:relative">
@@ -1439,7 +1405,7 @@ input[type=password]:focus { border-color: var(--acc); }
     </div>
     <div class="style-row1">
       <span class="style-label">추가 스타일</span>
-      <input type="text" id="s-style" class="style-input" placeholder="예: cinematic lighting, soft bokeh, 4K, ultra-detailed illustration --no text watermarks" oninput="document.getElementById('styleBarPreview').textContent=this.value">
+      <input type="text" id="s-style" class="style-input" placeholder="예: cinematic lighting, soft bokeh, 4K, ultra-detailed illustration --no text watermarks" oninput="document.getElementById('styleBarPreview') && (document.getElementById('styleBarPreview').textContent=this.value)">
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;flex-shrink:0" title="체크하면 추가 스타일 입력값이 기본 스타일보다 우선 적용됩니다">
         <input type="checkbox" id="s-style-override" style="accent-color:var(--gold);width:13px;height:13px">
         <span style="font-size:10px;color:var(--gold);font-weight:600">기본 스타일 무시</span>
@@ -1473,7 +1439,36 @@ input[type=password]:focus { border-color: var(--acc); }
       <span class="preset-section-label" style="color:var(--ok)">💾 내 저장 :</span>
       <div id="customStyleChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
-    </div> <!-- /styleBarContent -->
+    </div><!-- /style-bar -->
+  </div>
+</div><!-- end tab-style -->
+
+<!-- ═══════════ TAB 3: STUDIO ═══════════ -->
+<div class="tab-content active" id="tab-studio">
+
+  <!-- Options bar -->
+  <div class="opts-bar">
+    <div class="opt-item"><div class="opt-label">동시 처리</div>
+      <select id="s-conc"><option value="1">1개</option><option value="2" selected>2개</option><option value="3">3개</option><option value="5">5개</option></select></div>
+    <div class="opt-item"><div class="opt-label">재시도</div>
+      <select id="s-retry"><option value="2">2회</option><option value="3" selected>3회</option><option value="5">5회</option></select></div>
+    <div class="opt-item"><div class="opt-label">저장 형식</div>
+      <select id="s-ext"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
+    <div class="opt-item"><div class="opt-label">텍스트 모델</div>
+      <select id="s-model-text" style="font-size:11px" onchange="onTextModelChange(this.value)">
+        <optgroup label="── Gemini 3.x ──">
+          <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (최고성능)</option>
+          <option value="gemini-3-flash-preview">Gemini 3 Flash (빠름)</option>
+          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (저렴)</option>
+        </optgroup>
+        <optgroup label="── Gemini 2.x ──">
+          <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (권장)</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro (고품질)</option>
+        </optgroup>
+        <optgroup label="── ChatGPT (ChatMock) ──" id="chatmock-optgroup" style="display:none">
+          <option value="chatmock:gpt-5.5">GPT-5.5 ★</option>
+        </optgroup>
+      </select></div>
   </div>
 
   <div id="studio-scenes-pane">
