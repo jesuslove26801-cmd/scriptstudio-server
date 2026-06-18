@@ -1536,6 +1536,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <button class="btn" id="styleLockBtn" onclick="toggleStyleLock()" style="white-space:nowrap">🎨 장면1 스타일 복제: OFF</button>
     <div class="prog-bar-wrap" id="studioProg" style="display:none"><div class="prog-bar" id="studioProgBar"></div></div>
     <span class="status-txt" id="studioStatus"></span>
+    <button id="studioNextBtn" onclick="switchTab('elevenlabs')" style="display:none;padding:7px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;border-radius:8px;color:#fff;cursor:pointer;white-space:nowrap">→ 다음 (TTS 음성)</button>
     <span class="badge badge-gold" id="sceneCountBadge" style="margin-left:auto">0 장면</span>
     <button class="btn btn-sm" onclick="showCostEstimate()" style="font-size:11px;margin-left:6px;background:var(--gold-dim);border-color:rgba(245,200,66,.3);color:var(--gold)">💰 예상 비용</button>
   </div>
@@ -1823,6 +1824,7 @@ input[type=password]:focus { border-color: var(--acc); }
           </button>
           <button class="btn btn-err" id="ttsStopBtn" onclick="ttsStop()" style="display:none;font-size:13px;padding:8px 18px">⏹ 중지</button>
           <button class="btn btn-ok" id="ttsDownloadBtn" onclick="ttsDownload()" disabled>↓ MP3 다운로드</button>
+          <button id="ttsNextBtn" onclick="switchTab('video')" style="display:none;padding:7px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;border-radius:8px;color:#fff;cursor:pointer;white-space:nowrap">→ 다음 (영상 내보내기)</button>
           <span class="status-txt" id="ttsStatus"></span>
         </div>
         <div id="ttsProgWrap" style="display:none;margin-top:10px">
@@ -10687,6 +10689,10 @@ function setStudioButtons(disabled) {
   }
   if (!disabled) {
     studioStopRequested = false;
+    // 이미지 생성 완료 시 다음 버튼 표시
+    var doneCount = scenes.filter(s => s.imgData || s.imgUrl).length;
+    var nextBtn = document.getElementById('studioNextBtn');
+    if (nextBtn) nextBtn.style.display = doneCount > 0 ? '' : 'none';
     // 실패 장면 재시도 버튼: 실패한 장면이 있을 때만 표시
     var failedCount = scenes.filter(s => s.imgStatus === 'error' || s.status === 'error').length;
     var retryBtn = document.getElementById('retryFailedBtn');
@@ -11199,6 +11205,7 @@ async function ttsGenerateAll() {
     document.getElementById('ttsStatus').textContent =
       '✓ 완료! ' + done + '개 생성' + (err ? ' · ' + err + '개 실패' : '') + ' — 다운로드 준비됨';
     document.getElementById('ttsProgLabel').textContent = '병합 완료 · WAV 파일 준비됨';
+    var ttsNextBtn = document.getElementById('ttsNextBtn'); if (ttsNextBtn) ttsNextBtn.style.display = '';
 
     // 자동 다운로드
     ttsDownload();
