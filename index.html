@@ -8577,6 +8577,7 @@ function buildSceneCardHTML(s, idx) {
       + '<button class="btn btn-sm btn-err" onclick="retrySceneImage(' + s.id + ')">↻ 재생성</button>'
       + (s.imgModel === 'schnell' ? '<button class="btn btn-sm" onclick="upgradeSceneImage(' + s.id + ')" style="background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#818cf8;font-weight:700" title="Dev 20 steps 최종 품질로 재생성">⬆ Dev</button>' : '')
       + '<button class="btn btn-sm btn-cyan" onclick="generateSceneVariants(' + s.id + ', 2)" title="추가 2장 생성 (총 최대 4개)">⊞ 변형</button>'
+      + '<button class="btn btn-sm" onclick="generateTextCard(' + s.id + ')" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24" title="나레이션 핵심 텍스트를 이미지에 자연스럽게 포함">📊 텍스트 카드</button>'
       + '<button class="btn btn-sm ss-master-only" onclick="grokEditToggle(' + s.id + ')" style="background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa" title="Grok으로 이미지 편집">✏️ 편집</button>'
       + '<label class="btn btn-sm" style="cursor:pointer;padding:3px 6px;border:1px dashed var(--border2);background:var(--s2);color:var(--text2)">업로드<input type="file" accept="image/*,video/*" style="display:none" onchange="uploadSceneImage(this, ' + s.id + ')"></label>'
       + '<button class="btn btn-sm" onclick="downloadSceneImage(' + s.id + ')">↓</button>'
@@ -17151,6 +17152,59 @@ async function _checkGrokServerReady() {
 
 // ── Grok 전체 영상 변환 ───────────────────────────────────────────────────
 var _grokVideoAllRunning = false;
+
+// ── 텍스트 카드 생성 ──────────────────────────────────────────────────────
+async function generateTextCard(id) {
+  syncAllScenes();
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s) return;
+  if (!s.script || !s.script.trim()) { alert('나레이션이 없습니다.'); return; }
+
+  var key = getApiKey();
+  if (!key) { alert('API 키가 없습니다.'); return; }
+
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '📊 텍스트 카드 생성 중...';
+  s.status = 'generating'; updateSceneCard(id);
+
+  try {
+    var aspect = document.getElementById('s-aspect').value || '16:9';
+    var style = document.getElementById('s-style').value.trim();
+
+    // Gemini로 핵심 텍스트 추출
+    var keywordRes = await callGeminiTextWithRetry(key, {
+      contents: [{ parts: [{ text:
+        '다음 나레이션에서 인포그래픽 이미지에 넣을 핵심 텍스트를 추출해줘.\n'
+        + '숫자, 통계, 핵심 키워드 1~3개를 짧게 한국어로.\n'
+        + '예: "80개국 수출" / "김치의 3가지 효능" / "1000년의 역사"\n'
+        + '나레이션: "' + s.script + '"\n'
+        + '출력: 핵심 텍스트만 (설명 없이)'
+      }] }]
+    });
+    var keyText = keywordRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || s.script.slice(0, 20);
+
+    // 텍스트 포함 이미지 프롬프트 생성
+    var textCardPrompt = 'An infographic-style cinematic image that naturally integrates the following Korean text as part of the visual design: "' + keyText + '". '
+      + 'The text should appear as elegant typography, naturally embedded into the scene — like a title card, motion graphic overlay, or stylized caption that feels part of the composition. '
+      + 'Background: visually relevant to "' + s.script + '". '
+      + (style ? 'Art style: ' + style + '. ' : '')
+      + 'The Korean text must be clearly readable, correctly spelled, large and prominent. '
+      + 'Cinematic composition, high quality, --ar ' + aspect
+      + ' --no watermarks logos captions subtitles';
+
+    // 이미지 생성
+    var origPrompt = s.prompt;
+    s.prompt = textCardPrompt;
+    await generateSceneImage(id);
+    s.prompt = origPrompt; // 원래 프롬프트 복원 (재생성 시 사용)
+
+    if (statusEl) statusEl.textContent = '✅ 텍스트 카드 생성 완료';
+  } catch(e) {
+    s.status = 'error'; updateSceneCard(id);
+    if (statusEl) statusEl.textContent = '✗ 텍스트 카드 생성 실패';
+    alert('텍스트 카드 생성 실패: ' + e.message);
+  }
+}
 
 async function grokLocalLogin() {
   var btn = document.getElementById('grokLoginBtn');
