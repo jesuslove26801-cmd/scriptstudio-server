@@ -17186,26 +17186,29 @@ async function generateTextCard(id) {
     var aspect = document.getElementById('s-aspect').value || '16:9';
     var style = document.getElementById('s-style').value.trim();
 
-    // Gemini로 핵심 텍스트 추출
+    // Gemini로 핵심 텍스트 + 영어 번역 추출
     var keywordRes = await callGeminiTextWithRetry(key, {
       contents: [{ parts: [{ text:
-        '다음 나레이션에서 인포그래픽 이미지에 넣을 핵심 텍스트를 추출해줘.\n'
-        + '숫자, 통계, 핵심 키워드 1~3개를 짧게 한국어로.\n'
-        + '예: "80개국 수출" / "김치의 3가지 효능" / "1000년의 역사"\n'
-        + '나레이션: "' + s.script + '"\n'
-        + '출력: 핵심 텍스트만 (설명 없이)'
+        '다음 나레이션에서 인포그래픽 이미지에 넣을 핵심 문구를 추출하고 영어로도 번역해줘.\n'
+        + '숫자, 통계, 핵심 키워드 1~2개를 짧게.\n'
+        + '출력 형식 (JSON만, 설명 없이):\n'
+        + '{"ko":"80개국 수출","en":"Exported to 80 Countries"}\n'
+        + '나레이션: "' + s.script + '"'
       }] }]
     });
-    var keyText = keywordRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || s.script.slice(0, 20);
+    var rawText = keywordRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
+    var keyData = {};
+    try { var m = rawText.match(/\{[\s\S]*\}/); if (m) keyData = JSON.parse(m[0]); } catch(_) {}
+    var keyTextKo = keyData.ko || s.script.slice(0, 20);
+    var keyTextEn = keyData.en || keyTextKo;
 
-    // 텍스트 포함 이미지 프롬프트 생성
-    var textCardPrompt = 'An infographic-style cinematic image that naturally integrates the following Korean text as part of the visual design: "' + keyText + '". '
-      + 'The text should appear as elegant typography, naturally embedded into the scene — like a title card, motion graphic overlay, or stylized caption that feels part of the composition. '
+    // 텍스트 포함 이미지 프롬프트 생성 (영어 텍스트로 생성 후 한국어 설명 포함)
+    var textCardPrompt = 'A cinematic infographic-style image with the bold text "' + keyTextEn + '" displayed prominently as elegant typography. '
+      + 'The text is large, clearly readable, naturally embedded into the scene composition — like a title card or motion graphic overlay. '
       + 'Background: visually relevant to "' + s.script + '". '
       + (style ? 'Art style: ' + style + '. ' : '')
-      + 'The Korean text must be clearly readable, correctly spelled, large and prominent. '
       + 'Cinematic composition, high quality, --ar ' + aspect
-      + ' --no watermarks logos captions subtitles';
+      + ' --no watermarks logos unrelated text';
 
     // 이미지 생성
     var origPrompt = s.prompt;
