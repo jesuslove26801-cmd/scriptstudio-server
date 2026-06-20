@@ -1154,6 +1154,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
             return ""
 
     timeline_us = 0  # 마이크로초
+    grok_placeholder_map = {}  # i → grok_filename (grokVideo=True but no local media)
 
     for i, sc in enumerate(req.scenes):
         audio_dur = sc.dur or 0
@@ -1184,11 +1185,14 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
 
         # 미디어 없으면 검정 프레임 생성 (타임라인 연속성 유지)
         if not (media_path and os.path.exists(media_path)):
+            is_grok = return_zip and bool(getattr(sc, 'grokVideo', False))
             try:
                 from PIL import Image as _PIL_Image
                 black_path = os.path.join(media_dir, f"black_{i+1:03d}.jpg")
                 _PIL_Image.new('RGB', (w, h), (0, 0, 0)).save(black_path, 'JPEG', quality=10)
                 media_path = black_path
+                if is_grok:
+                    grok_placeholder_map[i] = f"scene_{i+1:02d}_grok.mp4"
             except Exception:
                 pass
 
@@ -1267,13 +1271,21 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
         import zipfile as _zf, shutil, time as _t, glob as _glob
         # JSON 파일의 임시 서버 경로를 플레이스홀더로 교체 (Companion이 로컬 경로로 복원)
         ROOT_PLACEHOLDER = "##CAPCUT_ROOT##"
+        GROK_PLACEHOLDER = "##GROK_FOLDER##"
         norm_tmp = capcut_draft_path.replace("\\", "/")
+        # grok 씬: black frame이 ROOT_PLACEHOLDER 교체 후 어떤 경로가 되는지 미리 계산
+        norm_media = media_dir.replace("\\", "/")
+        patched_media_prefix = norm_media.replace(norm_tmp, ROOT_PLACEHOLDER).replace(capcut_draft_path, ROOT_PLACEHOLDER)
         for json_file in _glob.glob(os.path.join(capcut_draft_path, "**", "*.json"), recursive=True):
             try:
                 with open(json_file, "r", encoding="utf-8") as f:
                     content = f.read()
                 patched = content.replace(norm_tmp, ROOT_PLACEHOLDER)
                 patched = patched.replace(capcut_draft_path, ROOT_PLACEHOLDER)
+                # Grok 씬: black frame 경로 → ##GROK_FOLDER## 플레이스홀더로 교체
+                for idx, grok_fname in grok_placeholder_map.items():
+                    black_full = f"{patched_media_prefix}/black_{idx+1:03d}.jpg"
+                    patched = patched.replace(black_full, f"{GROK_PLACEHOLDER}/{grok_fname}")
                 if patched != content:
                     with open(json_file, "w", encoding="utf-8") as f:
                         f.write(patched)

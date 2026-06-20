@@ -1143,6 +1143,7 @@ async def api_export_capcut(req: RenderRequest):
             "status":     "pending",
             "created_at": time.time(),
             "draft_name": result["draft_name"],
+            "grok_folder": req.grok_download_folder or "",
         }
         return {"status": "success", "task_id": task_id, "draft_name": result["draft_name"]}
     except Exception as e:
