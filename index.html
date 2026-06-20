@@ -4720,20 +4720,21 @@ async function videoExportCapCut() {
       }
 
       var imgForExport = s.imgDataUrl || null;
-      if (imgForExport && imgForExport.startsWith('data:') && imgForExport.length > 500) {
+      // 대용량 이미지 JPEG 압축 (payload 크기 감소)
+      if (imgForExport && imgForExport.startsWith('data:image/') && imgForExport.length > 200000) {
         try {
-          var b64Data = imgForExport.includes(',') ? imgForExport.split(',')[1] : imgForExport;
-          var extMatch = imgForExport.match(/data:(?:image|video)\/(\w+)/);
-          var imgExt = extMatch ? extMatch[1] : 'png';
-          if (imgExt === 'jpeg') imgExt = 'jpg';
-          var imgUpRes = await fetch('/api/save-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: b64Data, ext: imgExt, filename: 'capcut_scene_' + i + '_' + Date.now() + '.' + imgExt })
+          imgForExport = await new Promise(function(resolve) {
+            var im = new Image();
+            im.onload = function() {
+              var cv = document.createElement('canvas');
+              cv.width = im.width; cv.height = im.height;
+              cv.getContext('2d').drawImage(im, 0, 0);
+              resolve(cv.toDataURL('image/jpeg', 0.75));
+            };
+            im.onerror = function() { resolve(imgForExport); };
+            im.src = imgForExport;
           });
-          var imgUpData = await imgUpRes.json();
-          imgForExport = (imgUpData.status === 'ok') ? imgUpData.url : null;
-        } catch(e) { imgForExport = null; }
+        } catch(e) {}
       }
 
       var sceneMotion = (document.getElementById('vidSceneMotion_' + i) || {}).value || s.motionEffect || 'none';
@@ -8139,7 +8140,7 @@ function clearCharRef() {
 }
 // Companion 버전 체크 (게이트와 독립적, 앱 로드 시 항상 실행)
 (async function checkCompanionUpdate() {
-  var LATEST = '1.2.9';
+  var LATEST = '1.3.1';
   var bar = document.getElementById('ss-update-bar');
   var desc = document.getElementById('ss-update-bar-desc');
   var title = document.getElementById('ss-update-bar-title');
@@ -19862,7 +19863,7 @@ async function ssSaveUserData() {
 
 <script>
 (function() {
-  var SS_AI_URL = 'https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudio_AI_Setup.bat';
+  var SS_AI_URL = 'https://scriptstudio-web.pages.dev/ScriptStudio_AI_Install.ps1';
   var RAILWAY_URL = 'https://web-production-11acd.up.railway.app';
 
   function ssHideBanner() {
@@ -19904,15 +19905,21 @@ async function ssSaveUserData() {
         return;
       }
       gate.style.display = 'flex';
-      document.getElementById('ss-gate-checking').style.display = 'block';
-      document.getElementById('ss-gate-no-companion').style.display = 'none';
-      document.getElementById('ss-gate-has-companion').style.display = 'none';
-      var LATEST_COMPANION_VERSION = '1.2.9';
-      var ok = await _ccCheckCompanion();
       document.getElementById('ss-gate-checking').style.display = 'none';
+      document.getElementById('ss-gate-has-companion').style.display = 'block';
+      var LATEST_COMPANION_VERSION = '1.3.1';
+      var ok = await _ccCheckCompanion();
+      // Companion 미설치 시 상태 행 업데이트
+      var compRow = document.getElementById('ss-gate-companion-row');
+      if (compRow) {
+        if (ok) {
+          compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div><div><div style="font-size:14px;font-weight:700;color:#36d68a;">Companion 실행 중</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">백그라운드에서 실행 중 · PC 시작 시 자동 실행</div></div>';
+        } else {
+          compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(251,191,36,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚠️</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#fbbf24;">Companion 미실행</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">일부 기능(CapCut 내보내기 등)을 사용하려면 설치하세요</div></div><a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat" download style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">⬇ 설치</a>';
+        }
+      }
+      // 버전 체크 → 업데이트 배너
       if (ok) {
-        document.getElementById('ss-gate-has-companion').style.display = 'block';
-        // 버전 체크 → 업데이트 배너
         try {
           var vRes = await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(2000) });
           var vData = await vRes.json();
@@ -19933,8 +19940,6 @@ async function ssSaveUserData() {
             if (aiRow) aiRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤖</div><div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#36d68a;">로컬 AI 설치 완료</div><div style="font-size:12px;color:#36d68a;margin-top:2px;opacity:0.7;">Qwen3 TTS · DeepSeek · Ollama</div></div><span style="font-size:20px;">✅</span>';
           }
         } catch(e) {}
-      } else {
-        document.getElementById('ss-gate-no-companion').style.display = 'block';
       }
     })();
 
@@ -19971,55 +19976,7 @@ async function ssSaveUserData() {
     <div style="font-size:14px;">Companion 확인 중...</div>
   </div>
 
-  <!-- ── 미설치 뷰: Companion 없음 ── -->
-  <div id="ss-gate-no-companion" style="display:none;width:100%;max-width:680px;padding:24px;position:relative;z-index:1;">
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <div style="width:44px;height:44px;background:linear-gradient(135deg,#7c5cfc,#40d4f5);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;">⚡</div>
-        <span style="font-size:26px;font-weight:800;background:linear-gradient(135deg,#fff,#b09fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ClipFlow</span>
-      </div>
-      <h1 style="font-size:20px;font-weight:700;color:#f4f4fc;margin:0 0 8px;">시작하기 전에 딱 하나만 설치하세요</h1>
-      <p style="font-size:13px;color:#8080aa;margin:0;">ClipFlow는 PC에 설치된 Companion 앱을 통해 동작합니다. 한 번만 설치하면 이후 자동 실행됩니다.</p>
-    </div>
-
-    <!-- 다운로드 버튼 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
-      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.2.9.bat" download
-         style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;background:linear-gradient(135deg,rgba(124,92,252,0.15),rgba(64,212,245,0.08));border:1px solid rgba(124,92,252,0.4);border-radius:16px;text-decoration:none;position:relative;transition:all 0.2s;"
-         onmouseover="this.style.borderColor='rgba(124,92,252,0.8)';this.style.transform='translateY(-2px)';"
-         onmouseout="this.style.borderColor='rgba(124,92,252,0.4)';this.style.transform='none';">
-        <div style="width:44px;height:44px;background:linear-gradient(135deg,#7c5cfc,#5a3fd4);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">⬇</div>
-        <div style="text-align:center;">
-          <div style="font-size:14px;font-weight:700;color:#f4f4fc;margin-bottom:3px;">Companion 설치</div>
-          <div style="font-size:11px;color:#8080aa;">ScriptStudio_Companion_Setup_v1.2.9.bat</div>
-        </div>
-        <div style="position:absolute;top:8px;right:8px;background:rgba(124,92,252,0.2);border:1px solid rgba(124,92,252,0.4);border-radius:5px;padding:1px 7px;font-size:10px;color:#b09fff;font-weight:600;">필수</div>
-      </a>
-      <a href="https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudio_AI_Setup.bat" download
-         style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;background:linear-gradient(135deg,rgba(54,214,138,0.08),rgba(64,212,245,0.05));border:1px solid rgba(54,214,138,0.25);border-radius:16px;text-decoration:none;position:relative;transition:all 0.2s;"
-         onmouseover="this.style.borderColor='rgba(54,214,138,0.6)';this.style.transform='translateY(-2px)';"
-         onmouseout="this.style.borderColor='rgba(54,214,138,0.25)';this.style.transform='none';">
-        <div style="width:44px;height:44px;background:linear-gradient(135deg,#36d68a,#0891b2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
-        <div style="text-align:center;">
-          <div style="font-size:14px;font-weight:700;color:#f4f4fc;margin-bottom:3px;">로컬 AI 설치</div>
-          <div style="font-size:11px;color:#8080aa;">Qwen TTS · DeepSeek · Ollama</div>
-        </div>
-        <div style="position:absolute;top:8px;right:8px;background:rgba(54,214,138,0.12);border:1px solid rgba(54,214,138,0.3);border-radius:5px;padding:1px 7px;font-size:10px;color:#36d68a;font-weight:600;">선택</div>
-      </a>
-    </div>
-
-    <div style="font-size:12px;color:#6060aa;text-align:center;margin-bottom:20px;">
-      ① Companion 설치 클릭 → bat 파일 더블클릭 → CMD 자동 설치 완료 → 아래 버튼 클릭
-    </div>
-    <div style="text-align:center;">
-      <button onclick="(async function(){var ok=await _ccCheckCompanion();if(ok){document.getElementById('ss-gate-no-companion').style.display='none';document.getElementById('ss-gate-has-companion').style.display='block';}else{alert('Companion이 아직 실행되지 않았습니다.\n설치 후 다시 시도해주세요.');}})();"
-        style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;border:none;padding:13px 44px;border-radius:12px;cursor:pointer;font-size:15px;font-weight:700;box-shadow:0 4px 24px rgba(124,92,252,0.4);">
-        ✓ Companion 설치 완료 — 확인
-      </button>
-    </div>
-  </div>
-
-  <!-- ── 설치 완료 뷰: Companion 있음 ── -->
+  <!-- ── 기본 게이트 뷰 ── -->
   <div id="ss-gate-has-companion" style="display:none;width:100%;max-width:560px;padding:24px;position:relative;z-index:1;">
     <!-- 업데이트 배너 (버전 구버전일 때만 표시) -->
     <div id="ss-companion-update-banner" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:12px 16px;margin-bottom:16px;align-items:center;gap:12px;">
@@ -20028,7 +19985,7 @@ async function ssSaveUserData() {
         <div style="font-size:13px;font-weight:700;color:#fbbf24;">Companion 업데이트 있음</div>
         <div style="font-size:12px;color:#fde68a;margin-top:3px;font-weight:500;" id="ss-companion-update-desc"></div>
       </div>
-      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.2.9.bat" download
+      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat" download
          style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
         ⬇ 업데이트
       </a>
@@ -20042,8 +19999,8 @@ async function ssSaveUserData() {
 
     <!-- 설치 상태 -->
     <div style="background:#0f0f16;border:1px solid #2e2e44;border-radius:14px;padding:20px;margin-bottom:20px;">
-      <!-- Companion 완료 -->
-      <div style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(54,214,138,0.06);border:1px solid rgba(54,214,138,0.2);border-radius:10px;margin-bottom:12px;">
+      <!-- Companion 상태 -->
+      <div id="ss-gate-companion-row" style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(54,214,138,0.06);border:1px solid rgba(54,214,138,0.2);border-radius:10px;margin-bottom:12px;">
         <div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div>
         <div>
           <div style="font-size:14px;font-weight:700;color:#36d68a;">Companion 설치 완료</div>
@@ -20057,7 +20014,7 @@ async function ssSaveUserData() {
           <div style="font-size:14px;font-weight:600;color:#b09fff;">로컬 AI 추가 설치 <span style="font-size:11px;color:#6060aa;font-weight:400;">(선택)</span></div>
           <div style="font-size:12px;color:#6060aa;margin-top:2px;">Qwen3 TTS · DeepSeek · Ollama — 약 15~20GB</div>
         </div>
-        <a href="https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudio_AI_Setup.bat" download
+        <a href="https://scriptstudio-web.pages.dev/ScriptStudio_AI_Install.ps1" download
            style="background:linear-gradient(135deg,#36d68a,#0891b2);color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
           ⬇ 다운로드
         </a>

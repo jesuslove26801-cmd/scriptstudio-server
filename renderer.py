@@ -1182,6 +1182,16 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                     else:
                         media_path = candidate
 
+        # 미디어 없으면 검정 프레임 생성 (타임라인 연속성 유지)
+        if not (media_path and os.path.exists(media_path)):
+            try:
+                from PIL import Image as _PIL_Image
+                black_path = os.path.join(media_dir, f"black_{i+1:03d}.jpg")
+                _PIL_Image.new('RGB', (w, h), (0, 0, 0)).save(black_path, 'JPEG', quality=10)
+                media_path = black_path
+            except Exception:
+                pass
+
         # 비디오/이미지 클립 (gap 포함 전체 duration)
         if media_path and os.path.exists(media_path):
             video_seg = cc.VideoSegment(os.path.abspath(media_path), trange(timeline_us, total_dur_us))
