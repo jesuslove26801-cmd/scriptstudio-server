@@ -333,7 +333,7 @@ class RenderRequest(BaseModel):
 # 정적 파일 서빙을 위한 경로 설정
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
-    html_path = resource_path("최종본.html")
+    html_path = resource_path("index.html") if os.path.exists(resource_path("index.html")) else resource_path("최종본.html")
     with open(html_path, "r", encoding="utf-8") as f:
         content = f.read()
     from fastapi.responses import HTMLResponse as _HR
