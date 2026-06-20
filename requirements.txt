@@ -12,3 +12,4 @@ apscheduler==3.10.4
 pytz==2024.1
 edge-tts==7.2.8
 static-ffmpeg>=2.1
+pycapcut>=0.0.3
