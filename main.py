@@ -1106,6 +1106,22 @@ async def api_render(req: RenderRequest):
 # ── Companion Task 저장소 (메모리) ────────────────────────────────────
 _companion_tasks: dict = {}  # task_id → {zip_url, device_id, status, created_at}
 
+@app.post("/api/preview-subtitles")
+async def api_preview_subtitles(req: RenderRequest):
+    """자막 분할 미리보기 — 씬별 script를 청크로 분할해 반환"""
+    try:
+        from renderer import build_scene_subtitle_preview
+        previews = []
+        for sc in req.scenes:
+            chunks = build_scene_subtitle_preview(sc, req, req.h or 1920)
+            if not chunks:
+                chunks = [(sc.script or '').strip()] if (sc.script or '').strip() else ['']
+            previews.append({"lines": chunks})
+        return {"status": "success", "previews": previews}
+    except Exception as e:
+        logger.error(f"자막 분할 실패: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
 @app.post("/api/export-capcut")
 async def api_export_capcut(req: RenderRequest):
     """웹에서 CapCut 내보내기 요청 → ZIP 생성 → companion task 등록"""
