@@ -1122,6 +1122,13 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
     out_dir = "outputs"
     os.makedirs(out_dir, exist_ok=True)
 
+    # return_zip 모드: 미디어를 프로젝트 폴더 내 media/ 에 저장해 ZIP에 포함
+    if return_zip:
+        media_dir = os.path.join(capcut_draft_path, project_name, "media")
+        os.makedirs(media_dir, exist_ok=True)
+    else:
+        media_dir = out_dir
+
     def save_b64_media(b64_str: str, idx: int) -> str:
         try:
             ext = "png"
@@ -1138,7 +1145,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
             if ',' in b64_str:
                 b64_str = b64_str.split(',', 1)[1]
             img_bytes = base64.b64decode(b64_str)
-            img_path = os.path.join(out_dir, f"capcut_scene_{idx+1:03d}.{ext}")
+            img_path = os.path.join(media_dir, f"capcut_scene_{idx+1:03d}.{ext}")
             with open(img_path, 'wb') as f:
                 f.write(img_bytes)
             return img_path
@@ -1167,7 +1174,13 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                 fname = sc.imgDataUrl.split('/download-image/')[-1].split('?')[0]
                 candidate = os.path.abspath(os.path.join(out_dir, fname))
                 if os.path.exists(candidate):
-                    media_path = candidate
+                    if return_zip:
+                        import shutil as _sh
+                        dest = os.path.join(media_dir, fname)
+                        _sh.copy2(candidate, dest)
+                        media_path = dest
+                    else:
+                        media_path = candidate
 
         # 비디오/이미지 클립 (gap 포함 전체 duration)
         if media_path and os.path.exists(media_path):
@@ -1186,7 +1199,13 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
             fname = resolved_audio.replace('/download-audio/', '').split('?')[0]
             candidate = os.path.abspath(os.path.join(out_dir, fname))
             if os.path.exists(candidate):
-                resolved_audio = candidate
+                if return_zip:
+                    import shutil as _sh
+                    dest = os.path.join(media_dir, fname)
+                    _sh.copy2(candidate, dest)
+                    resolved_audio = dest
+                else:
+                    resolved_audio = candidate
         if resolved_audio and os.path.exists(resolved_audio):
             audio_seg = cc.AudioSegment(os.path.abspath(resolved_audio), trange(timeline_us, audio_dur_us))
             script.add_segment(audio_seg)
@@ -1235,12 +1254,26 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
     logger.info(f"CapCut 드래프트 저장 완료: {project_name}")
 
     if return_zip:
-        import zipfile as _zf, shutil, time as _t
-        out_dir = "outputs"
-        os.makedirs(out_dir, exist_ok=True)
+        import zipfile as _zf, shutil, time as _t, glob as _glob
+        # JSON 파일의 임시 서버 경로를 플레이스홀더로 교체 (Companion이 로컬 경로로 복원)
+        ROOT_PLACEHOLDER = "##CAPCUT_ROOT##"
+        norm_tmp = capcut_draft_path.replace("\\", "/")
+        for json_file in _glob.glob(os.path.join(capcut_draft_path, "**", "*.json"), recursive=True):
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                patched = content.replace(norm_tmp, ROOT_PLACEHOLDER)
+                patched = patched.replace(capcut_draft_path, ROOT_PLACEHOLDER)
+                if patched != content:
+                    with open(json_file, "w", encoding="utf-8") as f:
+                        f.write(patched)
+            except Exception as e:
+                logger.warning(f"JSON 경로 패치 실패 {json_file}: {e}")
+
+        out_dir_zip = "outputs"
+        os.makedirs(out_dir_zip, exist_ok=True)
         zip_name = f"capcut_export_{int(_t.time())}.zip"
-        zip_path = os.path.join(out_dir, zip_name)
-        draft_dir = os.path.join(capcut_draft_path, project_name)
+        zip_path = os.path.join(out_dir_zip, zip_name)
         with _zf.ZipFile(zip_path, "w", _zf.ZIP_DEFLATED) as zf:
             for root_d, dirs, files in os.walk(capcut_draft_path):
                 for file in files:
