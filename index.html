@@ -818,8 +818,8 @@ input[type=password]:focus { border-color: var(--acc); }
   <div id="ss-update-bar" style="display:none;background:rgba(251,191,36,0.12);border-bottom:1px solid rgba(251,191,36,0.3);padding:7px 16px;align-items:center;gap:10px;font-size:12px;">
     <span style="font-size:15px;">🔔</span>
     <span id="ss-update-bar-title" style="color:#fbbf24;font-weight:700">Companion 설치 / 업데이트 필요</span>
-    <span id="ss-update-bar-desc" style="color:#a08030;margin-left:4px;"></span>
-    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup.bat" download
+    <span id="ss-update-bar-desc" style="color:#fde68a;margin-left:4px;font-weight:500;"></span>
+    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat" download
        style="margin-left:auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:4px 12px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;">
       ⬇ 설치 / 업데이트
     </a>
@@ -902,7 +902,8 @@ input[type=password]:focus { border-color: var(--acc); }
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button onclick="checkAllChatGPT()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(16,185,129,.4);background:rgba(16,185,129,.1);color:#10b981;cursor:pointer">상태 확인</button>
-        <button onclick="loginAllChatGPT()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.15);color:#fbbf24;cursor:pointer">🔑 ChatGPT 로그인</button>
+        <button onclick="loginAllChatGPT()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.15);color:#fbbf24;cursor:pointer">🔑 텍스트 로그인</button>
+        <button onclick="loginCodexCompanion()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(139,92,246,.5);background:rgba(139,92,246,.15);color:#a78bfa;cursor:pointer">🎨 이미지 로그인</button>
         <button id="chatmock-start-btn" onclick="startChatMockServer()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(99,102,241,.4);background:rgba(99,102,241,.1);color:#818cf8;cursor:pointer">서버 시작</button>
         <button onclick="resetChatMockSession()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.1);color:#f87171;cursor:pointer">🗑️ 세션 초기화</button>
       </div>
@@ -1256,9 +1257,9 @@ input[type=password]:focus { border-color: var(--acc); }
             <option value="imagen-3.0-generate-001">Imagen 3 (표준)</option>
             <option value="imagen-3.0-fast-generate-001">Imagen 3 Fast (빠름)</option>
           </optgroup>
-          <optgroup label="── OpenAI (Codex) ──" id="codex-img-optgroup" style="display:none">
-            <option value="codex:gpt-image-2">gpt-image-2 ★ (최고품질)</option>
-            <option value="codex:gpt-image-1">gpt-image-1 (고품질)</option>
+          <optgroup label="── OpenAI (ChatGPT 계정) ──" id="codex-img-optgroup" style="display:none">
+            <option value="codex:gpt-image-2">gpt-image-2 (ChatGPT 계정)</option>
+            <option value="codex:gpt-image-1">gpt-image-1 (ChatGPT 계정)</option>
           </optgroup>
           <optgroup label="── Hugging Face (무료 API) ──">
             <option value="hf-flux-schnell">FLUX.1-schnell (초고속/추천)</option>
@@ -1459,6 +1460,8 @@ input[type=password]:focus { border-color: var(--acc); }
   <div class="opts-bar">
     <div class="opt-item"><div class="opt-label">동시 처리</div>
       <select id="s-conc"><option value="1">1개</option><option value="2" selected>2개</option><option value="3">3개</option><option value="5">5개</option></select></div>
+    <div class="opt-item"><div class="opt-label">생성 모드</div>
+      <button id="genModeToggle" onclick="toggleGenMode()" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid;cursor:pointer;background:rgba(34,211,238,0.15);border-color:rgba(34,211,238,0.4);color:#22d3ee">🔗 연속성</button></div>
     <div class="opt-item"><div class="opt-label">재시도</div>
       <select id="s-retry"><option value="2">2회</option><option value="3" selected>3회</option><option value="5">5회</option></select></div>
     <div class="opt-item"><div class="opt-label">저장 형식</div>
@@ -2881,7 +2884,12 @@ async function onSubtitleRefineModeChange() {
   if (mode === 'chatmock') {
     setSubRefineStatus('ChatMock 상태 확인 중...', 'var(--text2)', false);
     try {
-      var res = await fetch('/api/chatmock/status');
+      var cmUrl = '/api/chatmock/status';
+      try {
+        await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1000) });
+        cmUrl = 'http://localhost:19283/chatmock-status';
+      } catch(_) {}
+      var res = await fetch(cmUrl);
       var data = await res.json();
       if (data.status === 'ok' || data.running) {
         setSubRefineStatus('GPT 자막 보정 사용 가능 (ChatMock)', 'var(--ok)', false);
@@ -3085,6 +3093,39 @@ function subtitlePreviewKeydown(ta, event) {
   }
 }
 
+function _splitSubtitleClientSide(scenes, fixDur) {
+  // 클라이언트 사이드 기본 자막 분할 (서버 없이)
+  return scenes.map(function(s) {
+    var text = (s.script || '').trim();
+    var dur = (s.dur && s.dur > 0) ? s.dur : fixDur;
+    if (!text) return { lines: [''] };
+
+    // 한 화면에 표시할 최대 글자수: 음성 속도 기준 (약 6~8자/초, 한 줄 최대 20자)
+    var charsPerSec = text.length / Math.max(dur, 1);
+    var secPerChunk = Math.min(3.5, Math.max(1.5, dur / Math.ceil(text.length / 18)));
+    var maxChars = Math.round(charsPerSec * secPerChunk);
+    maxChars = Math.max(10, Math.min(30, maxChars));
+
+    // 자연스러운 끊기 포인트 (문장 부호 우선)
+    var breakPts = /[다요까죠네며고서은는이가을를에서도]/;
+    var lines = [];
+    var remaining = text;
+    while (remaining.length > 0) {
+      if (remaining.length <= maxChars) { lines.push(remaining); break; }
+      var cut = maxChars;
+      // maxChars 근처에서 자연스러운 끊기 포인트 찾기 (앞쪽으로)
+      for (var k = cut; k >= Math.max(cut - 8, 1); k--) {
+        if (breakPts.test(remaining[k - 1]) || remaining[k - 1] === ' ' || remaining[k - 1] === ',') {
+          cut = k; break;
+        }
+      }
+      lines.push(remaining.slice(0, cut).trim());
+      remaining = remaining.slice(cut).trim();
+    }
+    return { lines: lines.filter(function(l) { return l.length > 0; }) };
+  });
+}
+
 async function videoPreviewSubtitleSplit() {
   try { videoLoadFromStudio(); } catch(e) {}
   var statusEl = document.getElementById('vid-sub-preview-status');
@@ -3092,15 +3133,71 @@ async function videoPreviewSubtitleSplit() {
   if (statusEl) { statusEl.textContent = '자막 분할 미리보기 생성 중...'; statusEl.style.color = 'var(--text2)'; }
   try {
     var payload = _buildSubtitlePreviewPayload();
-    var res = await fetch('/api/preview-subtitles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    var data = await res.json();
-    if (!res.ok || data.status !== 'success') {
-      throw new Error(data.message || '미리보기 생성 실패');
+    var serverUrl = (window.SS_SERVER || '') + '/api/preview-subtitles';
+    var data = null;
+    try {
+      var res = await fetch(serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (res.ok) {
+        var d = await res.json();
+        if (d.status === 'success') data = d;
+      }
+    } catch(_) {}
+
+    // 서버 실패 시 클라이언트 사이드 분할 폴백
+    if (!data) {
+      var fixDur = parseFloat(document.getElementById('vid-fixdur').value) || 4;
+      var previews = _splitSubtitleClientSide(payload.scenes, fixDur);
+      data = { status: 'success', previews: previews };
     }
+
+    // ChatMock 보정 모드: Companion 경유로 GPT 자막 보정
+    if (payload.subtitle_refine_mode === 'chatmock') {
+      try {
+        await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(800) });
+        var model = payload.subtitle_refine_model || 'gpt-5.4';
+        var refined = [];
+        for (var si = 0; si < data.previews.length; si++) {
+          var chunks = (data.previews[si].lines || []).filter(function(l){ return l && l.trim(); });
+          if (!chunks.length) { refined.push(data.previews[si]); continue; }
+          try {
+            var cmBody = {
+              model: model,
+              messages: [
+                { role: 'system', content: '당신은 한국어 자막 교정 전문가입니다. 주어진 자막 청크 배열의 각 항목을 자연스럽고 간결하게 교정하되, 청크 수와 의미를 유지하세요. JSON 배열만 반환하세요.' },
+                { role: 'user', content: JSON.stringify(chunks) }
+              ],
+              max_tokens: 500,
+              temperature: 0.3
+            };
+            var cmRes = await fetch('http://localhost:19283/chatmock-chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(cmBody),
+              signal: AbortSignal.timeout(15000)
+            });
+            var cmData = await cmRes.json();
+            var content = ((cmData.choices || [])[0] || {}).message && cmData.choices[0].message.content;
+            if (content) {
+              content = content.trim().replace(/^```json\s*/,'').replace(/\s*```$/,'');
+              var corrected = JSON.parse(content);
+              if (Array.isArray(corrected) && corrected.length) {
+                refined.push({ lines: corrected.map(function(l){ return String(l).trim(); }).filter(Boolean) });
+                continue;
+              }
+            }
+          } catch(_) {}
+          refined.push(data.previews[si]);
+        }
+        data = { status: 'success', previews: refined };
+        if (statusEl) statusEl.textContent = 'ChatMock 보정 완료';
+      } catch(_) {}
+    }
+
     _renderSubtitlePreviewPanel(data.previews || []);
     _vidSubtitlePreviewApplied = false;
     if (statusEl) { statusEl.textContent = '미리보기 생성 완료 - 수정 후 적용 가능'; statusEl.style.color = 'var(--ok)'; }
@@ -3328,7 +3425,8 @@ function videoLoadFromStudio() {
     // 자막 타임스탬프: scenes > ttsScenes 순으로 탐색
     var subTimings = s.subtitleTimings || (tts && tts.subtitleTimings) || null;
 
-    var hasImg = !!s.imgDataUrl;
+    var isVid = s.grokVideo || (s.imgDataUrl && s.imgDataUrl.startsWith('data:video'));
+    var hasImg = !!(s.imgDataUrl || s.grokVideo || s.grokVideoPath);
     var hasAudio = !!(audioBuf || s.audioUrl);
     var dur = audioBuf ? audioBuf.duration : (s.audioDuration || null);
     if (subTimings && dur && isFinite(dur) && dur > 0) {
@@ -3352,7 +3450,6 @@ function videoLoadFromStudio() {
       transition: (_pe && _pe.t) || null
     });
 
-    var isVid = s.grokVideo || (s.imgDataUrl && s.imgDataUrl.startsWith('data:video'));
     var mediaIconStr = isVid ? '🎬 영상' : '🖼 이미지';
     var imgIcon = hasImg ? '<span style="color:var(--ok)">' + mediaIconStr + '✓</span>' : '<span style="color:var(--warn)">🖼 없음</span>';
     var audIcon = audioBuf ? '<span style="color:var(--ok)">🔊 음성✓ ' + (dur ? dur.toFixed(1)+'s' : '') + '</span>'
@@ -3365,7 +3462,7 @@ function videoLoadFromStudio() {
 
     // 상태 박스에는 누락 항목만 표시
     var missingTags = [];
-    if (!hasImg) missingTags.push('<span style="color:var(--warn)">🖼 이미지 없음</span>');
+    if (!hasImg) missingTags.push('<span style="color:var(--warn)">' + (isVid ? '🎬 영상 없음' : '🖼 이미지 없음') + '</span>');
     if (!hasAudio) missingTags.push('<span style="color:var(--warn)">🔊 음성 없음</span>');
     if (missingTags.length) {
       missingRows.push('<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;background:rgba(245,147,64,.08);border:1px solid rgba(245,147,64,.28);border-radius:6px;font-size:11px">'
@@ -3466,7 +3563,7 @@ function renderVidSceneList() {
   el.innerHTML = vidScenes.map(function(v, i) {
     var isVid = v.imgDataUrl && (v.imgDataUrl.startsWith('data:video') || v.imgDataUrl.includes('/api/grok/video/') || v.imgDataUrl.match(/\.(mp4|webm)$/i) || v.grokVideo);
     var thumb = v.imgDataUrl
-      ? (isVid ? '<video src="' + v.imgDataUrl + '#t=0.1" style="width:60px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#000" preload="metadata" muted></video>' : '<img src="' + v.imgDataUrl + '" style="width:60px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0">')
+      ? (isVid ? '<video src="' + v.imgDataUrl + '#t=0.1" style="width:60px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#000" preload="none" muted></video>' : '<img src="' + v.imgDataUrl + '" style="width:60px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0">')
       : '<div style="width:60px;height:34px;background:var(--s3);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🖼</div>';
     var dur = v.audioBuf ? v.audioBuf.duration.toFixed(1)+'s' : '–';
     return '<div style="display:flex;gap:8px;align-items:center;padding:6px 8px;background:var(--s3);border-radius:6px">'
@@ -6005,7 +6102,12 @@ var vertexTokenExpiry = 0;
 var _chatmockRunning = false;
 async function checkChatMock() {
   try {
-    var r = await fetch('/api/chatmock/status');
+    var url = '/api/chatmock/status';
+    try {
+      await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1000) });
+      url = 'http://localhost:19283/chatmock-status';
+    } catch(_) {}
+    var r = await fetch(url);
     var d = await r.json();
     _chatmockRunning = d.running;
     var og = document.getElementById('chatmock-optgroup');
@@ -6178,8 +6280,26 @@ async function toggleVertexMode() {
 }
 
 // ── Google OAuth2 로그인 모달 ──
-function openVertexLoginModal() {
-  // 저장된 값 복원
+async function openVertexLoginModal() {
+  // 서비스 계정 키가 저장돼 있으면 모달 없이 바로 활성화
+  try {
+    var savedKey = localStorage.getItem('vertex_service_account_key');
+    if (savedKey) {
+      var keyJson = JSON.parse(savedKey);
+      if (keyJson.type === 'service_account') {
+        var ok = await ensureVertexToken();
+        if (ok) {
+          vertexMode = true;
+          vertexProjectId = keyJson.project_id || '';
+          var vBtn = document.getElementById('vertexToggleBtn');
+          if (vBtn) { vBtn.textContent = 'Vertex AI: ON ✓'; vBtn.style.background = 'var(--ok)'; vBtn.style.color = '#000'; vBtn.style.borderColor = 'var(--ok)'; }
+          showToast('✅ Vertex AI 자동 활성화됨 (' + (keyJson.client_email || vertexProjectId) + ')');
+          return;
+        }
+      }
+    }
+  } catch(e) {}
+  // 키 없으면 모달 열기
   var saved = JSON.parse(localStorage.getItem('vx_oauth') || '{}');
   if (saved.client_id)     document.getElementById('vx-client-id').value     = saved.client_id;
   if (saved.client_secret) document.getElementById('vx-client-secret').value = saved.client_secret;
@@ -6295,6 +6415,7 @@ async function uploadVertexKeyFile(input) {
     // 브라우저 localStorage에 저장 (Railway 전송 없음)
     localStorage.setItem('vertex_service_account_key', text);
     vertexProjectId = keyJson.project_id || '';
+    ssSaveUserDataDebounced();
     statusEl.style.background = 'rgba(54,214,138,.15)';
     statusEl.style.color = '#36d68a';
     statusEl.style.border = '1px solid #36d68a55';
@@ -6354,14 +6475,51 @@ function isHighDemandError(status, d) {
 // statusCb: 선택 사항. function(text) 형태로 진행 상태 UI 업데이트에 사용
 async function callGeminiTextWithRetry(key, body, statusCb) {
   var primary = GEMINI_MODEL_TEXT();
-  // ChatMock 모델이면 바로 프록시로 전송
+  // ChatMock 모델이면 localhost:8000 직접 호출 (Railway 경유 X)
   if (isChatMockModel(primary)) {
     if (statusCb) statusCb('🤖 ChatGPT 생성 중…');
-    var r = await fetch('/api/chatmock/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({}, body, { model: primary.replace('chatmock:', '') }))
-    });
+    // Gemini body → OpenAI messages 변환
+    var cmMessages = [];
+    var sysText = '';
+    try { sysText = body.system_instruction.parts[0].text || ''; } catch(e) {}
+    if (sysText) cmMessages.push({ role: 'system', content: sysText });
+    var cmContents = body.contents || [];
+    for (var ci = 0; ci < cmContents.length; ci++) {
+      var cc = cmContents[ci];
+      var ccRole = cc.role === 'model' ? 'assistant' : 'user';
+      var ccParts = cc.parts || [];
+      var hasBin = ccParts.some(function(p){ return p.inline_data; });
+      var ccContent;
+      if (hasBin) {
+        ccContent = ccParts.map(function(p) {
+          if (p.inline_data) return { type: 'image_url', image_url: { url: 'data:' + p.inline_data.mime_type + ';base64,' + p.inline_data.data } };
+          return { type: 'text', text: p.text || '' };
+        });
+      } else {
+        ccContent = ccParts.map(function(p){ return p.text || ''; }).join('\n');
+      }
+      cmMessages.push({ role: ccRole, content: ccContent });
+    }
+    var cmBody = { model: primary.replace('chatmock:', ''), messages: cmMessages, stream: false };
+    var cmAbort = new AbortController();
+    var cmTimer = setTimeout(function(){ cmAbort.abort(); }, 50000);
+    var r;
+    try {
+      r = await fetch('http://localhost:8000/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cmBody),
+        signal: cmAbort.signal
+      });
+    } catch(fetchErr) {
+      clearTimeout(cmTimer);
+      if (fetchErr.name === 'AbortError') {
+        showChatMockRestartBanner();
+        throw new Error('ChatMock 응답 없음 (50초) — chatmock serve를 재시작하세요');
+      }
+      throw new Error('ChatMock 연결 실패: ' + fetchErr.message);
+    }
+    clearTimeout(cmTimer);
     if (!r.ok) {
       var errData = await r.json().catch(function(){ return {}; });
       if (r.status === 401 || errData.code === 'chatmock_token_expired') {
@@ -6370,8 +6528,13 @@ async function callGeminiTextWithRetry(key, body, statusCb) {
       }
       throw new Error('ChatMock 오류: ' + (errData.message || r.status));
     }
-    var data = await r.json();
-    return { r: r, d: data, model: primary.replace('chatmock:', '') };
+    var oaiData = await r.json();
+    // OpenAI 응답 → Gemini 형식으로 변환 (호출부 호환)
+    var gemData = {
+      candidates: [{ content: { parts: [{ text: (oaiData.choices && oaiData.choices[0] && oaiData.choices[0].message && oaiData.choices[0].message.content) || '' }], role: 'model' }, finishReason: 'STOP' }],
+      usageMetadata: { promptTokenCount: (oaiData.usage && oaiData.usage.prompt_tokens) || 0, candidatesTokenCount: (oaiData.usage && oaiData.usage.completion_tokens) || 0 }
+    };
+    return { r: r, d: gemData, model: primary.replace('chatmock:', '') };
   }
   // 선택 모델을 맨 앞에, 나머지 폴백 모델을 순서대로 추가
   var modelQueue = [primary].concat(GEMINI_FALLBACK_MODELS.filter(function(m){ return m !== primary; }));
@@ -6482,9 +6645,14 @@ let sceneIdCounter = 0;
 let masterCharImg = null;
 let charAnalysis  = '';
 let scriptCharAnalysis = '';
+let lastAnalyzedScriptHash = ''; // 분석 결과 캐싱용
 let importedScenes = [];
 let studioRunning = false;
 let studioStopRequested = false;
+let continuityMode = localStorage.getItem('ss_continuity_mode') !== 'false'; // 기본값: 연속성 모드
+
+// ── 장면 연속성 자동 판단 캐시 ──
+let sceneStyleCache = {}; // { sceneNo: { era, characterDesc, clothing, location, lighting, mood } }
 
 // ── 스타일 잠금 ──
 var styleLockEnabled = false;
@@ -6730,16 +6898,17 @@ async function analyzeStyleImage(input) {
   try {
     // 속도 개선: 화풍 분석은 1024px 리사이즈 후 전송
     var b64 = await readImageAsResizedBase64(file, 1024);
-    var prompt = 'Analyze this image and extract its visual style for use as an image generation prompt.\n'
-               + 'IMPORTANT: If this image shows Korean, Japanese, or Chinese art style, identify the SPECIFIC cultural origin.\n'
-               + 'Focus on: Art style (Korean manhwa, Korean webtoon, Korean historical illustration, cinematic photography, 2D vector, watercolor, etc.), '
-               + 'Lighting (dramatic, soft, natural sunlight), '
-               + 'Color palette (vivid, muted, pastel, earthy tones), '
-               + 'Line quality (clean lines, sketch, bold outlines), '
-               + 'Character style (realistic proportions, stylized, semi-realistic).\n'
-               + 'If Korean traditional/historical style is detected: explicitly include "Korean Hanbok, Joseon dynasty, traditional Korean clothing, Gat (Korean hat), Korean traditional painting style" in output to prevent the AI from defaulting to Chinese or Japanese styles.\n'
-               + 'Do NOT describe the specific subject. ONLY describe the reusable STYLE.\n'
-               + 'Output ONLY English prompt keywords separated by commas.';
+    var prompt = 'Analyze this image and extract its VISUAL ART TECHNIQUE for use as an image generation style prompt.\n'
+               + 'IMPORTANT: Output ONLY art technique keywords — NOT subject matter, NOT clothing, NOT who is in the image.\n'
+               + 'Focus ONLY on these technique aspects:\n'
+               + '  1. Art medium/style (ink wash painting, digital illustration, watercolor, oil painting, 2D vector, manhwa line art, cinematic photography, etc.)\n'
+               + '  2. Line quality (clean precise lines, rough sketch, bold outlines, no outlines)\n'
+               + '  3. Color palette (vivid saturated, muted earthy, warm golden tones, cool blue tones, pastel, monochrome)\n'
+               + '  4. Lighting technique (dramatic chiaroscuro, soft diffused, natural sunlight, rim lighting)\n'
+               + '  5. Rendering style (flat shading, smooth gradient, textured brushwork, cel-shaded, photorealistic)\n'
+               + 'If Korean/Japanese/Chinese cultural art style detected: describe the PAINTING TECHNIQUE only (e.g., "Korean ink wash painting technique, traditional brushwork, muted earth tones, fine detail linework") — do NOT include "hanbok", "gat hat", "Joseon dynasty", or any clothing/era descriptions. Those are determined by the script, not the art style.\n'
+               + 'Do NOT describe any specific subject, person, object, clothing, or scene content.\n'
+               + 'Output ONLY English comma-separated style technique keywords. Maximum 30 words.';
 
     var payload = {
       system_instruction: { parts: [{ text: "You are an expert prompt engineer." }] },
@@ -7970,7 +8139,7 @@ function clearCharRef() {
 }
 // Companion 버전 체크 (게이트와 독립적, 앱 로드 시 항상 실행)
 (async function checkCompanionUpdate() {
-  var LATEST = '1.2.5';
+  var LATEST = '1.2.9';
   var bar = document.getElementById('ss-update-bar');
   var desc = document.getElementById('ss-update-bar-desc');
   var title = document.getElementById('ss-update-bar-title');
@@ -7991,6 +8160,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var adm = localStorage.getItem('clipflow_license_admin_key') || '';
   if (adm && document.getElementById('license-admin-key')) document.getElementById('license-admin-key').value = adm;
   initLicenseGuard();
+  updateGenModeBtn();
 
   switchStudioSubTab('scenes');
   // Migrate deprecated preview model ids to GA ids.
@@ -8052,6 +8222,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedStyle) sStyleEl.value = savedStyle;
     sStyleEl.addEventListener('input', function() {
       localStorage.setItem('ss_my_style_v2', sStyleEl.value);
+      ssSaveUserDataDebounced();
     });
   }
   if (sStyleOvEl) {
@@ -8070,6 +8241,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedG && !gKeyEl.value) gKeyEl.value = savedG;
     gKeyEl.addEventListener('input', function() {
       localStorage.setItem('ss_global_api_key_v1', gKeyEl.value.trim());
+      ssSaveUserDataDebounced();
     });
     if (gKeyEl.value.trim()) setTimeout(function(){ testApiGlobal(true); }, 300);
   }
@@ -8079,6 +8251,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedEl && !elKeyEl.value) elKeyEl.value = savedEl;
     var persistElKey = function() {
       localStorage.setItem('ss_el_api_key_v1', elKeyEl.value.trim());
+      ssSaveUserDataDebounced();
     };
     elKeyEl.addEventListener('input', persistElKey);
     elKeyEl.addEventListener('change', persistElKey);
@@ -8191,36 +8364,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
     }
-    // Codex 로그인 상태 확인 → gpt-image-2 옵션 표시
+    // ChatMock/Codex 로그인 상태 확인 → gpt-image-2 옵션 표시
     try {
-      var cr = await fetch('/api/codex/status');
-      var cd = await cr.json();
-      if (cd.logged_in) {
-        var og = document.getElementById('codex-img-optgroup');
-        if (og) og.style.display = '';
+      var imgOg = document.getElementById('codex-img-optgroup');
+      // Companion 경유 chatmock 확인
+      var cmR = await fetch('http://localhost:19283/chatmock-status', { signal: AbortSignal.timeout(2000) }).catch(function(){return null;});
+      if (cmR && cmR.ok) {
+        var cmD = await cmR.json();
+        if (cmD.running && imgOg) imgOg.style.display = '';
+      }
+      // Railway Codex 확인 (fallback)
+      if (!imgOg || imgOg.style.display === 'none') {
+        var cr = await fetch('/api/codex/status');
+        var cd = await cr.json();
+        if (cd.logged_in && imgOg) imgOg.style.display = '';
       }
     } catch(e) {}
   }, 1200);
 
-  // ── Vertex AI 키 파일 자동 복원 ──
+  // ── Vertex AI 키 파일 자동 복원 (localStorage 우선) ──
   setTimeout(async function() {
+    // 1) localStorage에 저장된 서비스 계정 키 파일 복원
+    try {
+      var savedKey = localStorage.getItem('vertex_service_account_key');
+      if (savedKey) {
+        var keyJson = JSON.parse(savedKey);
+        if (keyJson.type === 'service_account') {
+          var ok = await ensureVertexToken();
+          if (ok) {
+            vertexMode = true;
+            vertexProjectId = keyJson.project_id || '';
+            var vBtn = document.getElementById('vertexToggleBtn');
+            if (vBtn) { vBtn.textContent = 'Vertex AI: ON ✓'; vBtn.style.background = 'var(--ok)'; vBtn.style.color = '#000'; vBtn.style.borderColor = 'var(--ok)'; }
+            var fnEl = document.getElementById('vx-key-filename');
+            if (fnEl) fnEl.textContent = '✅ ' + (keyJson.client_email || '저장된 키') + ' (프로젝트: ' + (vertexProjectId || '?') + ')';
+            closeVertexLoginModal();
+            return;
+          }
+        }
+      }
+    } catch(e) {}
+    // 2) 폴백: Railway 로컬 서버 확인
     try {
       var res = await fetch('/api/auth/status');
       var d = await res.json();
       if (d.status === 'ok' && d.logged_in && d.via === 'service_account') {
-        var ok = await ensureVertexToken();
-        if (ok) {
+        var ok2 = await ensureVertexToken();
+        if (ok2) {
           vertexMode = true;
           vertexProjectId = d.project_id || '';
-          var vBtn = document.getElementById('vertexToggleBtn');
-          if (vBtn) {
-            vBtn.textContent = 'Vertex AI: ON ✓';
-            vBtn.style.background = 'var(--ok)';
-            vBtn.style.color = '#000';
-            vBtn.style.borderColor = 'var(--ok)';
-          }
-          var fnEl = document.getElementById('vx-key-filename');
-          if (fnEl) fnEl.textContent = '✅ 저장된 키 파일 자동 로드됨 (프로젝트: ' + (d.project_id || '?') + ')';
+          var vBtn2 = document.getElementById('vertexToggleBtn');
+          if (vBtn2) { vBtn2.textContent = 'Vertex AI: ON ✓'; vBtn2.style.background = 'var(--ok)'; vBtn2.style.color = '#000'; vBtn2.style.borderColor = 'var(--ok)'; }
+          var fnEl2 = document.getElementById('vx-key-filename');
+          if (fnEl2) fnEl2.textContent = '✅ 저장된 키 파일 자동 로드됨 (프로젝트: ' + (d.project_id || '?') + ')';
         }
       }
     } catch(e) { /* 서버 미실행 시 무시 */ }
@@ -8252,21 +8448,32 @@ async function analyzeCharacter() {
 }
 
 async function analyzeScriptCharacters(key, sceneList) {
+  // 캐싱 체크
+  var currentHash = sceneList.map(function(s) { return s.script; }).join('|');
+  if (currentHash === lastAnalyzedScriptHash && scriptCharAnalysis) {
+    return; // 이미 분석된 결과 재사용
+  }
   scriptCharAnalysis = '';
   var fullScript = sceneList.map(function(s, i) { return (i+1) + '. ' + s.script; }).join('\n');
   try {
     var r = await fetch(getGeminiUrl(GEMINI_MODEL_TEXT()), {
       method: 'POST', headers: getGeminiHeaders(key),
       body: JSON.stringify(patchBodyForVertex({ contents: [{ parts: [{ text:
-        'Read these script lines and identify named characters or recurring human subjects.\n' +
-        'For each recurring human character, output a brief English appearance description (age range, ethnicity, hair, clothing style).\n' +
-        'Format: "CHARACTER_NAME: description". One line per character. If no recurring named characters, output "none".\n' +
-        'Script:\n\n' + fullScript
+        'Analyze the following Korean video script and extract ALL of the information below. Output in English only.\n\n' +
+        '1. VIDEO_TOPIC: One sentence summarizing the entire video topic/subject.\n' +
+        '2. ERA_FLOW: The overall time period(s) covered (e.g., "Joseon era → modern present day" or "entirely modern contemporary").\n' +
+        '3. KEY_OBJECTS: List the main physical objects/materials central to the story (e.g., "chili pepper, kimchi, pottery").\n' +
+        '4. PRONOUN_MAP: List any ambiguous pronouns and what they refer to (e.g., "그거/이것 = chili pepper", "그 사람 = King Sejong"). Only list pronouns that could confuse an AI image generator.\n' +
+        '5. KEY_LOCATIONS: Main locations/settings in the video (e.g., "Korean royal palace, modern apartment, New York").\n' +
+        '6. CHARACTERS: For each recurring named human character, their appearance (age, ethnicity, hair, clothing). Format: "NAME: description". If no recurring characters, write "none".\n\n' +
+        'Script (Korean):\n\n' + fullScript + '\n\n' +
+        'Output each field on its own line starting with the field name. Be concise.'
       }]}]}))
     });
     var d = await r.json();
     var result = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
     if (result && result.toLowerCase() !== 'none') scriptCharAnalysis = result;
+    lastAnalyzedScriptHash = currentHash; // 캐싱 저장
   } catch(e) { /* silently ignore */ }
 }
 
@@ -8573,7 +8780,7 @@ function buildSceneCardHTML(s, idx) {
   } else if (s.imgDataUrl) {
     var _isVidSrc = s.grokVideo || s.imgDataUrl.startsWith('data:video') || /\.(mp4|webm|mov)(\?|$)/i.test(s.imgDataUrl);
     if (_isVidSrc) {
-      imgColInner = '<video src="' + s.imgDataUrl + '" controls style="width:100%;border-radius:6px;display:block;background:#000"></video>'
+      imgColInner = '<video src="' + s.imgDataUrl + '" controls preload="none" style="width:100%;border-radius:6px;display:block;background:#000"></video>'
     } else {
       imgColInner = '<img src="' + s.imgDataUrl + '" onclick="downloadSceneImage(' + s.id + ')" title="클릭하여 다운로드" style="width:100%;border-radius:6px;display:block;cursor:pointer">'
     }
@@ -8583,17 +8790,12 @@ function buildSceneCardHTML(s, idx) {
       + '<button class="btn btn-sm btn-err" onclick="retrySceneImage(' + s.id + ')">↻ 재생성</button>'
       + (s.imgModel === 'schnell' ? '<button class="btn btn-sm" onclick="upgradeSceneImage(' + s.id + ')" style="background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#818cf8;font-weight:700" title="Dev 20 steps 최종 품질로 재생성">⬆ Dev</button>' : '')
       + '<button class="btn btn-sm btn-cyan" onclick="generateSceneVariants(' + s.id + ', 2)" title="추가 2장 생성 (총 최대 4개)">⊞ 변형</button>'
-      + '<button class="btn btn-sm" onclick="generateTextCard(' + s.id + ')" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24" title="나레이션 핵심 텍스트를 이미지에 자연스럽게 포함">📊 텍스트 카드</button>'
+      + (isInfographicSuitable(s.script) ? '<button class="btn btn-sm" onclick="generateTextCard(' + s.id + ')" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24" title="나레이션 핵심 텍스트를 이미지에 인포그래픽으로 포함">📊 인포</button>' : '')
       + '<button class="btn btn-sm ss-master-only" onclick="grokEditToggle(' + s.id + ')" style="background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa" title="Grok으로 이미지 편집">✏️ 편집</button>'
       + '<label class="btn btn-sm" style="cursor:pointer;padding:3px 6px;border:1px dashed var(--border2);background:var(--s2);color:var(--text2)">업로드<input type="file" accept="image/*,video/*" style="display:none" onchange="uploadSceneImage(this, ' + s.id + ')"></label>'
       + '<button class="btn btn-sm" onclick="downloadSceneImage(' + s.id + ')">↓</button>'
       + '</div>'
-      + '<div id="grok-edit-box-' + s.id + '" style="display:none;margin-top:6px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:8px;padding:8px;gap:6px;flex-direction:column">'
-      + '<textarea id="grok-edit-prompt-' + s.id + '" rows="2" placeholder="예: 빨간 옷을 파란색으로 바꿔줘, 배경을 밤하늘로..." style="width:100%;background:var(--s2);border:1px solid rgba(167,139,250,.3);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;resize:none;box-sizing:border-box;outline:none"></textarea>'
-      + '<div style="display:flex;gap:6px">'
-      + '<button class="btn btn-sm" onclick="grokEditToggle(' + s.id + ')" style="background:var(--s3);border-color:var(--border)">취소</button>'
-      + '<button class="btn btn-sm" onclick="grokEditApply(' + s.id + ')" style="flex:1;background:rgba(167,139,250,.2);border-color:rgba(167,139,250,.5);color:#a78bfa;font-weight:700">✨ Grok 편집 적용</button>'
-      + '</div></div>';
+      + makeEditBox(s.id, s.prompt || '');
   } else if (s.imgStatus === 'loading') {
     imgColInner = '<div class="img-placeholder"><div class="spin"></div><div class="img-placeholder-lbl">생성 중…</div></div>';
   } else if (s.imgStatus === 'error') {
@@ -8762,21 +8964,21 @@ function updateSceneCard(id) {
     var _isVideo = s.imgDataUrl.startsWith('data:video') || s.imgDataUrl.includes('/api/grok/video/') || s.imgDataUrl.startsWith('blob:') || s.imgDataUrl.match(/\.(mp4|webm)$/i) || s.grokVideo;
     if (_isVideo) {
       var _videoLabel = s.grokVideo ? '<div style="font-size:10px;color:#22c55e;margin-bottom:2px;font-weight:700">🎬 Grok 영상</div>' : '';
-      imgcol.innerHTML = _videoLabel + '<video src="' + s.imgDataUrl + '" controls style="width:100%;min-height:60px;background:#000;border-radius:4px;" onerror="_grokVideoRetry(this)"></video>'
+      imgcol.innerHTML = _videoLabel + '<video src="' + s.imgDataUrl + '" controls preload="none" style="width:100%;min-height:60px;background:#000;border-radius:4px;" onerror="_grokVideoRetry(this)"></video>'
     } else {
-      imgcol.innerHTML = '<img data-src="' + s.imgDataUrl + '" src="" onclick="downloadSceneImage(' + id + ')" title="클릭하여 다운로드" style="min-height:60px;background:var(--s3)">'
+      imgcol.innerHTML = '<img src="' + s.imgDataUrl + '" onclick="downloadSceneImage(' + id + ')" title="클릭하여 다운로드" style="width:100%;border-radius:6px;display:block;cursor:pointer">'
     }
     imgcol.innerHTML += buildVariantGridHTML(s);
     imgcol.innerHTML += '<div class="img-actions" style="margin-top:4px">'
       + '<button class="btn btn-sm btn-err" onclick="retrySceneImage(' + id + ')">↻ 재생성</button>'
       + (s.imgModel === 'schnell' ? '<button class="btn btn-sm" onclick="upgradeSceneImage(' + id + ')" style="background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#818cf8;font-weight:700" title="Dev 20 steps 최종 품질로 재생성">⬆ Dev</button>' : '')
       + '<button class="btn btn-sm btn-cyan" onclick="generateSceneVariants(' + id + ', 2)" title="추가 2장 생성 (총 최대 4개)">⊞ 변형</button>'
-      + '<button class="btn btn-sm" onclick="generateTextCard(' + id + ')" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24" title="나레이션 핵심 텍스트를 이미지에 자연스럽게 포함">📊 텍스트 카드</button>'
+      + (isInfographicSuitable((scenes.find(function(x){return x.id===id;})||{}).script||'') ? '<button class="btn btn-sm" onclick="generateTextCard(' + id + ')" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24" title="나레이션 핵심 텍스트를 이미지에 인포그래픽으로 포함">📊 인포</button>' : '')
       + '<button class="btn btn-sm ss-master-only" onclick="grokEditToggle(' + id + ')" style="background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa" title="Grok으로 이미지 편집">✏️ 편집</button>'
       + '<label class="btn btn-sm" style="cursor:pointer;padding:3px 6px;border:1px dashed var(--border2);background:var(--s2);color:var(--text2)">업로드<input type="file" accept="image/*,video/*" style="display:none" onchange="uploadSceneImage(this, ' + id + ')"></label>'
       + '<button class="btn btn-sm" onclick="downloadSceneImage(' + id + ')">↓</button>'
-      + '</div>';
-    imgcol.querySelectorAll('img[data-src]').forEach(function(img) { getImgObserver().observe(img); });
+      + '</div>'
+      + makeEditBox(id, (scenes.find(function(x){return x.id===id;})||{}).prompt || '');
   } else if (s.imgStatus === 'loading') {
     imgcol.innerHTML = '<div class="img-placeholder"><div class="spin"></div><div class="img-placeholder-lbl">이미지 생성 중…</div></div>';
   } else if (s.imgStatus === 'error') {
@@ -8866,7 +9068,11 @@ OUTPUT RULES:
 2. Structure EVERY prompt in this exact order:
    [STYLE BLOCK] → [SUBJECT + ACTION] → [ENVIRONMENT + ATMOSPHERE] → [LIGHTING] → [CAMERA] → [QUALITY TAGS] → [NEGATIVE]
 
-3. STYLE BLOCK — choose based on detected era:
+3. STYLE BLOCK — CRITICAL PRIORITY RULE:
+
+   ⚠️ IF the user message contains "PRIMARY STYLE DIRECTIVE": STOP — do NOT use the ERA-based styles below. Instead, use EXACTLY the user-provided style as your style block. The user's style overrides everything in this section. Only apply ERA knowledge for clothing/setting accuracy, NOT for the art style.
+
+   IF no PRIMARY STYLE DIRECTIVE is provided, choose based on detected era:
 
    ERA A (Prehistoric/Ancient):
    - "ancient world documentary, a real photograph, live-action movie still, 8k resolution, highly detailed photography, shot on 35mm lens, photorealistic,"
@@ -8875,6 +9081,7 @@ OUTPUT RULES:
    ERA B (Historical 1800s~1950s):
    - "cinematic historical drama, a real photograph, live-action movie still, 8k resolution, highly detailed photography, period-accurate,"
    - "epic historical documentary, photorealistic cinematic realism, shot on 35mm lens,"
+   HANBOK GENDER RULE (ERA B): Korean MEN wear jeogori + BAJI (pants) + optional po robe. Korean WOMEN wear jeogori + CHIMA (skirt). NEVER put a man in a chima/skirt.
 
    ERA C (Modern/Contemporary — MOST IMPORTANT: use these for any present-day or recent scenes):
    - "cinematic modern drama, a real photograph, live-action movie still, 8k resolution, highly detailed photography, photorealistic,"
@@ -8889,13 +9096,17 @@ OUTPUT RULES:
    - "breathtaking nature documentary, a real photograph, epic landscape photography, cinematic wide shot, photorealistic,"
    - "dramatic natural disaster scene, live-action movie still, epic scale documentary photography,"
 
-4. SUBJECT (CRITICAL RULE): 
-   - ALWAYS start with the EXACT FIXED CHARACTER APPEARANCE (if a master character is provided).
-   - Translate all script metaphors or emotions into EXAGGERATED, INTUITIVE PHYSICAL ACTIONS (e.g., instead of "felt sad", write "sitting on the floor, eyes wide open, tears dripping"). It must be so obvious an elementary schooler instantly understands it.
+4. SUBJECT & COMPOSITION (CRITICAL RULE — SCENE FIRST, CHARACTER SECOND):
+   - ALWAYS lead with the ENVIRONMENT/SITUATION/CONTEXT first. The scene tells the story, not the face.
+   - Characters are SECONDARY: they appear small-to-medium in the frame as part of the scene, NOT as the main focus.
+   - Characters should occupy NO MORE THAN 25% of the frame. Prefer showing them from mid-body or farther away within a rich environment.
+   - NEVER start the prompt with a character description. Start with the setting, atmosphere, or concept.
+   - Translate script metaphors or emotions into PHYSICAL SITUATION and ENVIRONMENT (e.g., instead of "felt lonely", write "a vast empty city plaza at night, a single distant figure sitting on a bench under a streetlamp").
+   - If a master character is provided, include their appearance briefly AFTER establishing the scene.
 
-5. ENVIRONMENT: Always describe the setting accurately for the detected era.
-   - Modern: city streets, office buildings, apartments, shopping malls, subways, modern interiors
-   - Ancient: caves, tundra, forests, rivers, stone structures
+5. ENVIRONMENT: Always describe the setting accurately and in detail for the detected era. Environment is the HERO of each shot.
+   - Modern: city streets, office buildings, apartments, shopping malls, subways, modern interiors — describe it richly
+   - Ancient: caves, tundra, forests, rivers, stone structures — epic and atmospheric
    - Never mix eras (do NOT put modern people in ancient settings or vice versa)
 
 6. COLOR & LIGHTING CONTINUITY (CRITICAL RULE):
@@ -8903,18 +9114,20 @@ OUTPUT RULES:
    - FORCE the ambient lighting and color grading to strictly match the user's requested style across ALL scenes.
    - If the user style is 'warm and vivid', illuminate dark scenes with warm golden light to maintain global visual consistency.
 
-7. CAMERA: Always include ONE of:
-   - "extreme wide establishing shot, low angle, epic scale"
-   - "dynamic three-quarter view, dramatic composition"
-   - "close-up portrait with deep background bokeh"
-   - "bird's eye view, sweeping panorama"
-   - "medium shot, eye-level, realistic perspective"
+7. CAMERA: Always include ONE of (prefer wide/environmental shots — avoid close-up unless the script is explicitly about a face/emotion):
+   - "extreme wide establishing shot, low angle, epic scale" ← USE THIS MOST OFTEN
+   - "bird's eye view, sweeping panorama, vast environment"
+   - "dynamic three-quarter view, dramatic composition, full environment visible"
+   - "medium-wide shot, subject small in frame, environment dominates"
+   - "medium shot, eye-level, realistic perspective" ← only if character interaction is the clear focus
+   - AVOID: "close-up portrait" unless script explicitly describes a facial reaction
 
 8. QUALITY TAGS (always end with):
    "intricate details, masterpiece quality, 8K resolution, highly detailed, professional digital art"
 
 9. NEGATIVE (always end with):
    "--no text, no letters, no words, no captions, no watermarks, no logos, no split screen, blur, low quality, cartoon, anime, childish"
+   If the user message contains ERA CLOTHING RULE, also add the specified clothing bans to the negative.
 
 10. CHARACTER RULE: Only apply master character if a human is the clear main subject. For animals, landscapes, objects, disasters — ignore character entirely.
 
@@ -8923,7 +9136,7 @@ OUTPUT RULES:
 EXAMPLES:
 
 Modern scene — "회사원이 스마트폰을 보며 지하철을 타고 있다":
-"Cinematic modern drama, hyper-realistic digital illustration, photographic quality concept art, a tired Korean office worker in a business suit staring at his glowing smartphone screen, surrounded by other commuters on a crowded Seoul subway train, modern subway interior with fluorescent lighting and advertisement posters, urban night lighting reflecting through subway windows, medium shot eye-level realistic perspective, intricate details, masterpiece quality, 8K resolution, highly detailed, professional digital art --no text watermarks logos split screen blur low quality cartoon anime"
+"Cinematic modern drama, hyper-realistic digital illustration, photographic quality concept art, a crowded Seoul subway interior at night, rows of commuters packed together, fluorescent lights buzzing overhead, advertisement posters lining the walls, urban darkness rushing past the windows, a small figure of a Korean office worker in a business suit visible among the crowd glancing at a glowing phone, extreme wide establishing shot low angle epic scale, intricate details, masterpiece quality, 8K resolution, highly detailed, professional digital art --no text watermarks logos split screen blur low quality cartoon anime"
 
 Ancient scene — "구석기 인류가 불을 피우며 동굴에서 밤을 보내고 있다":
 "Ancient world documentary illustration, hyper-detailed historical concept art, dramatic oil painting style, a Paleolithic human family huddled around a blazing fire inside a vast cave, mammoth bone structure arching overhead, handprints painted on the cave wall, animal hides draped over shoulders, darkness pressing in from all sides, torch light flickering warm amber against cold stone walls, dynamic three-quarter view dramatic composition, intricate details masterpiece quality 8K resolution highly detailed professional digital art --no text watermarks logos split screen blur low quality cartoon anime"`;
@@ -8931,6 +9144,14 @@ Ancient scene — "구석기 인류가 불을 피우며 동굴에서 밤을 보�
 async function buildPromptForScene(scene) {
   var key = getApiKey();
   if (!key) throw new Error('API 키 없음');
+
+  // sceneStyleCache에서 이전 장면 스타일 읽기 (프롬프트 단계에서 반영)
+  var sceneIdx = scenes.findIndex(function(s) { return s.id === scene.id; });
+  var cachedStyle = (sceneIdx > 0) ? sceneStyleCache[sceneIdx] : null;
+  var stylePrefixFromCache = cachedStyle
+    ? '[이전 장면과 동일한 인물: ' + cachedStyle.characterDesc + ', 의상: ' + cachedStyle.clothing + ', 배경: ' + cachedStyle.location + ', 조명: ' + cachedStyle.lighting + ', 분위기: ' + cachedStyle.mood + '] '
+    : '';
+
   var style = document.getElementById('s-style').value.trim();
   var styleOverride = document.getElementById('s-style-override') && document.getElementById('s-style-override').checked;
   var aspect = document.getElementById('s-aspect').value;
@@ -8943,29 +9164,135 @@ async function buildPromptForScene(scene) {
     styleLockInject = 'STYLE LOCK — Match this EXACT visual style, color palette, lighting, art direction, and rendering technique from the reference prompt below. ONLY change the subject matter and environment to fit the new script line. Do NOT deviate from the established style.\n\nSTYLE REFERENCE PROMPT:\n' + lockedStyleRef + '\n\n';
   }
 
+  // ── [BUG FIX] ERA 분류를 styleInstruction 빌드보다 먼저 실행 ──
+  var scriptLower = scene.script.toLowerCase();
+
+  // 1. 현대 장면 감지
+  var modernKeywords = [
+    'modern', 'contemporary', 'apartment', 'office', 'subway', 'smartphone', 'city', 'present', 'today',
+    'new york', 'paris', 'tokyo', 'seoul', 'london', 'chicago', 'los angeles', 'restaurant', 'hospital',
+    '현대', '지금', '오늘날', '오늘', '현재', '요즘', '최근', '21세기', '20세기',
+    '아파트', '사무실', '지하철', '편의점', '마트', '카페', '식당', '병원', '학교', '공항', '호텔',
+    '뉴욕', '파리', '도쿄', '서울', '런던', '베이징', '상하이', '홍콩', '싱가포르', '시카고', '로스앤젤레스',
+    '남극', '세종기지', '세종 기지',
+    '스마트폰', '핸드폰', '컴퓨터', '인터넷', '자동차', '비행기', '냉장고', '텔레비전', 'tv'
+  ];
+  var isModernScene = modernKeywords.some(function(kw) { return scriptLower.indexOf(kw) > -1; });
+
+  // 2. ERA_FLOW 라인 파싱 (전체 대본 분석 결과에서)
+  var eraLineFromAnalysis = '';
+  if (scriptCharAnalysis) {
+    eraLineFromAnalysis = scriptCharAnalysis.split('\n').find(function(l) { return l.toLowerCase().startsWith('era_flow'); }) || '';
+    // ERA_FLOW에 역사·현대가 모두 포함된 시대전환 대본이면 ERA_FLOW로 현대 판정하지 않음 — 씬 자체 텍스트가 우선
+    var eraFlowHasHistorical = /joseon|고려|조선|historical|dynasty|hanbok|전통|traditional|역사/i.test(eraLineFromAnalysis);
+    if (!isModernScene && !eraFlowHasHistorical && /modern|contemporary|present|현대/i.test(eraLineFromAnalysis)) isModernScene = true;
+  }
+
+  // 3. 역사 장면 감지 (조선/고려/한복 등 역사 키워드)
+  var historicalKeywords = [
+    '조선', '고려', '삼국', '고조선', '통일신라', '발해',
+    '임진왜란', '병자호란', '갑오개혁', '동학', '개화기', '일제', '일제강점기', '광복', '한국전쟁', '6.25',
+    '한복', '갓', '사또', '양반', '상놈', '임금', '왕', '왕비', '기녀', '기생', '한양', '궁궐',
+    'joseon', 'hanbok', 'gat hat', 'dynasty'
+  ];
+  var isHistoricalScene = historicalKeywords.some(function(kw) { return scriptLower.indexOf(kw) > -1; });
+  if (!isHistoricalScene && eraLineFromAnalysis) {
+    if (/joseon|고려|조선|historical|dynasty|hanbok|전통|traditional/i.test(eraLineFromAnalysis)) isHistoricalScene = true;
+  }
+  if (isModernScene) isHistoricalScene = false; // 현대 판정 우선
+
+  // 4. 대명사→객체 장면 감지 (PRONOUN_MAP 활용) — 인물 아닌 사물 지칭 시
+  var isPronounObjectScene = false;
+  var pronounObjectName = '';
+  var hasPronoun = ['그거', '이거', '저거', '그것', '이것', '저것'].some(function(p) { return scene.script.indexOf(p) > -1; });
+  if (hasPronoun && scriptCharAnalysis) {
+    var pronounMapLine = scriptCharAnalysis.split('\n').find(function(l) { return l.toLowerCase().startsWith('pronoun_map'); }) || '';
+    if (pronounMapLine) {
+      var mapPart = pronounMapLine.replace(/^pronoun_map\s*[:：]/i, '').trim();
+      mapPart.split(',').forEach(function(pair) {
+        var parts2 = pair.split(/→|->|=/).map(function(s) { return s.trim(); });
+        if (parts2.length === 2) {
+          var pronoun = parts2[0], target = parts2[1];
+          if (scene.script.indexOf(pronoun) > -1) {
+            var isPersonRef = /사람|인물|남자|여자|아이|어른|그녀|그분|선생|누나|형|오빠|아버|어머|할머|할아/.test(target);
+            if (!isPersonRef && target.length > 0 && !isPronounObjectScene) {
+              isPronounObjectScene = true;
+              pronounObjectName = target;
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // ── 현대 장면이면 style에서 시대/의상 키워드 사전 제거 (LLM에 넘기기 전) ──
+  var processedStyle = style;
+  if (isModernScene && style) {
+    processedStyle = style
+      .replace(/\bKorean historical illustration\b/gi, 'Korean-style illustration')
+      .replace(/\btraditional Korean painting\b/gi, 'Korean-style 2D illustration')
+      .replace(/\bKorean traditional\b/gi, 'Korean-style')
+      .replace(/\bJoseon[- ]?dynasty\b/gi, '')
+      .replace(/\bJoseon[- ]?era\b/gi, '')
+      .replace(/\bJoseon\b/gi, '')
+      .replace(/\bhanbok\b/gi, '')
+      .replace(/\bgat hat\b/gi, '')
+      .replace(/\bgat\b/gi, '')
+      .replace(/\btraditional Korean clothing\b/gi, '')
+      .replace(/\bhistorical\b/gi, 'contemporary')
+      .replace(/,\s*,/g, ',')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
   // 내 스타일 우선 모드: 채널 기본 스타일 무시, 입력 스타일이 핵심 지시
   var styleInstruction = '';
-  if (styleOverride && style) {
-    styleInstruction = 'PRIMARY STYLE DIRECTIVE (OVERRIDE CHANNEL DEFAULT — use this style above all else): ' + style + '\n\nIMPORTANT ERA RULE: Apply ONLY the art technique, rendering style, and color palette from the above directive. If the script describes a modern city (New York, Paris, Seoul offices, etc.) or foreign setting, DO NOT include historical Korean clothing (hanbok, gat), Joseon architecture, or period-specific elements from the style directive. Match the era of the script first, style second.\n\n';
-  } else if (style) {
-    styleInstruction = 'ADDITIONAL STYLE NOTES (art technique and color palette only — era and setting must match the script): ' + style + '\n\nERA OVERRIDE RULE: If style keywords conflict with the script\'s era (e.g., "Joseon dynasty" style on a modern NYC scene), ignore the era-specific keywords and keep only the rendering technique (illustration style, color palette, line art, etc.).\n\n';
+  var STYLE_SEPARATION_RULE = '\n\n🚨 CRITICAL STYLE vs ERA SEPARATION RULE (NEVER VIOLATE):\n'
+    + 'The style directive above describes ONLY the ART TECHNIQUE (brushwork, line style, color palette, rendering method).\n'
+    + 'It does NOT determine the time period, clothing, or setting of the scene.\n'
+    + '— "Traditional Korean painting" = ink/brush technique only. NOT hanbok. NOT Joseon era.\n'
+    + '— "Watercolor style" = painting technique only. NOT historical era.\n'
+    + '— Character clothing, hairstyles, and props MUST match the SCRIPT ERA, not the art style.\n'
+    + 'If the script is set in modern New York/Paris/Antarctica → characters wear modern clothes (jeans, suits, winter jackets).\n'
+    + 'NEVER dress modern-era characters in hanbok, gat, or any historical Korean clothing unless the script explicitly says so.\n\n';
+
+  if (styleOverride && processedStyle) {
+    styleInstruction = 'PRIMARY STYLE DIRECTIVE (OVERRIDE CHANNEL DEFAULT — use this style above all else): ' + processedStyle + STYLE_SEPARATION_RULE;
+  } else if (processedStyle) {
+    styleInstruction = 'ADDITIONAL STYLE NOTES (art technique and color palette only): ' + processedStyle + STYLE_SEPARATION_RULE;
   }
 
-  // 앞뒤 장면 컨텍스트 (시각적 연속성)
+  // 앞뒤 장면 컨텍스트 (최대 3장면, 시각적·서사적 연속성)
   var idx = scenes.findIndex(function(s) { return s.id === scene.id; });
-  var prevScript = idx > 0 ? scenes[idx - 1].script : '';
-  var nextScript = idx < scenes.length - 1 ? scenes[idx + 1].script : '';
   var contextBlock = '';
-  if (prevScript || nextScript) {
-    contextBlock = 'NARRATIVE CONTEXT (maintain visual/story continuity with adjacent scenes):\n';
-    if (prevScript) contextBlock += '- Previous: "' + prevScript + '"\n';
-    contextBlock += '- Current:  "' + scene.script + '"\n';
-    if (nextScript) contextBlock += '- Next:     "' + nextScript + '"\n';
-    contextBlock += '\n';
+  var ctxLines = [];
+  for (var ci = Math.max(0, idx - 3); ci <= Math.min(scenes.length - 1, idx + 3); ci++) {
+    if (ci === idx) ctxLines.push('→ CURRENT [scene ' + (ci+1) + ']: "' + scenes[ci].script + '"');
+    else if (ci < idx) ctxLines.push('  BEFORE  [scene ' + (ci+1) + ']: "' + scenes[ci].script + '"');
+    else ctxLines.push('  AFTER   [scene ' + (ci+1) + ']: "' + scenes[ci].script + '"');
+  }
+  if (ctxLines.length > 1) {
+    contextBlock = 'NARRATIVE CONTEXT — read all scenes to understand what pronouns like "그거/이것/저것" refer to:\n'
+      + ctxLines.join('\n') + '\n'
+      + '\n⚠️ ERA CONTINUITY: If the current scene has no explicit time marker, inherit era from surrounding scenes.\n'
+      + '⚠️ PRONOUN RESOLUTION: "그거/이것/저것" always refer to the KEY OBJECT established in earlier scenes — identify it from context above and depict it literally in the image.\n\n';
   }
 
-  // 스크립트 전체 인물 분석 결과 (있을 경우 일관성 유지)
-  var scriptCharDesc = scriptCharAnalysis ? 'RECURRING CHARACTERS (keep appearance consistent across scenes):\n' + scriptCharAnalysis + '\n\n' : '';
+  // 전체 대본 분석 결과 주입 (주제/시대흐름/핵심소재/대명사/장소/인물)
+  var scriptCharDesc = scriptCharAnalysis
+    ? 'FULL SCRIPT ANALYSIS (use this to understand the entire video context):\n' + scriptCharAnalysis + '\n\n'
+    : '';
+
+  // CHARACTERS 라인만 별도 추출해서 주입 (인물 일관성 강화)
+  var charLineInject = '';
+  if (scriptCharAnalysis) {
+    var charLine = scriptCharAnalysis.split('\n').find(function(l) { return l.toLowerCase().startsWith('characters:'); });
+    if (charLine) {
+      charLineInject = 'RECURRING CHARACTERS (must match this description exactly):\n' + charLine.replace(/^characters:\s*/i, '') + '\n\n';
+    }
+  }
+
+  var noHanbokTag = isModernScene ? ' no hanbok, no traditional Korean costume, no gat hat, no joseon era clothing,' : '';
 
   // 인물 중심 모드
   var charFocusInject = charFocus ? 'IMPORTANT: Always place a human character as the MAIN focal point and primary subject of the image. Even for landscape or event scenes, include a visible human figure in the foreground or center.\n\n' : '';
@@ -8977,15 +9304,32 @@ async function buildPromptForScene(scene) {
     ? 'INFOGRAPHIC MODE: This image must include Korean text overlay. Embed the following Korean subtitle text visually inside the image in a clear, readable font (large, bold, white with dark outline). Place it at the bottom or center. The text must be: "' + scene.script + '"\nThe overall composition should be instantly understandable even to a child — clear subject, simple layout, high contrast.\n\n'
     : '';
 
+  // 시대 의상 지시 — 우선순위: 대명사객체 > 현대 > 역사
+  var eraClothingNote = '';
+  if (isPronounObjectScene && pronounObjectName) {
+    eraClothingNote = 'OBJECT FOCUS RULE: This scene refers to "' + pronounObjectName + '" via pronoun. The MAIN SUBJECT of the image is the object "' + pronounObjectName + '" itself — NOT people. Show the object prominently and up close. Minimize or eliminate human figures unless they are directly interacting with it.\n\n';
+  } else if (isModernScene) {
+    eraClothingNote = 'ERA CLOTHING RULE: This is a MODERN/CONTEMPORARY scene. Characters MUST wear modern clothes (t-shirt, jeans, suit, jacket, etc.). ABSOLUTELY NO hanbok, gat, or any historical Korean costume. Add to your NEGATIVE: "no hanbok, no traditional Korean costume, no gat hat, no joseon era clothing".\n\n';
+  } else if (isHistoricalScene) {
+    eraClothingNote = 'ERA CLOTHING RULE: This is a HISTORICAL KOREAN scene.\n'
+      + '— MALE characters: 저고리 (jacket) + BAJI (pants, NOT skirt), optional 도포/포 outer robe, gat hat (갓) for scholars/officials. Men NEVER wear chima/skirt.\n'
+      + '— FEMALE characters: 저고리 (jacket) + CHIMA (skirt).\n'
+      + '⚠️ CRITICAL: Korean men wear PANTS (baji), NOT skirts. If you draw a man in a skirt, it is WRONG.\n'
+      + 'NEVER put modern clothes on historical characters.\n\n';
+  }
+
   var userMsg = contextBlock
     + 'CURRENT SCRIPT LINE: "' + scene.script + '"\n\n'
+    + stylePrefixFromCache
     + (styleLockInject ? styleLockInject : '')
     + styleInstruction
+    + eraClothingNote
     + charFocusInject
     + textRuleInject
-    + infographicInject
-    + scriptCharDesc
-    + (charDesc ? 'MASTER CHARACTER IMAGE (use ONLY if human is main subject): ' + charDesc + '\n\n' : '')
+     + infographicInject
+     + scriptCharDesc
+     + charLineInject
+     + (charDesc ? 'MASTER CHARACTER IMAGE (use ONLY if human is main subject): ' + charDesc + '\n\n' : '')
     + 'ASPECT RATIO: ' + aspect + '\n\n'
     + 'Analyze this script line deeply:\n'
     + '1. What is the KEY VISUAL MOMENT? What would a cinematic camera capture?\n'
@@ -9029,6 +9373,34 @@ async function buildPromptForScene(scene) {
   var candidate = d.candidates?.[0];
   var promptText = candidate?.content?.parts?.[0]?.text?.trim() || '';
   if (!promptText) throw new Error('프롬프트 빈 응답');
+
+  // ── 후처리: 현대 장면이면 코드에서 직접 강제 수정 ──
+  if (isModernScene) {
+    // 1. 스타일 텍스트에서 시대 관련 단어 제거 (이미지 모델이 "historical" 보면 한복 그림)
+    promptText = promptText
+      .replace(/\bhistorical\b/gi, 'contemporary')
+      .replace(/\bKorean historical illustration\b/gi, 'Korean-style illustration')
+      .replace(/\bKorean traditional\b/gi, 'Korean-style')
+      .replace(/\bJoseon[- ]?era\b/gi, 'modern')
+      .replace(/\bJoseon\b/gi, 'contemporary Korean')
+      .replace(/\bhanbok\b/gi, 'modern clothes')
+      .replace(/\bgat hat\b/gi, 'modern hairstyle')
+      .replace(/\btraditional Korean painting\b/gi, 'Korean-style 2D illustration');
+
+    // 2. "no hanbok" 네거티브 강제 주입
+    var HANBOK_BAN = 'no hanbok, no traditional Korean costume, no gat hat, no joseon era clothing, no historical Korean dress, no period costume';
+    if (/--no\s/i.test(promptText)) {
+      promptText = promptText.replace(/--no\s/i, '--no ' + HANBOK_BAN + ', ');
+    } else if (/--ar\s/i.test(promptText)) {
+      promptText = promptText.replace(/--ar\s/i, '--no ' + HANBOK_BAN + ' --ar ');
+    } else {
+      promptText += ' --no ' + HANBOK_BAN;
+    }
+
+    // 3. 프롬프트 맨 앞에 현대 의상 명시 삽입
+    promptText = 'MODERN SCENE — characters wear contemporary everyday clothes (jeans, t-shirt, jacket, suit, winter coat — NOT hanbok). ' + promptText;
+  }
+
   // 스타일 잠금: 첫 번째 프롬프트 자동 저장
   if (styleLockEnabled && !lockedStyleRef) {
     var generatedPrompt = promptText;
@@ -9095,13 +9467,27 @@ function isCodexImgModel() {
 var _codexLastScene = '';  // 직전 씬 이미지 경로 (2-anchor용)
 async function callCodexImg(prompt, aspect) {
   var model = GEMINI_MODEL_IMG();
-  // 화풍 분석 텍스트를 프롬프트 앞에 강하게 주입
   var finalPrompt = _codexStyleDesc
     ? 'DRAW IN THIS EXACT ART STYLE ONLY — Korean manhwa/webtoon illustration style. Thick bold black outlines. Completely flat cel-shading, zero gradients. Bright saturated colors. Round simplified cartoon faces with exaggerated expressions. Clean flat simple backgrounds. Traditional Korean Joseon-era aesthetic. ABSOLUTELY NOT Japanese anime. ABSOLUTELY NOT Ghibli. ABSOLUTELY NOT realistic. ABSOLUTELY NOT painterly. ABSOLUTELY NOT Attack on Titan style.\n\nAdditional style details from reference image:\n' + _codexStyleDesc + '\n\nScene (draw in the above Korean webtoon style):\n' + prompt
     : prompt;
   var body = { prompt: finalPrompt, model: model, aspect: aspect };
   if (_codexStyleRefPath) body.style_ref = _codexStyleRefPath;
   if (_codexLastScene) body.prev_scene = _codexLastScene;
+  // Companion 경유 먼저 시도 (ChatGPT image_generation 툴 사용)
+  var useCompanion = false;
+  try { await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1500) }); useCompanion = true; } catch(_) {}
+  if (useCompanion) {
+    var rc = await fetch('http://localhost:19283/chatmock-generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000)
+    });
+    var dc = await rc.json();
+    if (!dc.ok) throw new Error('이미지 생성 실패: ' + (dc.error || rc.status));
+    return { data: dc.b64, mimeType: 'image/png' };
+  }
+  // Companion 없을 때 Railway fallback
   var r = await fetch('/api/codex/generate-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -9112,17 +9498,15 @@ async function callCodexImg(prompt, aspect) {
     throw new Error('Codex 이미지 생성 실패: ' + (err.message || r.status));
   }
   var d = await r.json();
-  if (!d.file) throw new Error('Codex: 파일 경로 없음');
-  _codexLastScene = d.file;  // 2-anchor: 다음 씬 호출 시 prev_scene으로 전달
+  if (!d.file && !d.b64) throw new Error('Codex: 응답 데이터 없음');
+  if (d.b64) return { data: d.b64, mimeType: 'image/png' };
+  _codexLastScene = d.file;
   var imgR = await fetch(d.file);
-  if (!imgR.ok) throw new Error('Codex: 이미지 파일 로드 실패 (HTTP ' + imgR.status + ') — ' + d.file);
+  if (!imgR.ok) throw new Error('Codex: 이미지 파일 로드 실패 (HTTP ' + imgR.status + ')');
   var blob = await imgR.blob();
   return new Promise(function(resolve, reject) {
     var reader = new FileReader();
-    reader.onload = function(e) {
-      var b64 = e.target.result.split(',')[1];
-      resolve({ data: b64, mimeType: 'image/png' });
-    };
+    reader.onload = function(e) { resolve({ data: e.target.result.split(',')[1], mimeType: 'image/png' }); };
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
@@ -9939,7 +10323,71 @@ async function scoreInlineImageQuality(inlineData) {
   });
 }
 
+function _detectEra(texts) {
+  var combined = texts.join(' ').toLowerCase();
+  var modernKw = ['refrigerator', '냉장고', 'smartphone', '스마트폰', 'television', 'computer', '컴퓨터', '현대', 'today', '오늘', 'contemporary', 'internet', '인터넷', 'apartment', '아파트', 'supermarket', '마트', 'office', '사무실', '편의점', 'car ', '자동차', '도로', 'building', '빌딩'];
+  var histKw    = ['조선', '고려', '삼국', '신라', '고구려', '백제', '빙하기', 'joseon', 'goryeo', '선비', '양반', '사또', '임금', '왕', '궁궐', '한양', '기와', '조선시대', '고려시대'];
+  var modScore = modernKw.filter(function(k){ return combined.indexOf(k) !== -1; }).length;
+  var histScore = histKw.filter(function(k){ return combined.indexOf(k) !== -1; }).length;
+  if (modScore > histScore) return 'modern';
+  if (histScore > modScore) return 'historical';
+  return null;
+}
+
+function applyPromptFixes(prompt, sceneId) {
+  var p = prompt || '';
+  var pl = p.toLowerCase();
+
+  // 한국 전통/역사 씬 — 남성 바지(baji) 강제
+  var koreanHistKeywords = ['조선', '고려', '한복', 'hanbok', '전통', '사극', 'historical korean', 'joseon', 'goryeo', 'korean traditional', '한옥', 'yangban', '조선시대', '선비', '양반'];
+  var hasKoreanHist = koreanHistKeywords.some(function(k) { return pl.indexOf(k.toLowerCase()) !== -1; });
+  if (hasKoreanHist && pl.indexOf('baji') === -1) {
+    p += '\nKorean men wear baji (loose traditional pants), NOT skirts. Accurate historical Korean gender-appropriate clothing.';
+  }
+
+  // 인접 씬 맥락으로 시대 판단 — 현재 씬에 시대 정보가 부족할 때
+  var histStyleKw = ['historical', 'traditional', 'joseon', '조선', 'goryeo', '고려', 'hanbok', '한복', 'dynasty', 'ancient', 'painting style', '회화'];
+  var hasHistStyle = histStyleKw.some(function(k){ return pl.indexOf(k.toLowerCase()) !== -1; });
+
+  if (hasHistStyle && sceneId != null && typeof scenes !== 'undefined') {
+    var idx = scenes.findIndex(function(s){ return s.id === sceneId; });
+    if (idx !== -1) {
+      var self = scenes[idx];
+      // 시대 판단은 반드시 나레이션(사용자 작성)만 사용 — AI 생성 이미지 프롬프트는 오류 포함 가능
+      var selfNarEra = _detectEra([(self && self.script) || '']);
+      var ctxNarTexts = [];
+      for (var d = -2; d <= 2; d++) {
+        if (d === 0) continue;
+        var nb = scenes[idx + d];
+        if (nb && nb.script) ctxNarTexts.push(nb.script);
+      }
+      var ctxEra = _detectEra(ctxNarTexts);
+      var era = selfNarEra || ctxEra; // 자기 나레이션 우선, 없으면 인접 나레이션 참고
+
+      if (era === 'modern') {
+        // 현대 씬: style 다음 위치에도 삽입 (style 바로 뒤 첫 줄바꿈 뒤에 추가)
+        var modernOverride = 'MODERN 21ST CENTURY SCENE — artistic style only, NOT time period. Characters are contemporary modern people.';
+        var modernClothing = '[MANDATORY] All people wear modern 21st century clothing: casual wear, t-shirts, jeans, modern jackets. ABSOLUTELY NO Joseon era hanbok, NO historical Korean costumes, NO topknot hairstyles (sangtu), NO traditional headwear (gat).';
+        // style과 scene prompt 사이에 삽입
+        var firstNl = p.indexOf('\n');
+        if (firstNl !== -1) {
+          p = p.slice(0, firstNl + 1) + modernOverride + '\n' + p.slice(firstNl + 1);
+        } else {
+          p = modernOverride + '\n' + p;
+        }
+        p += '\n' + modernClothing;
+      } else if (era === 'historical' && pl.indexOf('baji') === -1) {
+        p += '\nAccurate historical Korean costume. Men wear baji (traditional pants), NOT skirts.';
+      }
+    }
+  }
+
+  return p;
+}
+
+
 async function generateBestInlineData(apiKey, fullPrompt, aspect, maxRetry, sceneId) {
+  fullPrompt = applyPromptFixes(fullPrompt, sceneId);
   if (!isFluxQualityModeEnabled()) {
     return await callWithRetry(apiKey, fullPrompt, aspect, maxRetry, sceneId);
   }
@@ -10002,6 +10450,45 @@ async function generateBestInlineData(apiKey, fullPrompt, aspect, maxRetry, scen
   throw new Error('로컬 품질 모드 후보 생성 실패');
 }
 
+// ── 장면 연속성 자동 판단 함수 (시대 중심) ──
+async function shouldContinueSceneStyle(prevScene, currentScene) {
+  var prevNo = scenes.indexOf(prevScene) + 1;
+  var currNo = scenes.indexOf(currentScene) + 1;
+
+  // 시대 키워드 강제 NEW 감지 (최우선)
+  var forceNewEraKeywords = [
+    '조선','한복','전통','고전','왕','양반','민속','옛날','과거','시대','현대','미래','중세','로마','중국','일본','서양','동양','고대','근대','일제','해방','6.25','한국전쟁','80년대','90년대','2000년대','현재','지금','오늘날','미래','우주','SF','판타지','마법','용','기사','중국','일본','베트남','태국','인도','이슬람','기독교','불교','유교','샤머니즘','무당','할머니','할아버지','어르신','젊은이','청년','학생','회사원','직장인','현대인','현대복','청바지','티셔츠','후드','운동화','정장','넥타이','교복','군복','경찰','소방관','간호사','의사','변호사','판사','검사','국회의원','대통령','왕','여왕','황제','귀족','평민','노예','농부','어부','상인','장인','기술자','과학자','발명가','예술가','음악가','가수','배우','영화','드라마','애니','만화','게임','스포츠','축구','야구','농구','배구','수영','육상','올림픽','월드컵','K-POP','아이돌','한류','K-드라마','K-영화','K-푸드','K-뷰티','K-패션','K-테크','K-게임','K-스포츠'
+  ];
+  var textToCheck = (currentScene.script || '') + ' ' + (currentScene.prompt || '');
+  for (var kw of forceNewEraKeywords) {
+    if (textToCheck.toLowerCase().includes(kw.toLowerCase())) return false;
+  }
+
+  // Gemini에게 시대 중심으로 판단 요청
+  var apiKey = getApiKey();
+  if (!apiKey) return true;
+
+  var systemPrompt = '이전 장면과 현재 장면의 시대(현대/조선/중세/미래 등)가 같은지 판단해. 시대가 같으면 "CONTINUE", 시대가 다르면 "NEW"라고만 답해. 인물은 상관없음.';
+  var userPrompt = `이전 장면 (장면 ${prevNo}):\n대사: ${prevScene.script || ''}\n프롬프트: ${prevScene.prompt || ''}\n\n현재 장면 (장면 ${currNo}):\n대사: ${currentScene.script || ''}\n프롬프트: ${currentScene.prompt || ''}\n\n시대 판단:`;
+
+  try {
+    var res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 10 }
+      })
+    });
+    var data = await res.json();
+    var answer = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+    return answer.includes('CONTINUE');
+  } catch(e) {
+    return true;
+  }
+}
+
 async function generateSceneImage(id) {
   var key = getApiKey();
   if (!key) { alert('API 키를 입력하세요.'); return; }
@@ -10009,6 +10496,22 @@ async function generateSceneImage(id) {
   var scene = scenes.find(s => s.id === id);
   if (!scene) return;
   if (!scene.prompt.trim()) { alert('먼저 프롬프트를 생성하세요.'); return; }
+
+  // ── 장면 연속성 자동 판단 (이전 장면 스타일 참조) ──
+  var sceneNo = scenes.indexOf(scene) + 1;
+  var prevScene = (sceneNo > 1) ? scenes[sceneNo - 2] : null;
+  if (prevScene && prevScene.prompt && sceneStyleCache[sceneNo - 1]) {
+    try {
+      var shouldContinue = await shouldContinueSceneStyle(prevScene, scene);
+      if (shouldContinue) {
+        var style = sceneStyleCache[sceneNo - 1];
+        var stylePrefix = `[이전 장면과 동일한 인물: ${style.characterDesc}, 의상: ${style.clothing}, 배경: ${style.location}, 조명: ${style.lighting}, 분위기: ${style.mood}] `;
+        scene.prompt = stylePrefix + scene.prompt;
+        var pe = document.getElementById('prompt-' + id);
+        if (pe) pe.value = scene.prompt;
+      }
+    } catch(e) { /* 판단 실패 시 무시하고 진행 */ }
+  }
 
   var aspect = document.getElementById('s-aspect').value;
   var ext    = document.getElementById('s-ext').value;
@@ -10078,6 +10581,62 @@ async function applyInlineData(scene, inlineData, ext) {
   }
   scene.imgExt = ext;
   scene.imgStatus = 'done';
+
+  // ── 생성 완료 후 스타일 캐시 저장 ──
+  var sceneNo = scenes.indexOf(scene) + 1;
+  if (scene.prompt) {
+    sceneStyleCache[sceneNo] = extractStyleFromPrompt(scene.prompt);
+  }
+}
+
+function extractStyleFromPrompt(prompt) {
+  // 이미 주입된 [이전 장면...] 접두사 제거 후 파싱
+  var cleanPrompt = prompt.replace(/^\[이전 장면과 동일한 인물:[^\]]+\]\s*/, '');
+  cleanPrompt = cleanPrompt.replace(/--no\s+[\s\S]*/i, '').replace(/--ar\s+\S+/gi, '').trim();
+
+  var result = { characterDesc: '', clothing: '', location: '', lighting: '', mood: '' };
+
+  // 슬래시로 섹션 분리 (Subject / Camera / Lighting / Mood)
+  var sections = cleanPrompt.split('/').map(function(s) { return s.trim(); });
+  var subjectSection = sections[0] || cleanPrompt;
+  if (sections[2]) result.lighting = sections[2].slice(0, 60);
+  if (sections[3]) result.mood = sections[3].slice(0, 60);
+
+  // 의상 키워드 매핑
+  var clothingMap = {
+    'hanbok': '한복', 'jeogori': '저고리', 'baji': '바지(한복)', 'chima': '치마(한복)',
+    'gat hat': '갓', 'gat': '갓', 'po robe': '포', 'dopo': '도포',
+    'jeans': '청바지', 'suit': '정장', 'jacket': '재킷', 't-shirt': '티셔츠',
+    'modern clothes': '현대 복장', 'casual': '캐주얼', 'uniform': '유니폼',
+    'traditional': '전통 의상', 'dress': '드레스', 'armor': '갑옷'
+  };
+  var foundClothing = [];
+  var lowerPrompt = cleanPrompt.toLowerCase();
+  Object.keys(clothingMap).forEach(function(kw) {
+    if (lowerPrompt.indexOf(kw) > -1) foundClothing.push(clothingMap[kw]);
+  });
+  result.clothing = foundClothing.length > 0 ? foundClothing.join(', ') : '일반 복장';
+
+  // 인물 설명: 첫 섹션에서 추출
+  var charPatterns = [
+    /(?:Korean|man|woman|child|elderly|young)\s+(?:\w+\s+){0,3}(?:wearing|dressed|in|figure|character|person)/i,
+    /(?:a|an)\s+(?:Korean\s+)?(?:man|woman|scholar|official|farmer|merchant|nobleman|warrior|figure)/i,
+    /(?:Korean\s+)?(?:man|woman|person|figure|character)\s+(?:in|wearing|with)/i
+  ];
+  for (var i = 0; i < charPatterns.length; i++) {
+    var m = subjectSection.match(charPatterns[i]);
+    if (m) { result.characterDesc = m[0].trim().slice(0, 80); break; }
+  }
+  if (!result.characterDesc) result.characterDesc = subjectSection.split(',')[0].trim().slice(0, 80);
+
+  // 장소: "in/at/inside + 명사" 패턴
+  var locMatch = subjectSection.match(/(?:in|at|inside|within|across|on)\s+(?:a|an|the)?\s*([^,\/]{5,60})/i);
+  if (locMatch) result.location = locMatch[1].trim().slice(0, 80);
+  else result.location = (subjectSection.split(',')[1] || subjectSection.split(',')[0]).trim().slice(0, 80);
+
+  if (!result.lighting) result.lighting = 'natural lighting';
+  if (!result.mood) result.mood = 'neutral';
+  return result;
 }
 
 async function generateScenePromptAndImage(id) {
@@ -10383,7 +10942,24 @@ async function downloadSceneImage(id) {
   // 메모리상 base64 추출 (서버 파일 없을 때)
   var memB64 = null;
   if (!serverFilename) {
-    memB64 = s.imgB64 || (s.imgDataUrl.includes(',') ? s.imgDataUrl.split(',')[1] : null);
+    if (s.imgDataUrl.includes(',')) {
+      memB64 = s.imgDataUrl.split(',')[1];
+    } else {
+      memB64 = s.imgB64 || null;
+    }
+    if (!memB64) {
+      // URL 형태인 경우 fetch해서 base64로 변환
+      try {
+        var fetchUrl2 = s.imgDataUrl.startsWith('http') ? s.imgDataUrl : (window.SS_SERVER || '') + s.imgDataUrl;
+        var fetchResp2 = await fetch(fetchUrl2);
+        var fetchBlob2 = await fetchResp2.blob();
+        memB64 = await new Promise(function(res2) {
+          var rd2 = new FileReader();
+          rd2.onload = function(e2){ res2(e2.target.result.split(',')[1]); };
+          rd2.readAsDataURL(fetchBlob2);
+        });
+      } catch(fe) { memB64 = null; }
+    }
     if (!memB64) { alert('이미지 데이터가 없습니다.'); return; }
   }
 
@@ -10429,35 +11005,65 @@ async function downloadSceneImage(id) {
       if (cpRes3.ok) showToast('✓ 저장 완료: ' + dlgRes.filePath);
       else throw new Error('저장 실패: ' + (cpRes3.error || '알 수 없는 오류'));
     } else {
-      // 브라우저 실행(비 Electron): 서버 save-dialog 의존 없이 직접 다운로드
-      if (s.imgDataUrl && s.imgDataUrl.startsWith('data:image/')) {
-        var a1 = document.createElement('a');
-        a1.href = s.imgDataUrl;
-        a1.download = filename;
-        dlClick(a1);
-        showToast('✓ 다운로드 시작: ' + filename);
+      // 브라우저 실행(비 Electron): Blob URL로 변환 후 다운로드 (data: URI 직접 다운은 Chrome에서 차단됨)
+      function b64toBlob(b64, mimeType) {
+        var byteStr = atob(b64);
+        var ab = new ArrayBuffer(byteStr.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+        return new Blob([ab], { type: mimeType });
+      }
+      function triggerBlobDownload(blob, name) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){ try { URL.revokeObjectURL(url); document.body.removeChild(a); } catch(e){} }, 2000);
+      }
+
+      // data: URI (base64 내장) — 이미지 & 동영상 모두 처리
+      if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
+        var parts = s.imgDataUrl.split(',');
+        var mime = parts[0].replace('data:','').replace(';base64','');
+        var blob1 = b64toBlob(parts[1], mime);
+        var isVidMime = mime.startsWith('video/');
+        var dlName = isVidMime ? ('scene_' + String(s.id).padStart(3,'0') + '.mp4') : filename;
+        triggerBlobDownload(blob1, dlName);
+        showToast('✓ 다운로드 시작: ' + dlName);
         return;
+      }
+
+      // 외부 URL (Grok 동영상 등) — fetch → blob → 다운로드
+      if (s.imgDataUrl && (s.imgDataUrl.startsWith('http') || s.grokVideo)) {
+        try {
+          var vidResp = await fetch(s.imgDataUrl);
+          if (!vidResp.ok) throw new Error('HTTP ' + vidResp.status);
+          var vidBlob = await vidResp.blob();
+          var vidExt = s.imgDataUrl.match(/\.(mp4|webm|mov)/i)?.[1] || 'mp4';
+          var vidName = 'scene_' + String(s.id).padStart(3,'0') + '.' + vidExt;
+          triggerBlobDownload(vidBlob, vidName);
+          showToast('✓ 다운로드 시작: ' + vidName);
+          return;
+        } catch(ve) {
+          throw new Error('동영상 다운로드 실패: ' + ve.message);
+        }
       }
 
       if (serverFilename) {
         var imgResp2 = await fetch('/download-image/' + encodeURIComponent(serverFilename));
         if (!imgResp2.ok) throw new Error('이미지 로드 실패 (HTTP ' + imgResp2.status + ')');
         var blob2 = await imgResp2.blob();
-        var url2 = URL.createObjectURL(blob2);
-        var a2 = document.createElement('a');
-        a2.href = url2;
-        a2.download = filename;
-        dlClick(a2);
-        setTimeout(function(){ try { URL.revokeObjectURL(url2); } catch(e) {} }, 15000);
+        triggerBlobDownload(blob2, filename);
         showToast('✓ 다운로드 시작: ' + filename);
         return;
       }
 
       if (memB64) {
-        var a3 = document.createElement('a');
-        a3.href = 'data:image/' + ext + ';base64,' + memB64;
-        a3.download = filename;
-        dlClick(a3);
+        var mimeType2 = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/' + ext;
+        var blob3 = b64toBlob(memB64, mimeType2);
+        triggerBlobDownload(blob3, filename);
         showToast('✓ 다운로드 시작: ' + filename);
         return;
       }
@@ -10572,35 +11178,104 @@ async function generateAllPromptsAndImages() {
     var style  = document.getElementById('s-style').value.trim();
     var key    = getApiKey();
 
-    // 전체 대본 인물 분석 (2장면 이상, 아직 분석 없을 때)
-    if (!scriptCharAnalysis && pending.length > 1) {
-      document.getElementById('studioStatus').textContent = '인물 일관성 분석 중…';
+    // 전체 대본 분석 — 항상 재실행 (대본이 바뀔 수 있으므로)
+    if (pending.length > 1) {
+      document.getElementById('studioStatus').textContent = '전체 대본 분석 중… (주제·시대·소재·인물 파악)';
       document.getElementById('studioProg').style.display = 'block';
       await analyzeScriptCharacters(key, pending);
     }
 
-    await runWorkers(pending, async function(scene) {
-      // 1. prompt
-      document.getElementById('studioStatus').textContent = '전체 생성: 장면 ' + scene.id + ' 프롬프트 생성 중…';
-      scene.status = 'generating'; updateSceneCard(scene.id);
-      var prompt = await buildPromptForScene(scene);
-      scene.prompt = prompt;
-      var pe = document.getElementById('prompt-' + scene.id);
-      if (pe) pe.value = prompt;
-      if (!prompt || !prompt.trim()) {
-        scene.status = 'error';
-        scene.imgStatus = 'idle';
-        scene.imgError = '프롬프트 생성 실패(빈 응답)';
-        updateSceneCard(scene.id);
-        return;
+    // ── 속도 모드: 동시 처리 설정대로 병렬 생성 ──
+    if (!continuityMode) {
+      await runWorkers(pending, async function(scene) {
+        scene.status = 'generating'; updateSceneCard(scene.id);
+        var prompt = await buildPromptForScene(scene);
+        scene.prompt = prompt;
+        var pe = document.getElementById('prompt-' + scene.id); if (pe) pe.value = prompt;
+        if (!prompt || !prompt.trim()) {
+          scene.status = 'error'; scene.imgStatus = 'idle';
+          scene.imgError = '프롬프트 생성 실패(빈 응답)'; updateSceneCard(scene.id); return;
+        }
+        scene.imgStatus = 'loading'; scene.imgDataUrl = null; updateSceneCard(scene.id);
+        var fullPrompt = style ? style + '\n' + scene.prompt : scene.prompt;
+        var inlineData = await generateBestInlineData(key, fullPrompt, aspect, maxR, scene.id);
+        await applyInlineData(scene, inlineData, ext);
+        try {
+          var userMsg = 'SCRIPT LINE (Korean narration for this scene):\n"' + scene.script + '"\n\nGenerate a Grok Aurora video motion prompt for this scene image.';
+          var parts = [{ text: userMsg }];
+          if (scene.imgDataUrl) {
+            var b64, mime;
+            if (scene.imgDataUrl.startsWith('data:')) {
+              b64 = scene.imgDataUrl.split(',')[1];
+              mime = scene.imgDataUrl.indexOf('png') > -1 ? 'image/png' : 'image/jpeg';
+            } else {
+              var imgRes = await fetch(scene.imgDataUrl); var imgBlob = await imgRes.blob();
+              mime = imgBlob.type || 'image/jpeg';
+              var arrBuf = await imgBlob.arrayBuffer(); var uint8 = new Uint8Array(arrBuf);
+              var bin = ''; for (var bi = 0; bi < uint8.length; bi++) bin += String.fromCharCode(uint8[bi]);
+              b64 = btoa(bin);
+            }
+            if (b64) parts.unshift({ inline_data: { mime_type: mime, data: b64 } });
+          }
+          var vRes = await callGeminiTextWithRetry(key, {
+            system_instruction: { parts: [{ text: GROK_VIDEO_SYSTEM_PROMPT }] },
+            contents: [{ parts: parts }],
+            generationConfig: { temperature: 0.7 }
+          });
+          var videoPrompt = vRes.d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+          scene.videoPrompt = videoPrompt;
+          var ve = document.getElementById('vprompt-' + scene.id); if (ve) ve.value = videoPrompt;
+          var gs = grokScenes.find(function(x){ return x.id === scene.id; });
+          if (gs) { gs.videoPrompt = videoPrompt; gs.status = 'done'; }
+        } catch(e) { console.warn('[속도모드] 동영상 프롬프트 오류:', e); }
+        scene.status = 'done'; updateSceneCard(scene.id);
+      }, '⚡ 병렬');
+      return;
+    }
+
+    // ── 연속성 모드: 씬 단위 순차 생성 (프롬프트 → 이미지 → 다음 씬) ──
+    document.getElementById('studioProg').style.display = 'block';
+    var done = 0; var total = pending.length;
+    for (var si = 0; si < pending.length; si++) {
+      if (studioStopRequested) {
+        document.getElementById('studioStatus').textContent = '⏹ 중지됨 (' + done + '/' + total + ')';
+        break;
       }
-      // 2. image
-      document.getElementById('studioStatus').textContent = '전체 생성: 장면 ' + scene.id + ' 이미지 생성 중…';
-      scene.imgStatus = 'loading'; scene.imgDataUrl = null;
-      updateSceneCard(scene.id);
-      var fullPrompt = style ? style + '\n' + prompt : prompt;
-      var inlineData = await generateBestInlineData(key, fullPrompt, aspect, maxR, scene.id);
-      await applyInlineData(scene, inlineData, ext);
+      var scene = pending[si];
+
+      // 1. 프롬프트 생성
+      document.getElementById('studioStatus').textContent = '📝 프롬프트 생성 중… ' + (si + 1) + '/' + total + ' (장면 ' + scene.id + ')';
+      document.getElementById('studioProgBar').style.width = Math.round(si / total * 100) + '%';
+      scene.status = 'generating'; updateSceneCard(scene.id);
+      try {
+        var prompt = await buildPromptForScene(scene);
+        scene.prompt = prompt;
+        var pe = document.getElementById('prompt-' + scene.id);
+        if (pe) pe.value = prompt;
+        if (!prompt || !prompt.trim()) {
+          scene.status = 'error'; scene.imgStatus = 'idle';
+          scene.imgError = '프롬프트 생성 실패(빈 응답)'; updateSceneCard(scene.id);
+          done++; continue;
+        }
+      } catch(e) {
+        scene.status = 'error'; scene.imgStatus = 'error';
+        scene.imgError = e.message; updateSceneCard(scene.id);
+        done++; continue;
+      }
+
+      // 2. 이미지 생성
+      document.getElementById('studioStatus').textContent = '🎨 이미지 생성 중… ' + (si + 1) + '/' + total + ' (장면 ' + scene.id + ')';
+      scene.imgStatus = 'loading'; scene.imgDataUrl = null; updateSceneCard(scene.id);
+      try {
+        var fullPrompt = style ? style + '\n' + scene.prompt : scene.prompt;
+        var inlineData = await generateBestInlineData(key, fullPrompt, aspect, maxR, scene.id);
+        await applyInlineData(scene, inlineData, ext);
+      } catch(e) {
+        scene.status = 'error'; scene.imgStatus = 'error';
+        scene.imgError = e.message; updateSceneCard(scene.id);
+        done++; continue;
+      }
+
       // 3. 동영상 프롬프트
       try {
         var userMsg = 'SCRIPT LINE (Korean narration for this scene):\n"' + scene.script + '"\n\nGenerate a Grok Aurora video motion prompt for this scene image.';
@@ -10616,8 +11291,7 @@ async function generateAllPromptsAndImages() {
             mime = imgBlob.type || 'image/jpeg';
             var arrBuf = await imgBlob.arrayBuffer();
             var uint8 = new Uint8Array(arrBuf);
-            var bin = '';
-            for (var bi = 0; bi < uint8.length; bi++) bin += String.fromCharCode(uint8[bi]);
+            var bin = ''; for (var bi = 0; bi < uint8.length; bi++) bin += String.fromCharCode(uint8[bi]);
             b64 = btoa(bin);
           }
           if (b64) parts.unshift({ inline_data: { mime_type: mime, data: b64 } });
@@ -10631,15 +11305,16 @@ async function generateAllPromptsAndImages() {
         scene.videoPrompt = videoPrompt;
         var ve = document.getElementById('vprompt-' + scene.id);
         if (ve) ve.value = videoPrompt;
-        // grokScenes에도 반영
         var gs = grokScenes.find(function(x){ return x.id === scene.id; });
         if (gs) { gs.videoPrompt = videoPrompt; gs.status = 'done'; }
       } catch(e) {
         console.warn('[전체생성] 동영상 프롬프트 오류:', e);
       }
-      scene.status = 'done';
-      updateSceneCard(scene.id);
-    }, '전체');
+
+      scene.status = 'done'; updateSceneCard(scene.id);
+      done++;
+      document.getElementById('studioProgBar').style.width = Math.round(done / total * 100) + '%';
+    }
   } finally {
     studioRunning = false;
     setStudioButtons(false);
@@ -10676,6 +11351,29 @@ function studioStop() {
   studioStopRequested = true;
   var btn = document.getElementById('studioStopBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏹ 중지 중…'; }
+}
+
+function toggleGenMode() {
+  continuityMode = !continuityMode;
+  localStorage.setItem('ss_continuity_mode', continuityMode);
+  updateGenModeBtn();
+}
+function updateGenModeBtn() {
+  var btn = document.getElementById('genModeToggle');
+  if (!btn) return;
+  if (continuityMode) {
+    btn.textContent = '🔗 연속성';
+    btn.style.background = 'rgba(34,211,238,0.15)';
+    btn.style.borderColor = 'rgba(34,211,238,0.4)';
+    btn.style.color = '#22d3ee';
+    btn.title = '연속성 모드: 씬 순서대로 하나씩 생성 — 캐릭터·스타일 일관성 우선';
+  } else {
+    btn.textContent = '⚡ 속도';
+    btn.style.background = 'rgba(251,191,36,0.15)';
+    btn.style.borderColor = 'rgba(251,191,36,0.4)';
+    btn.style.color = '#fbbf24';
+    btn.title = '속도 모드: 동시 처리 설정대로 병렬 생성 — 빠르지만 스타일 연속성 낮음';
+  }
 }
 
 function setStudioButtons(disabled) {
@@ -10746,7 +11444,7 @@ function buildVariantGridHTML(s) {
   for (var i = 0; i < s.imgVariants.length; i++) {
     var v = s.imgVariants[i];
     var activeClass = (i === (s.imgVariantIdx || 0)) ? ' active' : '';
-    html += '<img class="variant-thumb' + activeClass + '" data-src="' + v.dataUrl + '" src="" onclick="selectVariant(' + s.id + ',' + i + ')" title="변형 ' + (i+1) + '">';
+    html += '<img class="variant-thumb' + activeClass + '" src="' + v.dataUrl + '" onclick="selectVariant(' + s.id + ',' + i + ')" title="변형 ' + (i+1) + '">';
   }
   html += '</div>';
   return html;
@@ -14121,6 +14819,31 @@ function showChatMockReloginBanner() {
     + '<button onclick="document.getElementById(\'chatmock-relogin-banner\').remove();" style="padding:5px 10px;background:rgba(255,255,255,.1);color:#aaa;border:none;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
   document.body.appendChild(banner);
 }
+function showChatMockRestartBanner() {
+  var existing = document.getElementById('chatmock-restart-banner');
+  if (existing) return;
+  var banner = document.createElement('div');
+  banner.id = 'chatmock-restart-banner';
+  banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e1b2e;border:1.5px solid #ef4444;border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.5);font-size:13px;max-width:420px;';
+  banner.innerHTML = '<span style="font-size:18px">🔴</span>'
+    + '<span style="color:#f87171;font-weight:700">ChatMock 응답 없음</span>'
+    + '<button onclick="chatMockRestartFromBanner()" style="padding:5px 14px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px">🔄 재시작</button>'
+    + '<button onclick="document.getElementById(\'chatmock-restart-banner\').remove();" style="padding:5px 10px;background:rgba(255,255,255,.1);color:#aaa;border:none;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
+  document.body.appendChild(banner);
+}
+async function chatMockRestartFromBanner() {
+  var banner = document.getElementById('chatmock-restart-banner');
+  if (banner) { var btn = banner.querySelector('button'); if (btn) { btn.textContent = '재시작 중...'; btn.disabled = true; } }
+  try {
+    var r = await fetch('http://localhost:19283/chatmock-restart', { method: 'POST', signal: AbortSignal.timeout(8000) });
+    var d = await r.json();
+    if (banner) banner.remove();
+    alert(d.message || 'ChatMock 재시작 완료. 잠시 후 다시 시도하세요.');
+  } catch(e) {
+    if (banner) banner.remove();
+    alert('Companion 앱이 실행 중이 아닙니다.\nchatmock CMD 창을 닫고 chatmock serve 를 다시 실행하세요.');
+  }
+}
 async function checkAllChatGPT() {
   var ust = document.getElementById('chatgpt-unified-status');
   var msg = document.getElementById('chatgpt-unified-msg');
@@ -14128,20 +14851,33 @@ async function checkAllChatGPT() {
   var cxSt = document.getElementById('codex-modal-status');
   if (ust) { ust.textContent = '확인 중...'; ust.style.color = 'var(--text3)'; }
   var cmOk = false, cxOk = false;
+  // Companion 앱 경유 상태 확인 (웹 버전) → 실패 시 Railway fallback
+  var useCompanion = false;
+  try {
+    await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1500) });
+    useCompanion = true;
+  } catch(_) {}
   // ChatMock 확인
   try {
-    var r1 = await fetch('/api/chatmock/status');
+    var r1 = useCompanion
+      ? await fetch('http://localhost:19283/chatmock-status', { signal: AbortSignal.timeout(3000) })
+      : await fetch('/api/chatmock/status');
     var d1 = await r1.json();
     cmOk = d1.running;
-    if (cmSt) { cmSt.textContent = cmOk ? '● 연결됨' : '● 꺼짐'; cmSt.style.color = cmOk ? '#10b981' : 'var(--err)'; }
+    if (cmSt) { cmSt.textContent = cmOk ? '● 연결됨' : (d1.logged_in ? '● 로그인됨(서버꺼짐)' : '● 꺼짐'); cmSt.style.color = cmOk ? '#10b981' : 'var(--err)'; }
     if (cmOk) {
       var og = document.getElementById('chatmock-optgroup');
       if (og) og.style.display = '';
+      // chatmock 로그인 = 이미지 생성도 가능 (같은 credentials 사용)
+      var og2 = document.getElementById('codex-img-optgroup');
+      if (og2) og2.style.display = '';
     }
   } catch(e) { if (cmSt) { cmSt.textContent = '● 오류'; cmSt.style.color = 'var(--err)'; } }
   // Codex 확인
   try {
-    var r2 = await fetch('/api/codex/status');
+    var r2 = useCompanion
+      ? await fetch('http://localhost:19283/codex-status', { signal: AbortSignal.timeout(3000) })
+      : await fetch('/api/codex/status');
     var d2 = await r2.json();
     cxOk = d2.logged_in;
     if (cxSt) { cxSt.textContent = cxOk ? '● 로그인됨' : '● 로그아웃'; cxSt.style.color = cxOk ? '#f59e0b' : 'var(--err)'; }
@@ -14161,12 +14897,44 @@ async function checkAllChatGPT() {
 async function loginAllChatGPT() {
   var msg = document.getElementById('chatgpt-unified-msg');
   if (msg) msg.textContent = '로그인 창 여는 중...';
+  // Companion 앱으로 먼저 시도 (웹 버전) — 로컬에서 chatmock/codex 실행
+  try {
+    var rc = await fetch('http://localhost:19283/chatgpt-login', { method: 'POST', signal: AbortSignal.timeout(6000) });
+    var dc = await rc.json();
+    if (msg) msg.textContent = dc.message || '로그인 창이 열렸습니다. 완료 후 "상태 확인"을 눌러주세요.';
+    if (!dc.ok && msg) msg.style.color = 'var(--err)';
+    else if (msg) msg.style.color = '';
+    return;
+  } catch(_) { /* Companion 없으면 서버 fallback */ }
+  // 데스크탑 앱 서버 fallback
   try {
     var r = await fetch('/api/chatgpt/unified-login', { method: 'POST' });
+    if (!r.ok) throw new Error('서버 미지원 (HTTP ' + r.status + ')');
     var d = await r.json();
-    if (msg) msg.textContent = d.message || '로그인 창이 열렸습니다. 완료 후 "상태 확인"을 눌러주세요.';
+    if (msg) { msg.textContent = d.message || '로그인 창이 열렸습니다. 완료 후 "상태 확인"을 눌러주세요.'; msg.style.color = ''; }
   } catch(e) {
-    if (msg) msg.textContent = '오류: ' + String(e);
+    if (msg) { msg.textContent = '❌ Companion 앱이 실행 중이 아닙니다. 시스템 트레이에서 Companion을 시작하세요.'; msg.style.color = 'var(--err)'; }
+  }
+}
+async function loginCodexCompanion() {
+  var msg = document.getElementById('chatgpt-unified-msg');
+  if (msg) { msg.textContent = '이미지 로그인 창 여는 중...'; msg.style.color = ''; }
+  try {
+    var r = await fetch('http://localhost:19283/codex-login', { method: 'POST', signal: AbortSignal.timeout(6000) });
+    var d = await r.json();
+    if (msg) { msg.textContent = (d.message || '이미지 로그인 창이 열렸습니다.') + ' 로그인 완료 후 잠시 기다리세요...'; }
+    if (!d.ok && msg) { msg.style.color = 'var(--err)'; return; }
+    // 15초 후 자동 상태 확인 (로그인 완료 시간 여유)
+    setTimeout(function() { checkAllChatGPT(); }, 15000);
+  } catch(e) {
+    // Companion 없으면 Railway fallback
+    try {
+      var r2 = await fetch('/api/codex/login', { method: 'POST' });
+      var d2 = await r2.json();
+      if (msg) { msg.textContent = d2.message || '이미지 로그인 창이 열렸습니다.'; }
+    } catch(e2) {
+      if (msg) { msg.textContent = '❌ Companion 앱이 실행 중이 아닙니다.'; msg.style.color = 'var(--err)'; }
+    }
   }
 }
 function closeApiKeyModal() { document.getElementById('apiKeyModal').style.display='none'; }
@@ -14198,7 +14966,11 @@ async function startChatMockServer() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 시작 중...'; btn.style.opacity = '0.6'; }
   if (msg) { msg.textContent = 'ChatMock 서버 시작 요청 중...'; msg.style.color = '#818cf8'; }
   try {
-    var r = await fetch('/api/chatmock/start', { method: 'POST' });
+    var useCompanion = false;
+    try { await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1500) }); useCompanion = true; } catch(_) {}
+    var r = useCompanion
+      ? await fetch('http://localhost:19283/chatmock-restart', { method: 'POST', signal: AbortSignal.timeout(12000) })
+      : await fetch('/api/chatmock/start', { method: 'POST' });
     var d = await r.json();
     if (msg) { msg.textContent = '✅ ' + (d.message || '서버 시작됨'); msg.style.color = '#10b981'; }
     setTimeout(async function() { await checkAllChatGPT(); }, 2500);
@@ -17171,6 +17943,25 @@ async function _checkGrokServerReady() {
 // ── Grok 전체 영상 변환 ───────────────────────────────────────────────────
 var _grokVideoAllRunning = false;
 
+// ── 텍스트 카드 적합성 판단 (API 호출 없이 키워드로) ──────────────────────
+function isInfographicSuitable(narration) {
+  if (!narration || narration.trim().length < 8) return false;
+  var yes = [
+    '비교', '대조', '차이', '장점', '단점', '원인', '결과', '구조', '원리', '방법',
+    '과정', '단계', '역사', '시대', '특징', '이유', '효과', '작동', '구성',
+    '조선', '고려', '삼국', '신라', '고구려', '백제', '빙하기', '공룡', '문화',
+    '전통', '기술', '과학', '진화', '변화', '발전', '발명', '발견', '제도',
+    '온돌', '한복', '한옥', '발효', '분해', '합성', '반응',
+    '흐름', '순환', '연결', '관계', '영향', '의미', '배경', '유래', '유사',
+    '시스템', '구분', '분류', '종류', '유형', '왜냐하면', '때문에',
+    '어떻게', '무엇', '왜 ', ' vs ', '~에 비해', '반면', '한편'
+  ];
+  for (var i = 0; i < yes.length; i++) {
+    if (narration.indexOf(yes[i]) !== -1) return true;
+  }
+  return false;
+}
+
 // ── 텍스트 카드 생성 ──────────────────────────────────────────────────────
 async function generateTextCard(id) {
   syncAllScenes();
@@ -17183,50 +17974,162 @@ async function generateTextCard(id) {
 
   var statusEl = document.getElementById('studioStatus');
   if (statusEl) statusEl.textContent = '📊 텍스트 카드 생성 중...';
-  s.status = 'generating'; updateSceneCard(id);
+  s.imgStatus = 'loading'; s.imgDataUrl = null; s.imgB64 = null; updateSceneCard(id);
 
   try {
     var aspect = document.getElementById('s-aspect').value || '16:9';
     var style = document.getElementById('s-style').value.trim();
+    var ext = (document.getElementById('s-ext') && document.getElementById('s-ext').value) || 'png';
+    var maxR = parseInt((document.getElementById('s-retry') && document.getElementById('s-retry').value) || '3');
 
-    // Gemini로 핵심 텍스트 추출 (한국어)
-    var keywordRes = await callGeminiTextWithRetry(key, {
+    // Gemini로 비교 여부 + 핵심 레이블 추출
+    if (statusEl) statusEl.textContent = '📊 콘텐츠 분석 중...';
+    var analysisRes = await callGeminiTextWithRetry(key, {
       contents: [{ parts: [{ text:
-        '다음 나레이션에서 인포그래픽 카드에 넣을 핵심 문구를 한국어로 추출해줘.\n'
-        + '숫자/통계/핵심 키워드 1~2줄, 최대 20자.\n'
-        + '예: "80개국 수출" / "1000년의 역사" / "하루 3번 먹으면"\n'
+        '다음 나레이션을 분석해서 인포그래픽 레이블을 추출해줘.\n'
+        + '규칙:\n'
+        + '1. 두 가지를 비교/대조하는 내용이면 → "A | B" 형식으로 (각 8자 이내)\n'
+        + '   예: "빙하기 시대 | 조선 시대" / "장점 | 단점" / "과거 | 현재"\n'
+        + '2. 단일 개념/설명이면 → 핵심 키워드 최대 15자\n'
+        + '   예: "온돌의 구조" / "김치 발효 과정"\n'
         + '나레이션: "' + s.script + '"\n'
-        + '출력: 핵심 문구만 (설명 없이)'
+        + '출력: 레이블만 (설명 없이, 따옴표 없이)'
       }] }]
     });
-    var keyTextKo = keywordRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || s.script.slice(0, 20);
+    var rawLabel = (analysisRes.d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || s.script.slice(0, 15)).replace(/["""]/g, '');
+    var isComparison = rawLabel.includes('|');
 
-    // 배경 이미지 생성 (텍스트 없이)
-    var bgPrompt = 'Cinematic background scene, visually relevant to: "' + s.script + '". '
-      + (style ? 'Art style: ' + style + '. ' : '')
-      + 'No text, no letters, no captions. Clean composition with space for title overlay. '
-      + 'High quality, --ar ' + aspect;
+    var existingImg = s.imgDataUrl || s.imgB64 && ('data:image/png;base64,' + s.imgB64);
+    var overlayFn;
 
-    var origPrompt = s.prompt;
-    s.prompt = bgPrompt;
-    await generateSceneImage(id);
-    s.prompt = origPrompt;
+    if (isComparison) {
+      // 비교: 새 이미지 생성 필요
+      var parts = rawLabel.split('|').map(function(t){ return t.trim(); });
+      var labelA = parts[0], labelB = parts[1] || parts[0];
+      var bgPrompt = 'Split screen comparison illustration, left panel shows "' + labelA + '", right panel shows "' + labelB + '", related to: "' + s.script + '". '
+        + (style ? 'Art style: ' + style + '. ' : '')
+        + 'Vertical dividing line in the center. No text, no letters. Two contrasting scenes side by side. High quality, --ar ' + aspect;
+      overlayFn = function(imgUrl){ return overlayComparisonLabels(imgUrl, labelA, labelB); };
+      if (statusEl) statusEl.textContent = '📊 비교 이미지 생성 중... (' + labelA + ' vs ' + labelB + ')';
+      var fullPrompt = style ? style + '\n' + bgPrompt : bgPrompt;
+      s.imgStatus = 'loading'; s.imgDataUrl = null; s.imgB64 = null;
+      updateSceneCard(id);
+      var inlineData = await generateBestInlineData(key, fullPrompt, aspect, maxR, id);
+      await applyInlineData(s, inlineData, ext);
+    } else {
+      // 단일: 기존 이미지 유지, 텍스트만 오버레이
+      overlayFn = function(imgUrl){ return overlayKoreanText(imgUrl, rawLabel, aspect); };
+      if (statusEl) statusEl.textContent = '📊 텍스트 오버레이 중... ("' + rawLabel + '")';
+      if (!existingImg) {
+        // 이미지 없을 때만 새로 생성
+        var bgPrompt2 = s.prompt ? (style ? style + '\n' + s.prompt : s.prompt)
+          : 'Scene relevant to: "' + s.script + '". ' + (style || '') + ' No text. High quality, --ar ' + aspect;
+        s.imgStatus = 'loading'; s.imgDataUrl = null; s.imgB64 = null;
+        updateSceneCard(id);
+        var inlineData2 = await generateBestInlineData(key, bgPrompt2, aspect, maxR, id);
+        await applyInlineData(s, inlineData2, ext);
+      }
+    }
 
-    // Canvas로 한국어 텍스트 오버레이
     if (s.imgDataUrl) {
-      s.imgDataUrl = await overlayKoreanText(s.imgDataUrl, keyTextKo, aspect);
+      s.imgDataUrl = await overlayFn(s.imgDataUrl);
+      if (s.imgDataUrl && s.imgDataUrl.includes(',')) {
+        s.imgB64 = s.imgDataUrl.split(',')[1]; // overlay 적용 후 imgB64 갱신
+      }
       updateSceneCard(id);
     }
 
     if (statusEl) statusEl.textContent = '✅ 텍스트 카드 생성 완료';
   } catch(e) {
-    s.status = 'error'; updateSceneCard(id);
-    if (statusEl) statusEl.textContent = '✗ 텍스트 카드 생성 실패';
+    s.imgStatus = 'error'; s.imgError = e.message; updateSceneCard(id);
+    if (statusEl) statusEl.textContent = '✗ 텍스트 카드 생성 실패: ' + e.message;
+    console.error('[텍스트 카드]', e);
     alert('텍스트 카드 생성 실패: ' + e.message);
   }
 }
 
+// 비교 스타일: 좌/우 상단 코너 레이블 박스
+async function overlayComparisonLabels(imgDataUrl, labelA, labelB) {
+  if (!imgDataUrl.startsWith('data:')) {
+    try {
+      var fetchUrl = imgDataUrl.startsWith('http') ? imgDataUrl : (window.SS_SERVER || '') + imgDataUrl;
+      var resp = await fetch(fetchUrl);
+      var blob = await resp.blob();
+      imgDataUrl = await new Promise(function(res) {
+        var rd = new FileReader(); rd.onload = function(e){ res(e.target.result); }; rd.readAsDataURL(blob);
+      });
+    } catch(e) { return imgDataUrl; }
+  }
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      var w = canvas.width, h = canvas.height;
+      var fontSize = Math.round(w * 0.042);
+      ctx.font = 'bold ' + fontSize + 'px "Noto Sans KR", "Apple SD Gothic Neo", sans-serif';
+
+      function drawLabel(text, x, y) {
+        var tw = ctx.measureText(text).width;
+        var padX = fontSize * 0.6, padY = fontSize * 0.4;
+        var bw = tw + padX * 2, bh = fontSize + padY * 2;
+        var r = fontSize * 0.18;
+        // 흰 배경 박스
+        ctx.beginPath();
+        ctx.moveTo(x + r, y); ctx.lineTo(x + bw - r, y);
+        ctx.quadraticCurveTo(x + bw, y, x + bw, y + r);
+        ctx.lineTo(x + bw, y + bh - r);
+        ctx.quadraticCurveTo(x + bw, y + bh, x + bw - r, y + bh);
+        ctx.lineTo(x + r, y + bh);
+        ctx.quadraticCurveTo(x, y + bh, x, y + bh - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        ctx.lineWidth = Math.max(2, w * 0.0025);
+        ctx.stroke();
+        // 텍스트
+        ctx.fillStyle = '#111111';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+        ctx.fillText(text, x + padX, y + bh / 2);
+      }
+
+      var margin = w * 0.025;
+      drawLabel(labelA, margin, margin);
+      drawLabel(labelB, w / 2 + margin, margin);
+
+      // 중앙 분할선
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = Math.max(2, w * 0.003);
+      ctx.setLineDash([h * 0.02, h * 0.015]);
+      ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+      ctx.setLineDash([]);
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function() { resolve(imgDataUrl); };
+    img.src = imgDataUrl;
+  });
+}
+
 async function overlayKoreanText(imgDataUrl, text, aspect) {
+  // URL이면 먼저 base64로 변환 (Tainted canvas 방지)
+  if (!imgDataUrl.startsWith('data:')) {
+    try {
+      var fetchUrl = imgDataUrl.startsWith('http') ? imgDataUrl : (window.SS_SERVER || '') + imgDataUrl;
+      var resp = await fetch(fetchUrl);
+      var blob = await resp.blob();
+      imgDataUrl = await new Promise(function(res) {
+        var rd = new FileReader(); rd.onload = function(e){ res(e.target.result); }; rd.readAsDataURL(blob);
+      });
+    } catch(e) { return imgDataUrl; }
+  }
   return new Promise(function(resolve) {
     var img = new Image();
     img.onload = function() {
@@ -17237,38 +18140,63 @@ async function overlayKoreanText(imgDataUrl, text, aspect) {
       ctx.drawImage(img, 0, 0);
 
       var w = canvas.width, h = canvas.height;
-      var fontSize = Math.round(w * 0.065);
+      var fontSize = Math.round(w * 0.062);
+      var lines = text.length <= 10 ? [text] : [text.slice(0, Math.ceil(text.length / 2)), text.slice(Math.ceil(text.length / 2))];
+      var lineH = fontSize * 1.5;
+
       ctx.font = 'bold ' + fontSize + 'px "Noto Sans KR", "Apple SD Gothic Neo", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // 텍스트 줄바꿈 처리 (20자 초과 시)
-      var lines = [];
-      if (text.length <= 14) {
-        lines = [text];
-      } else {
-        var mid = Math.ceil(text.length / 2);
-        lines = [text.slice(0, mid), text.slice(mid)];
-      }
+      var maxLineW = 0;
+      lines.forEach(function(l) { var m = ctx.measureText(l).width; if (m > maxLineW) maxLineW = m; });
 
-      var lineH = fontSize * 1.45;
+      // ── 인포그래픽 타이틀 카드 스타일 ─────────────────────────────────
+      // 텍스트 블록 총 높이 계산
+      var blockH = lines.length * lineH;
+      var padX = fontSize * 1.0, padY = fontSize * 0.7;
+      var cardW = Math.min(maxLineW + padX * 2, w * 0.85);
+      var cardH = blockH + padY * 2;
+      var cx = w / 2, cy = h * 0.5; // 이미지 중앙
+      var cardX = cx - cardW / 2, cardY = cy - cardH / 2;
+      var cardR = fontSize * 0.2;
 
-      // 하단 그라디언트 페이드
-      var gradH = h * 0.42;
-      var grad = ctx.createLinearGradient(0, h - gradH, 0, h);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, 'rgba(0,0,0,0.72)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, h - gradH, w, gradH);
+      // 전체 이미지 살짝 어둡게 (텍스트 영역 가독성 위해)
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(0, 0, w, h);
 
-      // 텍스트 (하단 중앙)
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.shadowBlur = fontSize * 0.2;
+      // 카드 배경 (반투명 짙은 색 — 유리판 느낌)
+      ctx.beginPath();
+      ctx.moveTo(cardX + cardR, cardY);
+      ctx.lineTo(cardX + cardW - cardR, cardY);
+      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR);
+      ctx.lineTo(cardX + cardW, cardY + cardH - cardR);
+      ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - cardR, cardY + cardH);
+      ctx.lineTo(cardX + cardR, cardY + cardH);
+      ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - cardR);
+      ctx.lineTo(cardX, cardY + cardR);
+      ctx.quadraticCurveTo(cardX, cardY, cardX + cardR, cardY);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(10,10,20,0.68)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = Math.max(1, w * 0.0015);
+      ctx.stroke();
+
+      // 상단 황금색 액센트 라인
+      var accentThick = Math.max(3, h * 0.005);
+      ctx.fillStyle = 'rgba(251,191,36,0.95)';
+      ctx.fillRect(cardX + cardR, cardY, cardW - cardR * 2, accentThick);
+
+      // 텍스트 (흰색, 중앙 정렬)
       ctx.fillStyle = '#ffffff';
-      var textStartY = h - (lines.length * lineH) - h * 0.05;
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = fontSize * 0.12;
+      var textTop = cy - (blockH / 2) + lineH / 2;
       lines.forEach(function(line, i) {
-        ctx.fillText(line, w / 2, textStartY + i * lineH);
+        ctx.fillText(line, cx, textTop + i * lineH);
       });
+      ctx.shadowBlur = 0;
 
       resolve(canvas.toDataURL('image/png'));
     };
@@ -17346,7 +18274,6 @@ async function grokProxyVideoGenAll() {
   var targets = scenes.filter(function(s){ return s.imgDataUrl && !s.grokVideo && !s.grokVideoConverting; });
   if (!targets.length) { alert('변환할 이미지가 있는 장면이 없습니다.'); return; }
 
-  var conc = parseInt(document.getElementById('s-conc').value) || 2;
   _grokVideoAllRunning = true;
   document.getElementById('grokVideoAllBtn').style.display = 'none';
   document.getElementById('grokVideoAllStopBtn').style.display = '';
@@ -17355,14 +18282,13 @@ async function grokProxyVideoGenAll() {
   var total = targets.length;
   var done = 0;
 
-  // 동시 처리: conc개씩 묶어서 순차 실행
-  for (var i = 0; i < targets.length; i += conc) {
+  // xAI Rate Limit: 초당 1개 제한 → 1개씩 순차 처리 + 요청 간 1.5초 딜레이
+  for (var i = 0; i < targets.length; i++) {
     if (!_grokVideoAllRunning) break;
-    var batch = targets.slice(i, i + conc);
-    if (statusEl) statusEl.textContent = '🎬 전체 영상 변환 중... ' + done + '/' + total;
-    await Promise.all(batch.map(function(s) {
-      return grokProxyVideoGen(s.id).then(function(){ done++; });
-    }));
+    if (statusEl) statusEl.textContent = '🎬 전체 영상 변환 중... ' + (done + 1) + '/' + total + ' (장면 ' + targets[i].id + ')';
+    try { await grokProxyVideoGen(targets[i].id); } catch(e) {}
+    done++;
+    if (i < targets.length - 1) await new Promise(function(r){ setTimeout(r, 1500); });
   }
 
   _grokVideoAllRunning = false;
@@ -17372,6 +18298,80 @@ async function grokProxyVideoGenAll() {
 }
 
 // ── Grok 이미지 편집 ─────────────────────────────────────────────────────
+function makeEditBox(id, scenePrompt) {
+  var ta = 'width:100%;background:var(--s2);border:1px solid rgba(167,139,250,.3);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;resize:none;box-sizing:border-box;outline:none';
+  var tabBtn = function(label, active, onclick) {
+    return '<button onclick="' + onclick + '" id="edit-tab-' + label + '-' + id + '" style="flex:1;padding:5px 0;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;border:1px solid rgba(167,139,250,.4);'
+      + (active ? 'background:rgba(167,139,250,.3);color:#a78bfa;' : 'background:transparent;color:var(--text3);')
+      + '">' + label + '</button>';
+  };
+  return '<div id="grok-edit-box-' + id + '" style="display:none;margin-top:6px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:8px;padding:8px;gap:6px;flex-direction:column">'
+    + '<div style="display:flex;gap:4px;margin-bottom:2px">'
+    + tabBtn('이미지 수정', true, 'grokEditSwitchTab(' + id + ',\'modify\')')
+    + tabBtn('새로 생성', false, 'grokEditSwitchTab(' + id + ',\'regen\')')
+    + '</div>'
+    // 수정 탭
+    + '<div id="grok-edit-pane-modify-' + id + '">'
+    + '<textarea id="grok-edit-prompt-' + id + '" rows="2" placeholder="예: 빨간 옷을 파란색으로 바꿔줘, 배경을 밤하늘로..." style="' + ta + '"></textarea>'
+    + '<div style="display:flex;gap:6px;margin-top:6px">'
+    + '<button class="btn btn-sm" onclick="grokEditToggle(' + id + ')" style="background:var(--s3);border-color:var(--border)">취소</button>'
+    + '<button class="btn btn-sm" onclick="grokEditApply(' + id + ')" style="flex:1;background:rgba(167,139,250,.2);border-color:rgba(167,139,250,.5);color:#a78bfa;font-weight:700">✨ Grok 편집 적용</button>'
+    + '</div></div>'
+    // 새로 생성 탭
+    + '<div id="grok-edit-pane-regen-' + id + '" style="display:none">'
+    + '<textarea id="grok-regen-prompt-' + id + '" rows="3" placeholder="새 이미지 프롬프트 입력..." style="' + ta + '">' + esc(scenePrompt) + '</textarea>'
+    + '<div style="display:flex;gap:6px;margin-top:6px">'
+    + '<button class="btn btn-sm" onclick="grokEditToggle(' + id + ')" style="background:var(--s3);border-color:var(--border)">취소</button>'
+    + '<button class="btn btn-sm" onclick="grokRegenApply(' + id + ')" style="flex:1;background:rgba(99,179,237,.2);border-color:rgba(99,179,237,.5);color:#63b3ed;font-weight:700">🎨 새로 생성</button>'
+    + '</div></div>'
+    + '</div>';
+}
+
+function grokEditSwitchTab(id, tab) {
+  var modPane = document.getElementById('grok-edit-pane-modify-' + id);
+  var regPane = document.getElementById('grok-edit-pane-regen-' + id);
+  var modBtn  = document.getElementById('edit-tab-이미지 수정-' + id);
+  var regBtn  = document.getElementById('edit-tab-새로 생성-' + id);
+  if (!modPane || !regPane) return;
+  var isModify = tab === 'modify';
+  modPane.style.display = isModify ? '' : 'none';
+  regPane.style.display = isModify ? 'none' : '';
+  if (modBtn) { modBtn.style.background = isModify ? 'rgba(167,139,250,.3)' : 'transparent'; modBtn.style.color = isModify ? '#a78bfa' : 'var(--text3)'; }
+  if (regBtn) { regBtn.style.background = isModify ? 'transparent' : 'rgba(167,139,250,.3)'; regBtn.style.color = isModify ? 'var(--text3)' : '#a78bfa'; }
+}
+
+async function grokRegenApply(id) {
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s) return;
+  var ta = document.getElementById('grok-regen-prompt-' + id);
+  var customPrompt = ta ? ta.value.trim() : '';
+  if (!customPrompt) { alert('프롬프트를 입력하세요.'); return; }
+
+  var key = getApiKey();
+  if (!key) { alert('API 키를 입력하세요.'); return; }
+
+  grokEditToggle(id);
+
+  // s-style 화풍 프리셋 무시 — 사용자 입력 프롬프트만으로 생성
+  s.imgStatus = 'loading'; s.imgDataUrl = null; s.imgB64 = null;
+  updateSceneCard(id);
+
+  var aspect = document.getElementById('s-aspect').value;
+  var ext    = document.getElementById('s-ext').value;
+
+  try {
+    var inlineData = await generateBestInlineData(key, customPrompt, aspect, 2, id);
+    await applyInlineData(s, inlineData, ext);
+    s.imgModel = 'dev';
+    s.prompt = customPrompt;
+    updateSceneCard(id);
+    syncAllScenes();
+  } catch(e) {
+    s.imgStatus = 'error'; s.imgError = e.message;
+    updateSceneCard(id);
+  }
+}
+
 function grokEditToggle(id) {
   var box = document.getElementById('grok-edit-box-' + id);
   if (!box) return;
@@ -17390,44 +18390,108 @@ async function grokEditApply(id) {
   var prompt = ta ? ta.value.trim() : '';
   if (!prompt) { alert('편집 내용을 입력하세요.'); return; }
 
-  // 편집창 닫고 로딩 표시
+  // 편집창을 프로그레스 UI로 교체
   var box = document.getElementById('grok-edit-box-' + id);
-  if (box) box.style.display = 'none';
+  if (box) {
+    box.innerHTML = '<div style="width:100%;padding:10px 0">'
+      + '<div style="font-size:12px;color:#a78bfa;margin-bottom:8px;font-weight:600">✨ Grok 편집 처리 중…</div>'
+      + '<div style="background:rgba(255,255,255,0.08);border-radius:6px;height:8px;overflow:hidden;margin-bottom:6px">'
+      + '<div id="grok-prog-bar-' + id + '" style="height:100%;width:0%;background:linear-gradient(90deg,#a78bfa,#7c3aed);border-radius:6px;transition:width 0.5s ease"></div>'
+      + '</div>'
+      + '<div id="grok-prog-label-' + id + '" style="font-size:11px;color:var(--text3)">0% — 보통 30~60초 소요</div>'
+      + '</div>';
+  }
+
+  // 가짜 프로그레스 타이머 (0% → 88% / 50초)
+  var pct = 0;
+  var progTimer = setInterval(function() {
+    pct = Math.min(88, pct + (88 - pct) * 0.04 + 0.3);
+    var bar = document.getElementById('grok-prog-bar-' + id);
+    var lbl = document.getElementById('grok-prog-label-' + id);
+    if (bar) bar.style.width = pct.toFixed(0) + '%';
+    if (lbl) lbl.textContent = pct.toFixed(0) + '% — Grok 서버 처리 중…';
+  }, 800);
+
   var origImg = s.imgDataUrl;
-  s.imgStatus = 'loading';
-  renderSceneList();
 
   try {
-    // 이미지 공개 URL 획득
-    var imgPublicUrl;
-    if (s.imgDataUrl.startsWith('/download-image/') || s.imgDataUrl.startsWith('http')) {
-      imgPublicUrl = s.imgDataUrl.startsWith('http') ? s.imgDataUrl : window.SS_SERVER + s.imgDataUrl;
-    } else {
-      var uploadRes = await fetch(window.SS_SERVER + '/api/save-image', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({image: s.imgDataUrl})
+    // 이미지를 raw base64로 변환 (xAI는 data:image/... 접두사 없는 순수 base64만 허용)
+    var imgDataUrl = s.imgDataUrl;
+    if (!imgDataUrl.startsWith('data:')) {
+      var fetchUrl = imgDataUrl.startsWith('http') ? imgDataUrl : (window.SS_SERVER || '') + imgDataUrl;
+      var imgResp = await fetch(fetchUrl);
+      var imgBlob = await imgResp.blob();
+      imgDataUrl = await new Promise(function(resolve) {
+        var rd = new FileReader(); rd.onload = function(e){ resolve(e.target.result); }; rd.readAsDataURL(imgBlob);
       });
-      var uploadData = await uploadRes.json();
-      imgPublicUrl = window.SS_SERVER + uploadData.url;
     }
-
     var res = await fetch(window.GROK_PROXY_URL + '/v1/images/edits', {
       method: 'POST',
       headers: {'Content-Type':'application/json', 'Authorization':'Bearer ' + window.GROK_PROXY_KEY},
-      body: JSON.stringify({ model: 'grok-imagine-image', prompt: prompt, image_url: imgPublicUrl, n: 1 })
+      body: JSON.stringify({ model: 'grok-imagine-image-quality', prompt: prompt, image: { url: imgDataUrl, type: 'image_url' }, n: 1, response_format: 'b64_json' })
     });
-    if (!res.ok) { var err = await res.json(); throw new Error(err.error || err.message || '편집 실패'); }
+    if (!res.ok) {
+      var errText = await res.text();
+      var errMsg;
+      try { var errObj = JSON.parse(errText); errMsg = errObj.error?.message || errObj.message; } catch(_) { errMsg = errText.slice(0, 200); }
+      throw new Error(errMsg || '편집 실패');
+    }
     var data = await res.json();
     var newUrl = data.data && data.data[0] && (data.data[0].url || data.data[0].b64_json);
     if (!newUrl) throw new Error('결과 없음: ' + JSON.stringify(data));
     if (data.data[0].b64_json) newUrl = 'data:image/png;base64,' + data.data[0].b64_json;
 
+    // 외부 URL이면 base64로 변환 — 직접 fetch → CORS 실패 시 로컬 프록시 경유
+    if (!newUrl.startsWith('data:')) {
+      var converted = false;
+      // 1차: 직접 fetch
+      try {
+        var fetchResp = await fetch(newUrl);
+        var blob = await fetchResp.blob();
+        newUrl = await new Promise(function(resolve) {
+          var rd = new FileReader(); rd.onload = function(e){ resolve(e.target.result); }; rd.readAsDataURL(blob);
+        });
+        converted = true;
+      } catch(_) {}
+      // 2차: 로컬 Grok 프록시 경유 fetch (CORS 우회)
+      if (!converted && window.GROK_PROXY_URL) {
+        try {
+          var proxyFetch = await fetch(window.GROK_PROXY_URL + '/proxy-image?url=' + encodeURIComponent(newUrl), {
+            headers: { 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY }
+          });
+          if (proxyFetch.ok) {
+            var proxyBlob = await proxyFetch.blob();
+            newUrl = await new Promise(function(resolve) {
+              var rd2 = new FileReader(); rd2.onload = function(e){ resolve(e.target.result); }; rd2.readAsDataURL(proxyBlob);
+            });
+          }
+        } catch(_) {}
+      }
+    }
+
     s.imgDataUrl = newUrl;
+    s.imgFilename = null;
+    s.imgB64 = (newUrl && newUrl.includes(',')) ? newUrl.split(',')[1] : null;
     s.imgStatus = 'done';
-    renderSceneList();
+
+    // 100% 완료 표시 후 박스 닫기
+    clearInterval(progTimer);
+    var bar = document.getElementById('grok-prog-bar-' + id);
+    var lbl = document.getElementById('grok-prog-label-' + id);
+    if (bar) bar.style.width = '100%';
+    if (lbl) lbl.textContent = '100% — 완료!';
+    setTimeout(function() {
+      var box2 = document.getElementById('grok-edit-box-' + id);
+      if (box2) box2.style.display = 'none';
+      renderSceneList();
+    }, 600);
+
     var statusEl = document.getElementById('studioStatus');
     if (statusEl) statusEl.textContent = '✅ Grok 이미지 편집 완료! (씬 ' + (scenes.findIndex(function(x){return x.id===id;})+1) + ')';
   } catch(e) {
+    clearInterval(progTimer);
+    var box3 = document.getElementById('grok-edit-box-' + id);
+    if (box3) box3.style.display = 'none';
     s.imgDataUrl = origImg;
     s.imgStatus = 'done';
     renderSceneList();
@@ -18640,10 +19704,13 @@ window.ssDoLogin = async function() {
       body: JSON.stringify({email: email, password: pw})
     });
     if (r.ok) {
+      var ld = await r.json();
       localStorage.setItem('ss_auth','ok');
       localStorage.setItem('ss_auth_email', email.toLowerCase());
+      if (ld.token) localStorage.setItem('ss_user_token', ld.token);
       document.getElementById('ss-login-modal').style.display = 'none';
       ssMasterUIInit();
+      ssLoadUserData();
     } else {
       var d = await r.json();
       err.textContent = d.message || '인증 실패';
@@ -18655,10 +19722,72 @@ window.ssDoLogin = async function() {
   }
 };
 
+// ── 클라우드 유저 데이터 저장/복원 ──
+async function ssLoadUserData() {
+  var email = localStorage.getItem('ss_auth_email');
+  var token = localStorage.getItem('ss_user_token');
+  if (!email || !token) return;
+  try {
+    var r = await fetch(window.SS_SERVER + '/api/user/load?email=' + encodeURIComponent(email) + '&token=' + encodeURIComponent(token));
+    if (!r.ok) return;
+    var d = await r.json();
+    if (d.status !== 'ok' || !d.data) return;
+    var ud = d.data;
+    if (ud.geminiKey) {
+      localStorage.setItem('ss_global_api_key_v1', ud.geminiKey);
+      var gEl = document.getElementById('globalApiKey'); if (gEl && !gEl.value) gEl.value = ud.geminiKey;
+    }
+    if (ud.elKey) {
+      localStorage.setItem('ss_el_api_key_v1', ud.elKey);
+      var eEl = document.getElementById('el-api-key'); if (eEl && !eEl.value) eEl.value = ud.elKey;
+    }
+    if (ud.hfToken) localStorage.setItem('ss_hf_token_v1', ud.hfToken);
+    if (ud.hfModel) localStorage.setItem('ss_hf_custom_model_v1', ud.hfModel);
+    if (ud.style) {
+      localStorage.setItem('ss_my_style_v2', ud.style);
+      var sEl = document.getElementById('s-style'); if (sEl && !sEl.value) sEl.value = ud.style;
+    }
+    if (ud.styleOverride !== undefined) localStorage.setItem('ss_my_style_override', ud.styleOverride);
+    if (ud.vertexKey) localStorage.setItem('vertex_service_account_key', ud.vertexKey);
+    if (ud.vxOauth) localStorage.setItem('vx_oauth', ud.vxOauth);
+    var daysLeft = d.days_left ? Math.ceil(d.days_left) : 7;
+    showToast('☁️ 클라우드 설정 복원됨 (' + daysLeft + '일 남음)');
+  } catch(e) {}
+}
+
+var _ssSaveTimer = null;
+function ssSaveUserDataDebounced() {
+  clearTimeout(_ssSaveTimer);
+  _ssSaveTimer = setTimeout(ssSaveUserData, 1500);
+}
+
+async function ssSaveUserData() {
+  var email = localStorage.getItem('ss_auth_email');
+  var token = localStorage.getItem('ss_user_token');
+  if (!email || !token) return;
+  var ud = {
+    geminiKey: localStorage.getItem('ss_global_api_key_v1') || '',
+    elKey: localStorage.getItem('ss_el_api_key_v1') || '',
+    hfToken: localStorage.getItem('ss_hf_token_v1') || '',
+    hfModel: localStorage.getItem('ss_hf_custom_model_v1') || '',
+    style: localStorage.getItem('ss_my_style_v2') || '',
+    styleOverride: localStorage.getItem('ss_my_style_override') || '0',
+    vertexKey: localStorage.getItem('vertex_service_account_key') || '',
+    vxOauth: localStorage.getItem('vx_oauth') || ''
+  };
+  try {
+    await fetch(window.SS_SERVER + '/api/user/save', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({email: email, token: token, data: ud})
+    });
+  } catch(e) {}
+}
+
 (function(){
   if (localStorage.getItem('ss_auth') === 'ok') {
     document.getElementById('ss-login-modal').style.display = 'none';
     ssMasterUIInit();
+    ssLoadUserData();
   }
   document.getElementById('ss-login-pw').addEventListener('keydown', function(e){ if(e.key==='Enter') ssDoLogin(); });
 })();
@@ -18681,10 +19810,10 @@ window.ssDoLogin = async function() {
       <b style="color:#34d399">ScriptStudio Companion</b>을 설치해야 합니다.<br>
       <span style="color:#6b7280;font-size:12px">백그라운드에서 조용히 실행되며, CapCut에 자동으로 프로젝트를 추가합니다.</span>
     </p>
-    <a href="https://github.com/jesuslove26801-cmd/scriptstudio-server/releases/latest/download/ScriptStudioCompanion.exe"
+    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat"
        download
        style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#0891b2);color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.4);margin-bottom:16px">
-      ⬇️ Companion 다운로드 (8MB)
+      ⬇️ Companion 설치 (.bat)
     </a>
     <div style="color:#6b7280;font-size:12px;margin-bottom:20px;line-height:1.6">
       1. 위 버튼으로 <b style="color:#9ca3af">ScriptStudioCompanion.exe</b> 다운로드<br>
@@ -18778,7 +19907,7 @@ window.ssDoLogin = async function() {
       document.getElementById('ss-gate-checking').style.display = 'block';
       document.getElementById('ss-gate-no-companion').style.display = 'none';
       document.getElementById('ss-gate-has-companion').style.display = 'none';
-      var LATEST_COMPANION_VERSION = '1.2.5';
+      var LATEST_COMPANION_VERSION = '1.2.9';
       var ok = await _ccCheckCompanion();
       document.getElementById('ss-gate-checking').style.display = 'none';
       if (ok) {
@@ -18855,14 +19984,14 @@ window.ssDoLogin = async function() {
 
     <!-- 다운로드 버튼 -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
-      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup.bat" download
+      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.2.9.bat" download
          style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;background:linear-gradient(135deg,rgba(124,92,252,0.15),rgba(64,212,245,0.08));border:1px solid rgba(124,92,252,0.4);border-radius:16px;text-decoration:none;position:relative;transition:all 0.2s;"
          onmouseover="this.style.borderColor='rgba(124,92,252,0.8)';this.style.transform='translateY(-2px)';"
          onmouseout="this.style.borderColor='rgba(124,92,252,0.4)';this.style.transform='none';">
         <div style="width:44px;height:44px;background:linear-gradient(135deg,#7c5cfc,#5a3fd4);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">⬇</div>
         <div style="text-align:center;">
           <div style="font-size:14px;font-weight:700;color:#f4f4fc;margin-bottom:3px;">Companion 설치</div>
-          <div style="font-size:11px;color:#8080aa;">ScriptStudio_Companion_Setup.bat</div>
+          <div style="font-size:11px;color:#8080aa;">ScriptStudio_Companion_Setup_v1.2.9.bat</div>
         </div>
         <div style="position:absolute;top:8px;right:8px;background:rgba(124,92,252,0.2);border:1px solid rgba(124,92,252,0.4);border-radius:5px;padding:1px 7px;font-size:10px;color:#b09fff;font-weight:600;">필수</div>
       </a>
@@ -18893,13 +20022,13 @@ window.ssDoLogin = async function() {
   <!-- ── 설치 완료 뷰: Companion 있음 ── -->
   <div id="ss-gate-has-companion" style="display:none;width:100%;max-width:560px;padding:24px;position:relative;z-index:1;">
     <!-- 업데이트 배너 (버전 구버전일 때만 표시) -->
-    <div id="ss-companion-update-banner" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+    <div id="ss-companion-update-banner" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:12px 16px;margin-bottom:16px;align-items:center;gap:12px;">
       <span style="font-size:20px;">🔔</span>
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:700;color:#fbbf24;">Companion 업데이트 있음</div>
-        <div style="font-size:11px;color:#a08030;margin-top:2px;" id="ss-companion-update-desc"></div>
+        <div style="font-size:12px;color:#fde68a;margin-top:3px;font-weight:500;" id="ss-companion-update-desc"></div>
       </div>
-      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup.bat" download
+      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.2.9.bat" download
          style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
         ⬇ 업데이트
       </a>
@@ -18956,4 +20085,5 @@ window.ssDoLogin = async function() {
 
 </body>
 </html>
+
 
