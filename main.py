@@ -1736,7 +1736,11 @@ async def grok_completed():
 
     result = []
     for scene_no, video_path in list(_grok_completed_videos.items()):
-        result.append({"sceneNo": scene_no, "videoUrl": f"/api/grok/video/{scene_no}"})
+        result.append({
+            "sceneNo": scene_no,
+            "videoUrl": f"/api/grok/video/{scene_no}",
+            "localFilename": f"scene_{scene_no:02d}_grok.mp4",
+        })
     failed = [{"sceneNo": sn, "error": msg} for sn, msg in list(_grok_failed_scenes.items())]
     return {"completed": result, "failed": failed}
 
