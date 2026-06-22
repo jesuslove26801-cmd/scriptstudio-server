@@ -1179,6 +1179,83 @@ async def companion_task_status(task_id: str):
         return {"status": "not_found"}
     return {"status": task["status"], "draft_name": task.get("draft_name")}
 
+# ── Google Flow Task 저장소 (메모리) ─────────────────────────────────
+_flow_tasks: dict = {}  # task_id → {mode, prompt, image_url, status, result_url, created_at}
+
+@app.post("/api/flow/task")
+async def flow_create_task(req: Request):
+    """웹 프론트엔드가 Flow 작업 등록 (text2img 또는 img2video)"""
+    body = await req.json()
+    mode = body.get("mode", "text2img")  # "text2img" | "img2video"
+    if mode not in ("text2img", "img2video"):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "mode는 text2img 또는 img2video"})
+
+    task_id = f"flow_{int(time.time())}_{mode[:3]}"
+    _flow_tasks[task_id] = {
+        "task_id":    task_id,
+        "mode":       mode,
+        "prompt":     body.get("prompt", ""),
+        "image_url":  body.get("image_url", ""),   # img2video 시 시작 이미지 URL
+        "delay":      int(body.get("delay", 10)),  # 작업 후 딜레이(초)
+        "status":     "pending",
+        "result_url": "",
+        "created_at": time.time(),
+    }
+    return {"status": "ok", "task_id": task_id}
+
+@app.get("/api/flow/task/poll")
+async def flow_poll():
+    """로컬 Flow 워커가 주기적으로 호출 → pending 작업 반환"""
+    now = time.time()
+    for tid, task in list(_flow_tasks.items()):
+        if task["status"] == "pending":
+            if now - task["created_at"] > 600:  # 10분 초과 자동 삭제
+                del _flow_tasks[tid]
+                continue
+            task["status"] = "sent"
+            return task
+    return {"task_id": None}
+
+@app.post("/api/flow/task/{task_id}/complete")
+async def flow_complete(task_id: str, req: Request):
+    """로컬 워커가 Flow 작업 완료/실패 보고"""
+    body = await req.json()
+    if task_id in _flow_tasks:
+        _flow_tasks[task_id]["status"] = body.get("status", "done")
+        _flow_tasks[task_id]["result_url"] = body.get("result_url", "")
+        _flow_tasks[task_id]["error"] = body.get("error", "")
+    return {"ok": True}
+
+@app.get("/api/flow/task/{task_id}/status")
+async def flow_task_status(task_id: str):
+    """웹 프론트엔드가 작업 상태 폴링"""
+    task = _flow_tasks.get(task_id)
+    if not task:
+        return {"status": "not_found"}
+    return {
+        "status":     task["status"],
+        "result_url": task.get("result_url", ""),
+        "error":      task.get("error", ""),
+        "mode":       task.get("mode", ""),
+    }
+
+@app.get("/api/flow/tasks")
+async def flow_list_tasks():
+    """현재 큐에 있는 모든 Flow 작업 목록 (디버그용)"""
+    return {"tasks": list(_flow_tasks.values())}
+
+@app.post("/api/flow/upload")
+async def flow_upload(file: UploadFile = File(...)):
+    """로컬 워커가 Flow 결과물(이미지/영상)을 서버에 업로드"""
+    out_dir = "outputs"
+    os.makedirs(out_dir, exist_ok=True)
+    safe_name = f"flow_{int(time.time())}_{file.filename}"
+    save_path = os.path.join(out_dir, safe_name)
+    with open(save_path, "wb") as f:
+        f.write(await file.read())
+    url = f"{SERVER_URL}/download-audio/{safe_name}"
+    return {"status": "ok", "url": url}
+
 @app.post("/api/export-xml")
 async def api_export_xml(req: RenderRequest):
     try:
