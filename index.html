@@ -18362,7 +18362,7 @@ async function flowProxyVideoGen(id) {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
         if (statusEl) statusEl.textContent = '🌊 Flow 처리 중 ' + s.flowProgress + '%... (씬 ' + id + ')';
-        if (pollJson.status === 'done' || pollJson.status === 'error') { result = pollJson; break; }
+        if (pollJson.status === 'done' || pollJson.status === 'error' || pollJson.status === 'not_found') { result = pollJson; break; }
       } catch(e) {}
     }
 
@@ -18449,7 +18449,7 @@ async function flowProxyImageGen(id) {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
         if (statusEl) statusEl.textContent = '🌊 Flow 이미지 ' + s.flowProgress + '%... (씬 ' + id + ')';
-        if (pollJson.status === 'done' || pollJson.status === 'error') { result = pollJson; break; }
+        if (pollJson.status === 'done' || pollJson.status === 'error' || pollJson.status === 'not_found') { result = pollJson; break; }
       } catch(e) {}
     }
 
