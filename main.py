@@ -1413,7 +1413,12 @@ async def download_audio_file(filename: str):
     if not os.path.exists(file_path):
         return JSONResponse(status_code=404, content={"error": "File not found"})
     ext = filename.rsplit(".", 1)[-1].lower()
-    media_type = "audio/wav" if ext == "wav" else "audio/mpeg" if ext == "mp3" else "application/octet-stream"
+    media_type = {
+        "wav": "audio/wav", "mp3": "audio/mpeg", "ogg": "audio/ogg",
+        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
+        "mp4": "video/mp4", "webm": "video/webm", "gif": "image/gif",
+        "zip": "application/zip",
+    }.get(ext, "application/octet-stream")
     return FileResponse(path=file_path, filename=filename, media_type=media_type)
 
 @app.post("/api/upload-audio")
