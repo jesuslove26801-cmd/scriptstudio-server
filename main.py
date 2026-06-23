@@ -1186,9 +1186,9 @@ _flow_tasks: dict = {}  # task_id → {mode, prompt, image_url, status, result_u
 async def flow_create_task(req: Request):
     """웹 프론트엔드가 Flow 작업 등록 (text2img 또는 img2video)"""
     body = await req.json()
-    mode = body.get("mode", "text2img")  # "text2img" | "img2video"
-    if mode not in ("text2img", "img2video"):
-        return JSONResponse(status_code=400, content={"status": "error", "message": "mode는 text2img 또는 img2video"})
+    mode = body.get("mode", "text2img")  # "text2img" | "img2video" | "text2img_video"
+    if mode not in ("text2img", "img2video", "text2img_video"):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "mode는 text2img, img2video, text2img_video"})
 
     task_id = f"flow_{int(time.time())}_{mode[:3]}"
     _flow_tasks[task_id] = {
