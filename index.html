@@ -8783,13 +8783,14 @@ function buildSceneCardHTML(s, idx) {
 
   var imgColInner = '';
   if (s.flowConverting) {
+    var _fpct = Math.min(s.flowProgress || 0, 95);
     imgColInner = '<div style="position:relative;width:100%;border-radius:6px;overflow:hidden;background:#111;aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">'
       + (s.imgDataUrl ? '<img src="' + s.imgDataUrl + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.35;border-radius:6px">' : '')
       + '<div style="position:relative;z-index:1;text-align:center">'
-      + '<div style="font-size:28px">🌊</div>'
-      + '<div style="font-size:11px;color:#34d399;margin-top:4px">Flow 처리 중...</div>'
+      + '<div style="font-size:22px;font-weight:700;color:#34d399">🌊 ' + _fpct + '%</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:4px">Flow 처리 중...</div>'
       + '<div style="width:120px;height:4px;background:rgba(52,211,153,.2);border-radius:2px;margin-top:8px;overflow:hidden">'
-      + '<div style="height:100%;width:100%;background:linear-gradient(90deg,#34d399,#06b6d4);border-radius:2px;animation:shimmer 1.5s infinite"></div>'
+      + '<div style="height:100%;width:' + _fpct + '%;background:linear-gradient(90deg,#34d399,#06b6d4);border-radius:2px;transition:width .5s"></div>'
       + '</div></div></div>';
   } else if (s.grokVideoConverting) {
     var _pct = s.grokVideoProgress || 0;
@@ -18352,18 +18353,22 @@ async function flowProxyVideoGen(id) {
 
     // 완료 폴링 (최대 5분)
     var result = null;
+    s.flowProgress = 5;
     for (var i = 0; i < 100; i++) {
       await new Promise(function(r){ setTimeout(r, 3000); });
+      s.flowProgress = Math.min(5 + i * 3, 92);
+      renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
-        if (statusEl) statusEl.textContent = '🌊 Flow 처리 중 [' + pollJson.status + ']... (씬 ' + id + ')';
+        if (statusEl) statusEl.textContent = '🌊 Flow 처리 중 ' + s.flowProgress + '%... (씬 ' + id + ')';
         if (pollJson.status === 'done' || pollJson.status === 'error') { result = pollJson; break; }
       } catch(e) {}
     }
 
     if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃 또는 실패');
 
+    s.flowProgress = 100;
     s.imgDataUrl = result.result_url;
     s.grokVideo = true;
     s.flowConverting = false;
@@ -18435,18 +18440,22 @@ async function flowProxyImageGen(id) {
     if (statusEl) statusEl.textContent = '🌊 Flow 이미지 생성 중... (씬 ' + id + ') — flow_worker.py가 실행 중이어야 합니다';
 
     var result = null;
+    s.flowProgress = 5;
     for (var i = 0; i < 100; i++) {
       await new Promise(function(r){ setTimeout(r, 3000); });
+      s.flowProgress = Math.min(5 + i * 3, 92);
+      renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
-        if (statusEl) statusEl.textContent = '🌊 Flow 이미지 [' + pollJson.status + ']... (씬 ' + id + ')';
+        if (statusEl) statusEl.textContent = '🌊 Flow 이미지 ' + s.flowProgress + '%... (씬 ' + id + ')';
         if (pollJson.status === 'done' || pollJson.status === 'error') { result = pollJson; break; }
       } catch(e) {}
     }
 
     if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃 또는 실패');
 
+    s.flowProgress = 100;
     s.imgDataUrl = result.result_url;
     s.flowConverting = false;
     renderSceneList();
