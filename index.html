@@ -22,6 +22,12 @@ window.GROK_USE_LOCAL = false; // 로컬 프록시 감지 후 true로 전환
       window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
       window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
       console.log('[Grok] 로컬 프록시 감지됨 — 로컬 계정 사용');
+      // DOM이 준비되면 버튼 표시
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { _showGrokVideoButtons(); });
+      } else {
+        _showGrokVideoButtons();
+      }
     }
   } catch(e) {}
 })();
@@ -819,7 +825,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <span style="font-size:15px;">🔔</span>
     <span id="ss-update-bar-title" style="color:#fbbf24;font-weight:700">Companion 설치 / 업데이트 필요</span>
     <span id="ss-update-bar-desc" style="color:#fde68a;margin-left:4px;font-weight:500;"></span>
-    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat" download
+    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat" download
        style="margin-left:auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:4px 12px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;">
       ⬇ 설치 / 업데이트
     </a>
@@ -1521,6 +1527,8 @@ input[type=password]:focus { border-color: var(--acc); }
     <button class="btn" id="grokLoginBtn" onclick="grokLocalLogin()" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 14px;white-space:nowrap" title="본인 Grok 계정으로 로그인 (로컬 프록시 필요)">🔑 Grok 로그인</button>
     <button class="btn ss-master-only" id="grokVideoAllBtn" onclick="grokProxyVideoGenAll()" style="background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 18px;white-space:nowrap">🎬 전체 영상 변환</button>
     <button class="btn btn-err ss-master-only" id="grokVideoAllStopBtn" onclick="grokVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ 중지</button>
+    <button class="btn" id="flowVideoAllBtn" onclick="flowProxyVideoGenAll()" style="background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);color:#34d399;font-size:13px;padding:7px 18px;white-space:nowrap">🌊 Flow 영상</button>
+    <button class="btn btn-err" id="flowVideoAllStopBtn" onclick="flowVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ Flow 중지</button>
     <button class="btn btn-err" id="studioStopBtn" onclick="studioStop()" style="display:none">⏹ 중지</button>
     <button class="btn btn-err" id="retryFailedBtn" onclick="retryFailedImages()" style="display:none">↺ 재시도</button>
       <div style="position:relative;display:inline-block">
@@ -4642,6 +4650,11 @@ async function _ccCheckCompanion() {
     if (!r.ok) return null;
     var d = await r.json();
     _ccCompanionDeviceId = d.device_id || null;
+    // Grok 폴더 자동 설정 (비어있을 때만)
+    var folderEl = document.getElementById('grokDownloadFolder');
+    if (folderEl && !folderEl.value.trim() && d.grok_folder) {
+      folderEl.value = d.grok_folder;
+    }
     return d.device_id || true;
   } catch(e) { return null; }
 }
@@ -8140,7 +8153,7 @@ function clearCharRef() {
 }
 // Companion 버전 체크 (게이트와 독립적, 앱 로드 시 항상 실행)
 (async function checkCompanionUpdate() {
-  var LATEST = '1.3.1';
+  var LATEST = '1.3.3';
   var bar = document.getElementById('ss-update-bar');
   var desc = document.getElementById('ss-update-bar-desc');
   var title = document.getElementById('ss-update-bar-title');
@@ -8857,7 +8870,8 @@ function buildSceneCardHTML(s, idx) {
     + '<div class="scene-ta-box"><textarea class="vprompt-ta" id="vprompt-' + s.id + '" rows="3" placeholder="동영상 프롬프트를 생성하세요..." oninput="_sceneDirty=true">' + esc(s.videoPrompt||'') + '</textarea></div>'
     + '<div class="scene-row-btns">'
     + '<button class="icon-btn" onclick="grokGenOneFromCard(' + s.id + ')" title="동영상 프롬프트 생성" style="color:#4dd8ac">✨</button>'
-    + '<button class="icon-btn ss-master-only" onclick="grokProxyVideoGen(' + s.id + ')" title="Grok 이미지→영상 변환" style="color:#a78bfa">▶</button>'
+    + (window.SS_IS_MASTER || window.GROK_USE_LOCAL ? '<button class="icon-btn" onclick="grokProxyVideoGen(' + s.id + ')" title="Grok 이미지→영상 변환" style="color:#a78bfa">▶</button>' : '')
+    + '<button class="icon-btn" onclick="flowProxyVideoGen(' + s.id + ')" title="Google Flow 이미지→영상 변환" style="color:#34d399">🌊</button>'
     + '</div>'
     + '</div></div>'
 
@@ -18217,6 +18231,7 @@ async function grokLocalLogin() {
       window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
       window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
       if (btn) { btn.textContent = '✅ Grok 연결됨'; btn.style.borderColor = 'rgba(16,185,129,.5)'; btn.style.color = '#10b981'; }
+      _showGrokVideoButtons();
       showToast('✅ 로컬 Grok 프록시 연결됨! 본인 계정으로 영상 생성합니다.');
       return;
     }
@@ -18229,12 +18244,15 @@ async function grokLocalLogin() {
       window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
       window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
       if (btn) { btn.textContent = '✅ Grok 연결됨'; btn.style.color = '#10b981'; }
+      _showGrokVideoButtons();
       showToast('✅ 이미 로그인된 Grok 계정으로 연결됐습니다.');
       return;
     }
     if (d.status === 'pending') {
       if (btn) btn.textContent = '⏳ 승인 대기 중...';
-      showToast('🔑 브라우저에서 Grok 로그인 승인 후 다시 버튼을 클릭하세요.\n코드: ' + d.user_code);
+      if (d.verification_uri_complete) window.open(d.verification_uri_complete, '_blank');
+      else if (d.verification_uri) window.open(d.verification_uri, '_blank');
+      showToast('🔑 열린 브라우저 탭에서 Grok 로그인을 승인해주세요. 코드: ' + (d.user_code || ''));
       // 폴링
       var pollCount = 0;
       var poll = setInterval(async function() {
@@ -18249,6 +18267,7 @@ async function grokLocalLogin() {
             window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
             window.GROK_PROXY_KEY = window.GROK_LOCAL_KEY;
             if (btn) { btn.textContent = '✅ Grok 연결됨'; btn.style.color = '#10b981'; }
+            _showGrokVideoButtons();
             showToast('✅ Grok 로그인 완료! 본인 계정으로 영상 생성합니다.');
           }
         } catch(e) {}
@@ -18263,12 +18282,123 @@ async function grokLocalLogin() {
   }
 }
 
+function _showGrokVideoButtons() {
+  var btn = document.getElementById('grokVideoAllBtn');
+  if (btn) btn.style.display = '';
+  renderSceneList(); // 씬 카드 ▶ 버튼도 갱신
+}
+
 function grokVideoAllStop() {
   _grokVideoAllRunning = false;
   document.getElementById('grokVideoAllStopBtn').style.display = 'none';
   document.getElementById('grokVideoAllBtn').style.display = '';
   document.getElementById('studioStatus').textContent = '⏹ 전체 영상 변환 중지됨';
 }
+
+// ── Google Flow 연동 ──────────────────────────────────────────────────
+var _flowVideoAllRunning = false;
+
+async function flowProxyVideoGen(id) {
+  syncAllScenes();
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s || !s.imgDataUrl) { alert('이미지가 없습니다. 먼저 이미지를 생성하세요.'); return; }
+
+  var vpEl = document.getElementById('vprompt-' + id);
+  var prompt = (vpEl ? vpEl.value.trim() : '') || s.videoPrompt || s.script || 'Cinematic motion, smooth camera movement';
+
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '🌊 Flow 작업 등록 중... (씬 ' + id + ')';
+  s.grokVideoConverting = true;
+  renderSceneList();
+
+  try {
+    // 이미지 공개 URL 확보
+    var imageUrl = '';
+    if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
+      imageUrl = window.SS_SERVER + s.imgDataUrl;
+    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('http')) {
+      imageUrl = s.imgDataUrl;
+    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
+      var upResp = await fetch(window.SS_SERVER + '/api/save-image', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ data: s.imgDataUrl, filename: 'flow_src_' + id + '.png' })
+      });
+      var upJson = await upResp.json();
+      imageUrl = window.SS_SERVER + (upJson.url || '');
+    }
+
+    // Flow 작업 등록
+    var regResp = await fetch(window.SS_SERVER + '/api/flow/task', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mode: 'img2video', prompt: prompt, image_url: imageUrl, delay: 5 })
+    });
+    var taskData = await regResp.json();
+    if (!taskData.task_id) throw new Error('Flow 작업 등록 실패');
+
+    if (statusEl) statusEl.textContent = '🌊 Flow 워커 처리 중... (씬 ' + id + ') — flow_worker.py가 실행 중이어야 합니다';
+
+    // 완료 폴링 (최대 5분)
+    var result = null;
+    for (var i = 0; i < 100; i++) {
+      await new Promise(function(r){ setTimeout(r, 3000); });
+      try {
+        var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
+        var pollJson = await pollResp.json();
+        if (statusEl) statusEl.textContent = '🌊 Flow 처리 중 [' + pollJson.status + ']... (씬 ' + id + ')';
+        if (pollJson.status === 'done' || pollJson.status === 'error') { result = pollJson; break; }
+      } catch(e) {}
+    }
+
+    if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃 또는 실패');
+
+    s.imgDataUrl = result.result_url;
+    s.grokVideo = true;
+    s.grokVideoConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '✅ Flow 영상 완료! (씬 ' + id + ')';
+
+  } catch(e) {
+    s.grokVideoConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '❌ Flow 영상 실패: ' + e.message;
+  }
+}
+
+async function flowProxyVideoGenAll() {
+  syncAllScenes();
+  var targets = scenes.filter(function(s){ return s.imgDataUrl && !s.grokVideo && !s.grokVideoConverting; });
+  if (!targets.length) { alert('변환할 이미지가 있는 장면이 없습니다.'); return; }
+
+  _flowVideoAllRunning = true;
+  document.getElementById('flowVideoAllBtn').style.display = 'none';
+  document.getElementById('flowVideoAllStopBtn').style.display = '';
+
+  var statusEl = document.getElementById('studioStatus');
+  var done = 0;
+
+  for (var i = 0; i < targets.length; i++) {
+    if (!_flowVideoAllRunning) break;
+    if (statusEl) statusEl.textContent = '🌊 Flow 전체 변환 중... ' + (done + 1) + '/' + targets.length + ' (씬 ' + targets[i].id + ')';
+    try { await flowProxyVideoGen(targets[i].id); } catch(e) {}
+    done++;
+  }
+
+  _flowVideoAllRunning = false;
+  document.getElementById('flowVideoAllBtn').style.display = '';
+  document.getElementById('flowVideoAllStopBtn').style.display = 'none';
+  if (statusEl) statusEl.textContent = '✅ Flow 전체 완료! (' + done + '/' + targets.length + ')';
+}
+
+function flowVideoAllStop() {
+  _flowVideoAllRunning = false;
+  document.getElementById('flowVideoAllStopBtn').style.display = 'none';
+  document.getElementById('flowVideoAllBtn').style.display = '';
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '⏹ Flow 변환 중지됨';
+}
+// ── Google Flow 연동 끝 ───────────────────────────────────────────────
 
 async function grokProxyVideoGenAll() {
   syncAllScenes();
@@ -18584,7 +18714,7 @@ async function grokProxyVideoGen(id) {
         videoUrl = pdata.video && pdata.video.url;
         break;
       }
-      if (pdata.status === 'failed') throw new Error('Grok 영상 생성 실패');
+      if (pdata.status === 'failed' || pdata.status === 'expired') throw new Error('Grok 영상 생성 실패: ' + pdata.status);
       s.grokVideoProgress = pdata.progress || 0;
       renderSceneList();
       if (statusEl) statusEl.textContent = '🎬 Grok 영상 변환 중... ' + (pdata.progress || 0) + '%';
@@ -18592,12 +18722,37 @@ async function grokProxyVideoGen(id) {
     if (!videoUrl) throw new Error('타임아웃 — Grok 응답 없음');
 
     // 3. 씬에 영상 적용
-    s.imgDataUrl = videoUrl;
+    var sceneIdx = scenes.findIndex(function(x){ return x.id === id; });
+    var sceneNo = sceneIdx + 1;
+    var localFilename = 'scene_' + String(sceneNo).padStart(2, '0') + '_grok.mp4';
+
+    // 로컬 프록시 모드: Companion을 통해 C:\ScriptStudio\Grok\ 에 저장
+    if (window.GROK_USE_LOCAL) {
+      if (statusEl) statusEl.textContent = '💾 Grok 영상 저장 중... (' + localFilename + ')';
+      try {
+        var dlRes = await fetch('http://localhost:19283/grok-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: videoUrl, filename: localFilename })
+        });
+        var dlData = await dlRes.json();
+        if (dlData.ok) {
+          s.grokVideoPath = 'http://localhost:19283/grok-video/' + localFilename;
+          s.imgDataUrl = s.grokVideoPath;
+        } else {
+          s.imgDataUrl = videoUrl; // 저장 실패 시 CDN URL 사용
+        }
+      } catch(dlErr) {
+        s.imgDataUrl = videoUrl; // Companion 없으면 CDN URL 사용
+      }
+    } else {
+      s.imgDataUrl = videoUrl;
+    }
     s.grokVideo = true;
     s.grokVideoConverting = false;
     s.grokVideoProgress = 100;
     renderSceneList();
-    if (statusEl) statusEl.textContent = '✅ Grok 영상 완료! (씬 ' + (scenes.findIndex(function(x){return x.id===id;})+1) + ')';
+    if (statusEl) statusEl.textContent = '✅ Grok 영상 완료! (씬 ' + sceneNo + ')';
   } catch(e) {
     s.grokVideoConverting = false;
     renderSceneList();
@@ -18845,6 +19000,9 @@ function grokStartPolling(totalTasks) {
         if (targetScene) {
           targetScene.imgDataUrl = item.videoUrl + '?t=' + Date.now();
           targetScene.grokVideo = true;
+          if (item.localFilename) {
+            targetScene.grokVideoPath = 'http://localhost:19283/grok-video/' + item.localFilename;
+          }
           updateSceneCard(targetScene.id);
           grokAutoLog('✅ 씬 ' + sceneNo + ' 영상 적용 완료 → 스튜디오 이미지 교체됨');
         }
@@ -19581,6 +19739,7 @@ window.SS_MASTER_EMAIL = 'master@gmail.com';
 window.ssMasterUIInit = function() {
   var email = localStorage.getItem('ss_auth_email') || '';
   var isMaster = (email === window.SS_MASTER_EMAIL);
+  window.SS_IS_MASTER = isMaster;
   document.querySelectorAll('.ss-master-only').forEach(function(el) {
     el.style.display = isMaster ? '' : 'none';
   });
@@ -19811,7 +19970,7 @@ async function ssSaveUserData() {
       <b style="color:#34d399">ScriptStudio Companion</b>을 설치해야 합니다.<br>
       <span style="color:#6b7280;font-size:12px">백그라운드에서 조용히 실행되며, CapCut에 자동으로 프로젝트를 추가합니다.</span>
     </p>
-    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat"
+    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat"
        download
        style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#0891b2);color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.4);margin-bottom:16px">
       ⬇️ Companion 설치 (.bat)
@@ -19907,7 +20066,7 @@ async function ssSaveUserData() {
       gate.style.display = 'flex';
       document.getElementById('ss-gate-checking').style.display = 'none';
       document.getElementById('ss-gate-has-companion').style.display = 'block';
-      var LATEST_COMPANION_VERSION = '1.3.1';
+      var LATEST_COMPANION_VERSION = '1.3.3';
       var ok = await _ccCheckCompanion();
       // Companion 미설치 시 상태 행 업데이트
       var compRow = document.getElementById('ss-gate-companion-row');
@@ -19915,7 +20074,7 @@ async function ssSaveUserData() {
         if (ok) {
           compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div><div><div style="font-size:14px;font-weight:700;color:#36d68a;">Companion 실행 중</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">백그라운드에서 실행 중 · PC 시작 시 자동 실행</div></div>';
         } else {
-          compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(251,191,36,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚠️</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#fbbf24;">Companion 미실행</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">일부 기능(CapCut 내보내기 등)을 사용하려면 설치하세요</div></div><a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat" download style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">⬇ 설치</a>';
+          compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(251,191,36,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚠️</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#fbbf24;">Companion 미실행</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">일부 기능(CapCut 내보내기 등)을 사용하려면 설치하세요</div></div><a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat" download style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">⬇ 설치</a>';
         }
       }
       // 버전 체크 → 업데이트 배너
@@ -19985,7 +20144,7 @@ async function ssSaveUserData() {
         <div style="font-size:13px;font-weight:700;color:#fbbf24;">Companion 업데이트 있음</div>
         <div style="font-size:12px;color:#fde68a;margin-top:3px;font-weight:500;" id="ss-companion-update-desc"></div>
       </div>
-      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.1.bat" download
+      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat" download
          style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
         ⬇ 업데이트
       </a>
