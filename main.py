@@ -1209,7 +1209,7 @@ async def flow_poll():
     now = time.time()
     for tid, task in list(_flow_tasks.items()):
         if task["status"] == "pending":
-            if now - task["created_at"] > 600:  # 10분 초과 자동 삭제
+            if now - task["created_at"] > 900:  # 15분 초과 자동 삭제
                 del _flow_tasks[tid]
                 continue
             task["status"] = "sent"

@@ -8872,6 +8872,7 @@ function buildSceneCardHTML(s, idx) {
     + '<button class="icon-btn" data-action="prompt-only" data-scene-id="' + s.id + '" onclick="generateScenePromptOnly(' + s.id + ')" title="프롬프트 생성" style="color:#f5c842">✨</button>'
     + '<button class="icon-btn" onclick="retrySceneImage(' + s.id + ')" title="이미지 재생성" style="color:var(--cyan)">🔄</button>'
     + '<button class="icon-btn" onclick="flowProxyImageGen(' + s.id + ')" title="Google Flow 이미지 생성" style="color:#34d399">🌊</button>'
+    + '<button class="icon-btn" onclick="flowProxyImageThenVideoGen(' + s.id + ')" title="Google Flow 이미지→영상 한번에" style="color:#34d399;font-size:11px">🌊🎬</button>'
     + '</div>'
     + '</div></div>'
 
@@ -18485,6 +18486,56 @@ async function flowProxyImageGenAll() {
 
   document.getElementById('flowImageAllBtn').style.display = '';
   if (statusEl) statusEl.textContent = '✅ Flow 이미지 전체 완료! (' + done + '/' + targets.length + ')';
+}
+async function flowProxyImageThenVideoGen(id) {
+  syncAllScenes();
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s) return;
+  var prompt = (document.getElementById('prompt-' + id) ? document.getElementById('prompt-' + id).value.trim() : '') || s.prompt || s.script || '';
+  if (!prompt) { alert('이미지 프롬프트를 입력하세요.'); return; }
+
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '🌊 Flow 이미지→영상 생성 중... (씬 ' + id + ')';
+  s.flowConverting = true;
+  renderSceneList();
+
+  try {
+    var regResp = await fetch(window.SS_SERVER + '/api/flow/task', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mode: 'text2img_video', prompt: prompt, delay: 3 })
+    });
+    var taskData = await regResp.json();
+    if (!taskData.task_id) throw new Error('Flow 작업 등록 실패');
+
+    var result = null;
+    s.flowProgress = 5;
+    for (var i = 0; i < 140; i++) {  // 최대 7분 대기
+      await new Promise(function(r){ setTimeout(r, 3000); });
+      s.flowProgress = Math.min(5 + i * 1.5, 94);
+      renderSceneList();
+      try {
+        var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
+        var pollJson = await pollResp.json();
+        if (statusEl) statusEl.textContent = '🌊 이미지→영상 ' + Math.round(s.flowProgress) + '%... (씬 ' + id + ')';
+        if (pollJson.status === 'done' || pollJson.status === 'error' || pollJson.status === 'not_found') { result = pollJson; break; }
+      } catch(e) {}
+    }
+
+    if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃');
+
+    s.flowProgress = 100;
+    s.imgDataUrl = result.result_url;
+    s.grokVideo = result.result_url.endsWith('.mp4') || result.result_url.endsWith('.webm');
+    s.flowConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '✅ Flow 이미지→영상 완료! (씬 ' + id + ')';
+
+  } catch(e) {
+    s.flowConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '❌ Flow 이미지→영상 실패: ' + e.message;
+  }
 }
 // ── Google Flow 연동 끝 ───────────────────────────────────────────────
 
