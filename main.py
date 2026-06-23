@@ -1408,7 +1408,7 @@ async def save_audio_named(request: Request):
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.get("/download-audio/{filename}")
-async def download_audio_file(filename: str):
+async def download_audio_file(filename: str, request: Request):
     file_path = os.path.join("outputs", filename)
     if not os.path.exists(file_path):
         return JSONResponse(status_code=404, content={"error": "File not found"})
@@ -1419,7 +1419,9 @@ async def download_audio_file(filename: str):
         "mp4": "video/mp4", "webm": "video/webm", "gif": "image/gif",
         "zip": "application/zip",
     }.get(ext, "application/octet-stream")
-    return FileResponse(path=file_path, filename=filename, media_type=media_type)
+    # filename 파라미터 제거 → Content-Disposition: inline (브라우저 인라인 재생)
+    # FileResponse는 Starlette에서 Range 요청 자동 지원
+    return FileResponse(path=file_path, media_type=media_type, headers={"Accept-Ranges": "bytes"})
 
 @app.post("/api/upload-audio")
 async def upload_audio(file: UploadFile = File(...)):
