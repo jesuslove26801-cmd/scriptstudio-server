@@ -1527,6 +1527,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <button class="btn" id="grokLoginBtn" onclick="grokLocalLogin()" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 14px;white-space:nowrap" title="본인 Grok 계정으로 로그인 (로컬 프록시 필요)">🔑 Grok 로그인</button>
     <button class="btn ss-master-only" id="grokVideoAllBtn" onclick="grokProxyVideoGenAll()" style="background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 18px;white-space:nowrap">🎬 전체 영상 변환</button>
     <button class="btn btn-err ss-master-only" id="grokVideoAllStopBtn" onclick="grokVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ 중지</button>
+    <button class="btn" id="flowImageAllBtn" onclick="flowProxyImageGenAll()" style="background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#34d399;font-size:13px;padding:7px 18px;white-space:nowrap">🌊 Flow 이미지</button>
     <button class="btn" id="flowVideoAllBtn" onclick="flowProxyVideoGenAll()" style="background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);color:#34d399;font-size:13px;padding:7px 18px;white-space:nowrap">🌊 Flow 영상</button>
     <button class="btn btn-err" id="flowVideoAllStopBtn" onclick="flowVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ Flow 중지</button>
     <button class="btn btn-err" id="studioStopBtn" onclick="studioStop()" style="display:none">⏹ 중지</button>
@@ -8781,7 +8782,16 @@ function buildSceneCardHTML(s, idx) {
   else if (s.status === 'error') statusTagHtml = '<span class="scene-status-tag err">✗ 실패</span>';
 
   var imgColInner = '';
-  if (s.grokVideoConverting) {
+  if (s.flowConverting) {
+    imgColInner = '<div style="position:relative;width:100%;border-radius:6px;overflow:hidden;background:#111;aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">'
+      + (s.imgDataUrl ? '<img src="' + s.imgDataUrl + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.35;border-radius:6px">' : '')
+      + '<div style="position:relative;z-index:1;text-align:center">'
+      + '<div style="font-size:28px">🌊</div>'
+      + '<div style="font-size:11px;color:#34d399;margin-top:4px">Flow 처리 중...</div>'
+      + '<div style="width:120px;height:4px;background:rgba(52,211,153,.2);border-radius:2px;margin-top:8px;overflow:hidden">'
+      + '<div style="height:100%;width:100%;background:linear-gradient(90deg,#34d399,#06b6d4);border-radius:2px;animation:shimmer 1.5s infinite"></div>'
+      + '</div></div></div>';
+  } else if (s.grokVideoConverting) {
     var _pct = s.grokVideoProgress || 0;
     imgColInner = '<div style="position:relative;width:100%;border-radius:6px;overflow:hidden;background:#111;aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">'
       + (s.imgDataUrl ? '<img src="' + s.imgDataUrl + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.35;border-radius:6px">' : '')
@@ -8860,6 +8870,7 @@ function buildSceneCardHTML(s, idx) {
     + '<div class="scene-row-btns">'
     + '<button class="icon-btn" data-action="prompt-only" data-scene-id="' + s.id + '" onclick="generateScenePromptOnly(' + s.id + ')" title="프롬프트 생성" style="color:#f5c842">✨</button>'
     + '<button class="icon-btn" onclick="retrySceneImage(' + s.id + ')" title="이미지 재생성" style="color:var(--cyan)">🔄</button>'
+    + '<button class="icon-btn" onclick="flowProxyImageGen(' + s.id + ')" title="Google Flow 이미지 생성" style="color:#34d399">🌊</button>'
     + '</div>'
     + '</div></div>'
 
@@ -18308,7 +18319,7 @@ async function flowProxyVideoGen(id) {
 
   var statusEl = document.getElementById('studioStatus');
   if (statusEl) statusEl.textContent = '🌊 Flow 작업 등록 중... (씬 ' + id + ')';
-  s.grokVideoConverting = true;
+  s.flowConverting = true;
   renderSceneList();
 
   try {
@@ -18355,12 +18366,12 @@ async function flowProxyVideoGen(id) {
 
     s.imgDataUrl = result.result_url;
     s.grokVideo = true;
-    s.grokVideoConverting = false;
+    s.flowConverting = false;
     renderSceneList();
     if (statusEl) statusEl.textContent = '✅ Flow 영상 완료! (씬 ' + id + ')';
 
   } catch(e) {
-    s.grokVideoConverting = false;
+    s.flowConverting = false;
     renderSceneList();
     if (statusEl) statusEl.textContent = '❌ Flow 영상 실패: ' + e.message;
   }
@@ -18397,6 +18408,74 @@ function flowVideoAllStop() {
   document.getElementById('flowVideoAllBtn').style.display = '';
   var statusEl = document.getElementById('studioStatus');
   if (statusEl) statusEl.textContent = '⏹ Flow 변환 중지됨';
+}
+
+async function flowProxyImageGen(id) {
+  syncAllScenes();
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s) return;
+  var promptEl = document.getElementById('prompt-' + id);
+  var prompt = (promptEl ? promptEl.value.trim() : '') || s.prompt || s.script || '';
+  if (!prompt) { alert('이미지 프롬프트를 먼저 입력하세요.'); return; }
+
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '🌊 Flow 이미지 생성 등록 중... (씬 ' + id + ')';
+  s.flowConverting = true;
+  renderSceneList();
+
+  try {
+    var regResp = await fetch(window.SS_SERVER + '/api/flow/task', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mode: 'text2img', prompt: prompt, delay: 5 })
+    });
+    var taskData = await regResp.json();
+    if (!taskData.task_id) throw new Error('Flow 작업 등록 실패');
+
+    if (statusEl) statusEl.textContent = '🌊 Flow 이미지 생성 중... (씬 ' + id + ') — flow_worker.py가 실행 중이어야 합니다';
+
+    var result = null;
+    for (var i = 0; i < 100; i++) {
+      await new Promise(function(r){ setTimeout(r, 3000); });
+      try {
+        var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
+        var pollJson = await pollResp.json();
+        if (statusEl) statusEl.textContent = '🌊 Flow 이미지 [' + pollJson.status + ']... (씬 ' + id + ')';
+        if (pollJson.status === 'done' || pollJson.status === 'error') { result = pollJson; break; }
+      } catch(e) {}
+    }
+
+    if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃 또는 실패');
+
+    s.imgDataUrl = result.result_url;
+    s.flowConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '✅ Flow 이미지 완료! (씬 ' + id + ')';
+
+  } catch(e) {
+    s.flowConverting = false;
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '❌ Flow 이미지 실패: ' + e.message;
+  }
+}
+
+async function flowProxyImageGenAll() {
+  syncAllScenes();
+  var targets = scenes.filter(function(s){ return (s.prompt || s.script) && !s.flowConverting; });
+  if (!targets.length) { alert('프롬프트가 있는 장면이 없습니다.'); return; }
+
+  document.getElementById('flowImageAllBtn').style.display = 'none';
+  var statusEl = document.getElementById('studioStatus');
+  var done = 0;
+
+  for (var i = 0; i < targets.length; i++) {
+    if (statusEl) statusEl.textContent = '🌊 Flow 이미지 전체 생성 중... ' + (done+1) + '/' + targets.length;
+    try { await flowProxyImageGen(targets[i].id); } catch(e) {}
+    done++;
+  }
+
+  document.getElementById('flowImageAllBtn').style.display = '';
+  if (statusEl) statusEl.textContent = '✅ Flow 이미지 전체 완료! (' + done + '/' + targets.length + ')';
 }
 // ── Google Flow 연동 끝 ───────────────────────────────────────────────
 
