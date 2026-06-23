@@ -18317,7 +18317,9 @@ async function flowProxyVideoGen(id) {
   if (!s || !s.imgDataUrl) { alert('이미지가 없습니다. 먼저 이미지를 생성하세요.'); return; }
 
   var vpEl = document.getElementById('vprompt-' + id);
-  var prompt = (vpEl ? vpEl.value.trim() : '') || s.videoPrompt || s.script || 'Cinematic motion, smooth camera movement';
+  var sceneDesc = s.prompt || s.script || '';
+  var rawPrompt = (vpEl ? vpEl.value.trim() : '') || s.videoPrompt || '';
+  var prompt = rawPrompt || (sceneDesc ? 'Create a smooth cinematic video: ' + sceneDesc : 'Cinematic motion, smooth camera movement');
 
   var statusEl = document.getElementById('studioStatus');
   if (statusEl) statusEl.textContent = '🌊 Flow 작업 등록 중... (씬 ' + id + ')';
