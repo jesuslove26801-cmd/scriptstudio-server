@@ -1181,6 +1181,8 @@ async def companion_task_status(task_id: str):
 
 # ── Google Flow Task 저장소 (메모리) ─────────────────────────────────
 _flow_tasks: dict = {}  # task_id → {mode, prompt, image_url, status, result_url, created_at}
+_flow_last_poll: float = 0.0  # 워커 마지막 poll 시각
+_flow_login_requested: bool = False  # 재로그인 요청 플래그
 
 @app.post("/api/flow/task")
 async def flow_create_task(req: Request):
@@ -1203,9 +1205,27 @@ async def flow_create_task(req: Request):
     }
     return {"status": "ok", "task_id": task_id}
 
+@app.get("/api/flow/worker/status")
+async def flow_worker_status():
+    """프론트엔드에서 Flow 워커 연결 여부 확인"""
+    connected = (time.time() - _flow_last_poll) < 30
+    return {"connected": connected}
+
+@app.post("/api/flow/worker/request-login")
+async def flow_request_login():
+    """프론트엔드에서 구글 재로그인 요청 → 다음 poll에서 워커가 감지"""
+    global _flow_login_requested
+    _flow_login_requested = True
+    return {"ok": True}
+
 @app.get("/api/flow/task/poll")
 async def flow_poll():
     """로컬 Flow 워커가 주기적으로 호출 → pending 작업 반환"""
+    global _flow_last_poll, _flow_login_requested
+    _flow_last_poll = time.time()
+    if _flow_login_requested:
+        _flow_login_requested = False
+        return {"task_id": None, "login_requested": True}
     now = time.time()
     for tid, task in list(_flow_tasks.items()):
         if task["status"] == "pending":

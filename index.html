@@ -264,6 +264,7 @@ select:focus { border-color: var(--acc); }
 .btn-cyan { background: var(--cyan-dim); border-color: rgba(64,212,245,.3); color: var(--cyan); }
 .btn-cyan:hover:not(:disabled) { background: rgba(64,212,245,.18); }
 .btn-err { background: var(--err-dim); border-color: rgba(255,77,106,.2); color: var(--err); }
+#studioStopBtn, #grokVideoAllStopBtn, #flowVideoAllStopBtn { display: none; }
 .btn-sm { padding: 3px 9px; font-size: 11px; }
 .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
 .status-txt { font-size: 11px; color: var(--text2); font-family: var(--mono); }
@@ -303,7 +304,7 @@ select:focus { border-color: var(--acc); }
 /* card body: 좌(텍스트행들) + 우(이미지) */
 .scene-body {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: 1fr 380px;
   gap: 0;
   align-items: stretch;
   overflow: visible;
@@ -368,9 +369,12 @@ select:focus { border-color: var(--acc); }
 
 /* 이미지 컬럼 */
 .img-col {
-  width: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 12px; gap: 8px; background: var(--s1); position: relative;
 }
+.scene-body.collapsed { display: block; }
+.scene-body.collapsed .scene-text-cols { display: none; }
+.scene-body.collapsed .img-col { width: 100%; max-height: 420px; overflow: hidden; }
 .img-col img {
   width: 100%; border-radius: 8px; display: block; cursor: pointer;
 }
@@ -919,6 +923,42 @@ input[type=password]:focus { border-color: var(--acc); }
       <div id="codex-modal-msg" style="display:none"></div>
     </div>
 
+    <!-- Grok -->
+    <div style="margin-bottom:16px;padding:14px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:.06em;text-transform:uppercase">🤖 Grok (xAI)</span>
+        <span id="grokStatusBadge" style="font-size:10px;color:var(--text3);margin-left:auto">미연결</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+        로컬 Grok 프록시를 통해 본인 계정으로 <b>AI 영상 생성</b>을 사용합니다.<br>
+        <span style="color:var(--text3)">ScriptStudio_Grok_Setup.bat을 먼저 실행해주세요.</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="grokLoginBtn" onclick="grokLocalLogin()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(167,139,250,.4);background:rgba(167,139,250,.1);color:#a78bfa;cursor:pointer">🔑 Grok 로그인</button>
+      </div>
+      <div id="grokLoginUrl" style="display:none;margin-top:10px;padding:8px 10px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:7px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">아래 링크를 클릭해서 로그인하세요:</div>
+        <a id="grokLoginLink" href="#" target="_blank" style="color:#a78bfa;font-size:11px;font-weight:700;text-decoration:underline;word-break:break-all">🔗 Grok 로그인 페이지 열기</a>
+      </div>
+    </div>
+
+    <!-- Flow -->
+    <div style="margin-bottom:16px;padding:14px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:11px;font-weight:700;color:#34d399;letter-spacing:.06em;text-transform:uppercase">🌊 Google Flow</span>
+        <span id="flowStatusBadge" style="font-size:10px;color:var(--text3);margin-left:auto">확인 중...</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+        ScriptStudio Companion을 실행하면 Google 계정으로 AI 이미지/영상 생성을 사용합니다.<br>
+        <span style="color:var(--text3)">처음 실행 시 구글 로그인이 자동으로 열립니다.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="flowRequestLogin(false)" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(52,211,153,.4);background:rgba(52,211,153,.1);color:#34d399;cursor:pointer">🔑 구글 로그인</button>
+        <button onclick="flowRequestLogin(true)" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(251,191,36,.4);background:rgba(251,191,36,.1);color:#fbbf24;cursor:pointer">🔄 계정 변경</button>
+        <button onclick="checkFlowWorkerStatus()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);cursor:pointer">🔍 상태 확인</button>
+      </div>
+    </div>
+
     <div style="margin-top:18px;text-align:right">
       <button onclick="closeApiKeyModal()" class="btn btn-primary" style="padding:8px 24px">닫기</button>
     </div>
@@ -1277,6 +1317,22 @@ input[type=password]:focus { border-color: var(--acc); }
       <div class="opt-item"><div class="opt-label">이미지 비율</div>
         <select id="s-aspect"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:3">4:3</option></select>
       </div>
+      <div class="opt-item"><div class="opt-label">텍스트 모델</div>
+        <select id="s-model-text" style="font-size:11px" onchange="onTextModelChange(this.value)">
+          <optgroup label="── Gemini 3.x ──">
+            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (최고성능)</option>
+            <option value="gemini-3-flash-preview">Gemini 3 Flash (빠름)</option>
+            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (저렴)</option>
+          </optgroup>
+          <optgroup label="── Gemini 2.x ──">
+            <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (권장)</option>
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro (고품질)</option>
+          </optgroup>
+          <optgroup label="── ChatGPT (ChatMock) ──" id="chatmock-optgroup" style="display:none">
+            <option value="chatmock:gpt-5.5">GPT-5.5 ★</option>
+          </optgroup>
+        </select>
+      </div>
       <div id="model-cost-img" style="font-size:10px;color:var(--ok);font-family:var(--mono);font-weight:700;white-space:nowrap;align-self:center">장당 예상 비용: -</div>
     </div>
 
@@ -1472,21 +1528,6 @@ input[type=password]:focus { border-color: var(--acc); }
       <select id="s-retry"><option value="2">2회</option><option value="3" selected>3회</option><option value="5">5회</option></select></div>
     <div class="opt-item"><div class="opt-label">저장 형식</div>
       <select id="s-ext"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
-    <div class="opt-item"><div class="opt-label">텍스트 모델</div>
-      <select id="s-model-text" style="font-size:11px" onchange="onTextModelChange(this.value)">
-        <optgroup label="── Gemini 3.x ──">
-          <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (최고성능)</option>
-          <option value="gemini-3-flash-preview">Gemini 3 Flash (빠름)</option>
-          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (저렴)</option>
-        </optgroup>
-        <optgroup label="── Gemini 2.x ──">
-          <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (권장)</option>
-          <option value="gemini-2.5-pro">Gemini 2.5 Pro (고품질)</option>
-        </optgroup>
-        <optgroup label="── ChatGPT (ChatMock) ──" id="chatmock-optgroup" style="display:none">
-          <option value="chatmock:gpt-5.5">GPT-5.5 ★</option>
-        </optgroup>
-      </select></div>
   </div>
 
   <div id="studio-scenes-pane">
@@ -1500,41 +1541,45 @@ input[type=password]:focus { border-color: var(--acc); }
     <div class="sep" id="mergeSep" style="display:none"></div>
     <div class="sep"></div>
 
-    <!-- 불러오기 드롭다운 -->
+    <!-- 파일 드롭다운 (불러오기+내보내기 통합) -->
     <div style="position:relative;display:inline-block">
-      <button class="btn" id="importDropBtn" onclick="toggleDropdown('importDrop')" style="background:var(--cyan-dim);border-color:rgba(64,212,245,.4);color:var(--cyan);font-weight:700;white-space:nowrap">📥 불러오기 ▾</button>
-      <div id="importDrop" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:999;min-width:200px;box-shadow:0 4px 20px rgba(0,0,0,.5)">
-        <button class="btn" onclick="document.getElementById('txtFileInput').click();closeDropdown('importDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">📂 대본TXT 불러오기</button>
+      <button class="btn" id="importDropBtn" onclick="toggleDropdown('importDrop')" style="background:var(--s3);border-color:var(--border2);color:var(--text2);font-weight:700;white-space:nowrap">📂 파일 ▾</button>
+      <div id="importDrop" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:999;min-width:210px;box-shadow:0 4px 20px rgba(0,0,0,.5)">
+        <div style="padding:4px 10px 3px;font-size:10px;color:var(--text3);letter-spacing:.05em">불러오기</div>
         <button class="btn" onclick="document.getElementById('batchMediaInput').click();closeDropdown('importDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">📁 자동 이미지/영상 삽입</button>
         <button class="btn" onclick="openPasteScriptModal();closeDropdown('importDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">📋 일괄 프롬프트 가져오기</button>
+        <div style="border-top:1px solid var(--border);margin:4px 0"></div>
+        <div style="padding:4px 10px 3px;font-size:10px;color:var(--text3);letter-spacing:.05em">내보내기</div>
+        <button class="btn" onclick="downloadAllImages();closeDropdown('importDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🖼 전체 이미지 다운로드</button>
+        <button class="btn" onclick="exportAllPrompts();closeDropdown('importDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">📝 프롬프트 내보내기</button>
+        <button class="btn" onclick="exportVideoPrompts();closeDropdown('importDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🎬 동영상 프롬프트만 내보내기</button>
       </div>
     </div>
     <input type="file" id="txtFileInput" accept=".txt,text/plain" style="display:none" onchange="onTxtFileSelected(this)">
     <input type="file" id="batchMediaInput" accept="image/*,video/*" multiple style="display:none" onchange="onBatchMediaSelected(this)">
 
-    <!-- 내보내기 드롭다운 -->
-    <div style="position:relative;display:inline-block">
-      <button class="btn" id="exportDropBtn" onclick="toggleDropdown('exportDrop')" style="background:var(--ok-dim);border-color:rgba(54,214,138,.4);color:var(--ok);font-weight:700;white-space:nowrap">📤 내보내기 ▾</button>
-      <div id="exportDrop" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:999;min-width:200px;box-shadow:0 4px 20px rgba(0,0,0,.5)">
-        <button class="btn" onclick="downloadAllImages();closeDropdown('exportDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🖼 전체 이미지 다운로드</button>
-        <button class="btn" onclick="exportAllPrompts();closeDropdown('exportDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">📝 프롬프트 내보내기</button>
-        <button class="btn" onclick="exportVideoPrompts();closeDropdown('exportDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🎬 동영상 프롬프트만 내보내기</button>
-      </div>
-    </div>
-
     <div class="sep"></div>
     <button class="btn btn-primary" id="genAllBtn" onclick="generateAllPromptsAndImages()" style="background:linear-gradient(135deg,var(--acc),var(--cyan));border:none;font-size:13px;padding:7px 18px;white-space:nowrap">⚡ 전체 생성</button>
-    <button class="btn" id="grokLoginBtn" onclick="grokLocalLogin()" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 14px;white-space:nowrap" title="본인 Grok 계정으로 로그인 (로컬 프록시 필요)">🔑 Grok 로그인</button>
-    <button class="btn ss-master-only" id="grokVideoAllBtn" onclick="grokProxyVideoGenAll()" style="background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 18px;white-space:nowrap">🎬 전체 영상 변환</button>
+    <button class="btn ss-master-only" id="grokVideoAllBtn" onclick="grokProxyVideoGenAll()" style="background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-size:13px;padding:7px 14px;white-space:nowrap" title="Grok으로 전체 씬 영상 변환 (로컬 프록시 필요)">🎬 Grok 영상</button>
     <button class="btn btn-err ss-master-only" id="grokVideoAllStopBtn" onclick="grokVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ 중지</button>
-    <button class="btn" id="flowImageAllBtn" onclick="flowProxyImageGenAll()" style="background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#34d399;font-size:13px;padding:7px 18px;white-space:nowrap">🌊 Flow 이미지</button>
-    <button class="btn" id="flowVideoAllBtn" onclick="flowProxyVideoGenAll()" style="background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);color:#34d399;font-size:13px;padding:7px 18px;white-space:nowrap">🌊 Flow 영상</button>
+    <!-- Flow 드롭다운 -->
+    <div style="position:relative;display:inline-block">
+      <button class="btn" id="flowDropBtn" onclick="toggleDropdown('flowDrop')" style="background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);color:#34d399;font-size:13px;padding:7px 16px;white-space:nowrap;font-weight:700">🌊 Flow ▾</button>
+      <div id="flowDrop" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:999;min-width:200px;box-shadow:0 4px 20px rgba(0,0,0,.5)">
+        <button class="btn" id="flowImageAllBtn" onclick="flowProxyImageGenAll();closeDropdown('flowDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:#34d399;padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🌊 전체 이미지 생성</button>
+        <button class="btn" id="flowVideoAllBtn" onclick="flowProxyVideoGenAll();closeDropdown('flowDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:#34d399;padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🌊 전체 영상 변환</button>
+        <div style="border-top:1px solid var(--border);margin:4px 0"></div>
+        <button class="btn" id="flowAllInOneBtn" onclick="flowProxyImageThenVideoGenAll();closeDropdown('flowDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:#34d399;padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap;font-weight:700" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🌊🎬 이미지+영상 한번에</button>
+      </div>
+    </div>
     <button class="btn btn-err" id="flowVideoAllStopBtn" onclick="flowVideoAllStop()" style="display:none;font-size:13px;padding:7px 18px">⏹ Flow 중지</button>
     <button class="btn btn-err" id="studioStopBtn" onclick="studioStop()" style="display:none">⏹ 중지</button>
     <button class="btn btn-err" id="retryFailedBtn" onclick="retryFailedImages()" style="display:none">↺ 재시도</button>
       <div style="position:relative;display:inline-block">
         <button class="btn" id="retryFailedPromptsBtn" onclick="toggleDropdown('retryDrop')" style="background:var(--s3);border:1px solid var(--border2);color:var(--acc2);font-size:13px;padding:7px 18px;white-space:nowrap">🔄 재시도 ▾</button>
         <div id="retryDrop" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:999;min-width:220px;box-shadow:0 4px 20px rgba(0,0,0,.5)">
+          <button class="btn" onclick="retryFailedImages();closeDropdown('retryDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--err);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap;font-weight:600" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">↺ 실패한 이미지 재생성</button>
+          <div style="border-top:1px solid var(--border);margin:4px 0"></div>
           <button class="btn" onclick="retryImagePromptsOnly();closeDropdown('retryDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🖼️ 이미지 프롬프트만 재시도</button>
           <button class="btn" onclick="retryVideoPromptsOnly();closeDropdown('retryDrop')" style="width:100%;text-align:left;background:transparent;border:none;color:var(--text2);padding:7px 12px;border-radius:6px;font-size:12px;white-space:nowrap" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">🎬 동영상 프롬프트만 재시도</button>
           <div style="border-top:1px solid var(--border);margin:4px 0"></div>
@@ -1544,8 +1589,7 @@ input[type=password]:focus { border-color: var(--acc); }
       </div>
     <div class="sep"></div>
     <button class="btn" id="grokResumeBtn" onclick="grokBridgeResume()" style="display:none;background:#059669;border-color:#059669;color:#fff;font-size:11px;font-weight:700">▶ 이어서</button>
-    <div class="sep"></div>
-    <button class="btn" id="styleLockBtn" onclick="toggleStyleLock()" style="white-space:nowrap">🎨 장면1 스타일 복제: OFF</button>
+
     <div class="prog-bar-wrap" id="studioProg" style="display:none"><div class="prog-bar" id="studioProgBar"></div></div>
     <span class="status-txt" id="studioStatus"></span>
     <button id="studioNextBtn" onclick="switchTab('elevenlabs')" style="display:none;padding:7px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;border-radius:8px;color:#fff;cursor:pointer;white-space:nowrap">→ 다음 (TTS 음성)</button>
@@ -8499,7 +8543,7 @@ function toggleDropdown(id) {
   var el = document.getElementById(id);
   var isOpen = el.style.display !== 'none';
   // close all dropdowns first
-  ['importDrop','exportDrop','retryDrop'].forEach(function(d){ var el=document.getElementById(d); if(el) el.style.display='none'; });
+  ['importDrop','exportDrop','retryDrop','flowDrop'].forEach(function(d){ var el=document.getElementById(d); if(el) el.style.display='none'; });
   if (!isOpen) el.style.display = 'block';
 }
 function closeDropdown(id) {
@@ -8518,6 +8562,7 @@ document.addEventListener('click', function(e) {
 document.addEventListener('click', function(e) {
   if (!e.target.closest('#importDropBtn') && !e.target.closest('#importDrop')) closeDropdown('importDrop');
   if (!e.target.closest('#exportDropBtn') && !e.target.closest('#exportDrop')) closeDropdown('exportDrop');
+  if (!e.target.closest('#flowDropBtn') && !e.target.closest('#flowDrop')) closeDropdown('flowDrop');
 });
 
 // ══════════════════════════════════════════
@@ -8845,10 +8890,10 @@ function buildSceneCardHTML(s, idx) {
     + '<input type="checkbox" class="scene-checkbox" data-scene-id="' + s.id + '" style="margin:0 8px 0 0;width:14px;height:14px;cursor:pointer;accent-color:var(--cyan)" onchange="updateMergeButtonState()">'
     + '<span class="scene-num" style="color:' + (s.grokVideo ? '#22c55e' : 'var(--err)') + ';font-size:12px;font-weight:700;font-family:var(--body);background:' + (s.grokVideo ? 'rgba(34,197,94,.12)' : 'none') + ';border:' + (s.grokVideo ? '1px solid rgba(34,197,94,.3)' : 'none') + ';padding:' + (s.grokVideo ? '2px 8px' : '0') + ';border-radius:4px">장면 ' + (idx+1) + (s.grokVideo ? ' 🎬' : '') + '</span>'
     + promptOnlyBadge + statusTagHtml
-    + (s.grokVideo ? '<span style="font-size:9px;font-family:var(--mono);font-weight:700;color:#22c55e;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);padding:2px 7px;border-radius:4px">🎬 Grok 영상</span>' : '')
+    + (s.flowVideo ? '<span style="font-size:9px;font-family:var(--mono);font-weight:700;color:#34d399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);padding:2px 7px;border-radius:4px">🌊 Flow 영상</span>' : s.grokVideo ? '<span style="font-size:9px;font-family:var(--mono);font-weight:700;color:#22c55e;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);padding:2px 7px;border-radius:4px">🎬 Grok 영상</span>' : '')
     + '<button class="btn btn-sm btn-err" onclick="removeScene(' + s.id + ')" style="margin-left:auto">✕</button>'
     + '</div>'
-    + '<div class="scene-body">'
+    + '<div class="scene-body' + (s.collapsed ? ' collapsed' : '') + '">'
     + '<div class="scene-text-cols">'
 
     // ── 나레이션 행
@@ -8864,33 +8909,46 @@ function buildSceneCardHTML(s, idx) {
     + '</div></div>'
 
     // ── 이미지 프롬프트 행
-    + '<div class="scene-row">'
+    + '<div class="scene-row" id="imgprompt-row-' + s.id + '" style="' + (s.collapsed ? 'display:none' : '') + '">'
     + '<div class="scene-row-label">이미지 프롬프트</div>'
     + '<div class="scene-row-inner">'
     + '<div class="scene-ta-box"><textarea class="prompt-ta" id="prompt-' + s.id + '" rows="3" placeholder="프롬프트가 생성됩니다..." oninput="_sceneDirty=true">' + esc(s.prompt) + '</textarea></div>'
     + '<div class="scene-row-btns">'
     + '<button class="icon-btn" data-action="prompt-only" data-scene-id="' + s.id + '" onclick="generateScenePromptOnly(' + s.id + ')" title="프롬프트 생성" style="color:#f5c842">✨</button>'
     + '<button class="icon-btn" onclick="retrySceneImage(' + s.id + ')" title="이미지 재생성" style="color:var(--cyan)">🔄</button>'
-    + '<button class="icon-btn" onclick="flowProxyImageGen(' + s.id + ')" title="Google Flow 이미지 생성" style="color:#34d399">🌊</button>'
-    + '<button class="icon-btn" onclick="flowProxyImageThenVideoGen(' + s.id + ')" title="Google Flow 이미지→영상 한번에" style="color:#34d399;font-size:11px">🌊🎬</button>'
+    + '<button class="icon-btn" onclick="flowProxyImageGen(' + s.id + ')" title="텍스트 프롬프트로 이미지 만들기" style="color:#34d399">🌊</button>'
+    + (s.imgDataUrl ? '<button class="icon-btn" onclick="flowProxyVideoGen(' + s.id + ')" title="현재 이미지를 영상으로" style="color:#34d399">🌊▶</button>' : '')
+    + '<button class="icon-btn" onclick="flowProxyImageThenVideoGen(' + s.id + ')" title="처음부터 이미지+영상 모두 생성" style="color:#34d399;font-size:11px">🌊🎬</button>'
     + '</div>'
     + '</div></div>'
 
     // ── 동영상 프롬프트 행
-    + '<div class="scene-row" id="vprompt-row-' + s.id + '">'
+    + '<div class="scene-row" id="vprompt-row-' + s.id + '" style="' + (s.collapsed ? 'display:none' : '') + '">'
     + '<div class="scene-row-label" style="color:#4dd8ac">동영상 프롬프트</div>'
     + '<div class="scene-row-inner">'
     + '<div class="scene-ta-box"><textarea class="vprompt-ta" id="vprompt-' + s.id + '" rows="3" placeholder="동영상 프롬프트를 생성하세요..." oninput="_sceneDirty=true">' + esc(s.videoPrompt||'') + '</textarea></div>'
     + '<div class="scene-row-btns">'
     + '<button class="icon-btn" onclick="grokGenOneFromCard(' + s.id + ')" title="동영상 프롬프트 생성" style="color:#4dd8ac">✨</button>'
     + (window.SS_IS_MASTER || window.GROK_USE_LOCAL ? '<button class="icon-btn" onclick="grokProxyVideoGen(' + s.id + ')" title="Grok 이미지→영상 변환" style="color:#a78bfa">▶</button>' : '')
-    + '<button class="icon-btn" onclick="flowProxyVideoGen(' + s.id + ')" title="Google Flow 이미지→영상 변환" style="color:#34d399">🌊</button>'
+    + '<button class="icon-btn" onclick="flowProxyVideoGen(' + s.id + ')" title="현재 이미지를 영상으로" style="color:#34d399">🌊</button>'
     + '</div>'
     + '</div></div>'
 
     + '</div>'
     + '<div class="img-col" id="imgcol-' + s.id + '">' + imgColInner + '</div>'
     + '</div>';
+}
+
+function toggleSceneCollapse(id) {
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s) return;
+  s.collapsed = !s.collapsed;
+  var imgRow = document.getElementById('imgprompt-row-' + id);
+  var videoRow = document.getElementById('vprompt-row-' + id);
+  var btn = document.getElementById('collapse-btn-' + id);
+  if (imgRow) imgRow.style.display = s.collapsed ? 'none' : '';
+  if (videoRow) videoRow.style.display = s.collapsed ? 'none' : '';
+  if (btn) btn.textContent = s.collapsed ? '▶' : '▼';
 }
 
 function updateSceneFade(sid, checked) {
@@ -8964,9 +9022,9 @@ function updateSceneCard(id) {
   card.style.position = '';
   card.style.top = '';
   card.style.left = '';
-  // Grok 영상 적용된 씬: 녹색 테두리
-  card.style.outline = s.grokVideo ? '2px solid #22c55e' : '';
-  card.style.boxShadow = s.grokVideo ? '0 0 8px rgba(34,197,94,0.4)' : '';
+  // 영상 적용된 씬: Flow는 청록, Grok은 녹색 테두리
+  card.style.outline = s.flowVideo ? '2px solid #34d399' : s.grokVideo ? '2px solid #22c55e' : '';
+  card.style.boxShadow = s.flowVideo ? '0 0 8px rgba(52,211,153,0.4)' : s.grokVideo ? '0 0 8px rgba(34,197,94,0.4)' : '';
   // update status tag
   var head = card.querySelector('.scene-header');
   var oldTag = head.querySelector('.scene-status-tag');
@@ -8991,7 +9049,7 @@ function updateSceneCard(id) {
   if (s.imgDataUrl) {
     var _isVideo = s.imgDataUrl.startsWith('data:video') || s.imgDataUrl.includes('/api/grok/video/') || s.imgDataUrl.startsWith('blob:') || s.imgDataUrl.match(/\.(mp4|webm)$/i) || s.grokVideo;
     if (_isVideo) {
-      var _videoLabel = s.grokVideo ? '<div style="font-size:10px;color:#22c55e;margin-bottom:2px;font-weight:700">🎬 Grok 영상</div>' : '';
+      var _videoLabel = s.flowVideo ? '<div style="font-size:10px;color:#34d399;margin-bottom:2px;font-weight:700">🌊 Flow 영상</div>' : s.grokVideo ? '<div style="font-size:10px;color:#22c55e;margin-bottom:2px;font-weight:700">🎬 Grok 영상</div>' : '';
       imgcol.innerHTML = _videoLabel + '<video src="' + s.imgDataUrl + '" controls preload="none" style="width:100%;min-height:60px;background:#000;border-radius:4px;" onerror="_grokVideoRetry(this)"></video>'
     } else {
       imgcol.innerHTML = '<img src="' + s.imgDataUrl + '" onclick="downloadSceneImage(' + id + ')" title="클릭하여 다운로드" style="width:100%;border-radius:6px;display:block;cursor:pointer">'
@@ -11063,19 +11121,21 @@ async function downloadSceneImage(id) {
         return;
       }
 
-      // 외부 URL (Grok 동영상 등) — fetch → blob → 다운로드
+      // 외부 URL (이미지/동영상) — fetch → blob → 다운로드
       if (s.imgDataUrl && (s.imgDataUrl.startsWith('http') || s.grokVideo)) {
         try {
           var vidResp = await fetch(s.imgDataUrl);
           if (!vidResp.ok) throw new Error('HTTP ' + vidResp.status);
           var vidBlob = await vidResp.blob();
-          var vidExt = s.imgDataUrl.match(/\.(mp4|webm|mov)/i)?.[1] || 'mp4';
+          // URL 실제 확장자 추출 (없으면 MIME 또는 기본값 사용)
+          var urlExtMatch = s.imgDataUrl.split('?')[0].match(/\.(\w+)$/);
+          var vidExt = urlExtMatch ? urlExtMatch[1].toLowerCase() : (vidBlob.type.split('/')[1] || ext);
           var vidName = 'scene_' + String(s.id).padStart(3,'0') + '.' + vidExt;
           triggerBlobDownload(vidBlob, vidName);
           showToast('✓ 다운로드 시작: ' + vidName);
           return;
         } catch(ve) {
-          throw new Error('동영상 다운로드 실패: ' + ve.message);
+          throw new Error('다운로드 실패: ' + ve.message);
         }
       }
 
@@ -11411,7 +11471,7 @@ function setStudioButtons(disabled) {
   });
   var stopBtn = document.getElementById('studioStopBtn');
   if (stopBtn) {
-    stopBtn.style.display = disabled ? '' : 'none';
+    stopBtn.style.display = disabled ? 'inline-flex' : 'none';
     stopBtn.disabled = false;
     stopBtn.textContent = '⏹ 생성 중지';
   }
@@ -14820,6 +14880,35 @@ function onProjectFileSelected(input) {
 function openApiKeyModal() {
   document.getElementById('apiKeyModal').style.display='block';
   checkAllChatGPT();
+  checkFlowWorkerStatus();
+}
+
+async function checkFlowWorkerStatus() {
+  var badge = document.getElementById('flowStatusBadge');
+  try {
+    var r = await fetch(SERVER_URL + '/api/flow/worker/status', { signal: AbortSignal.timeout(5000) });
+    var d = await r.json();
+    if (badge) {
+      badge.textContent = d.connected ? '✅ 연결됨' : '⚠️ 미연결 (Companion 실행 필요)';
+      badge.style.color = d.connected ? '#10b981' : '#f59e0b';
+    }
+  } catch(e) {
+    if (badge) { badge.textContent = '❌ 서버 응답 없음'; badge.style.color = 'var(--err)'; }
+  }
+}
+
+async function flowRequestLogin(isAccountChange) {
+  try {
+    var r = await fetch(SERVER_URL + '/api/flow/worker/request-login', { method: 'POST', signal: AbortSignal.timeout(5000) });
+    var d = await r.json();
+    if (d.ok) {
+      showToast('🌊 ' + (isAccountChange ? '계정 변경' : '로그인') + ' 요청 전송 완료 — Companion 앱을 확인하세요.');
+      var badge = document.getElementById('flowStatusBadge');
+      if (badge) { badge.textContent = '⏳ 로그인 대기 중...'; badge.style.color = '#34d399'; }
+    }
+  } catch(e) {
+    alert('⚠️ Companion 앱이 실행 중이지 않거나 서버에 연결할 수 없습니다.');
+  }
 }
 async function resetChatMockSession() {
   var msg = document.getElementById('chatgpt-unified-msg');
@@ -16902,6 +16991,10 @@ setTimeout(async function() {
   var activeEl = null;
   var showTimer = null;
   function hide() {
+    if (activeEl) {
+      var stored = activeEl.getAttribute('data-title-bak');
+      if (stored) { activeEl.setAttribute('title', stored); activeEl.removeAttribute('data-title-bak'); }
+    }
     activeEl = null;
     tip.style.opacity = '0';
   }
@@ -16910,6 +17003,9 @@ setTimeout(async function() {
     if (!el) { hide(); return; }
     var txt = el.getAttribute('title');
     if (!txt) return;
+    // 브라우저 기본 title 툴팁 방지
+    el.setAttribute('data-title-bak', txt);
+    el.removeAttribute('title');
     activeEl = el;
     clearTimeout(showTimer);
     showTimer = setTimeout(function() {
@@ -18249,8 +18345,8 @@ async function grokLocalLogin() {
       return;
     }
     // 로그인 요청
-    if (btn) btn.textContent = '⏳ 브라우저 열리는 중...';
-    var r = await fetch(window.GROK_LOCAL_URL + '/auth/login', { method: 'POST', signal: AbortSignal.timeout(5000) });
+    if (btn) btn.textContent = '⏳ 요청 중...';
+    var r = await fetch(window.GROK_LOCAL_URL + '/auth/login', { method: 'POST', signal: AbortSignal.timeout(15000) });
     var d = await r.json();
     if (d.status === 'already_logged_in') {
       window.GROK_USE_LOCAL = true;
@@ -18262,10 +18358,17 @@ async function grokLocalLogin() {
       return;
     }
     if (d.status === 'pending') {
-      if (btn) btn.textContent = '⏳ 승인 대기 중...';
-      if (d.verification_uri_complete) window.open(d.verification_uri_complete, '_blank');
-      else if (d.verification_uri) window.open(d.verification_uri, '_blank');
-      showToast('🔑 열린 브라우저 탭에서 Grok 로그인을 승인해주세요. 코드: ' + (d.user_code || ''));
+      var loginUrl = d.verification_uri_complete || d.verification_uri || '';
+      // 항상 링크 표시 — window.open 사용 안 함 (about:blank 문제)
+      if (loginUrl) {
+        var linkEl = document.getElementById('grokLoginLink');
+        var urlDiv = document.getElementById('grokLoginUrl');
+        if (linkEl) linkEl.href = loginUrl;
+        if (urlDiv) urlDiv.style.display = '';
+      }
+      var codeStr = d.user_code ? ' 코드: ' + d.user_code : '';
+      if (btn) btn.textContent = '⏳ 로그인 대기 중...' + codeStr;
+      showToast('🔑 아래 링크를 클릭해 Grok 로그인을 완료해주세요.' + codeStr);
       // 폴링
       var pollCount = 0;
       var poll = setInterval(async function() {
@@ -18298,6 +18401,8 @@ async function grokLocalLogin() {
 function _showGrokVideoButtons() {
   var btn = document.getElementById('grokVideoAllBtn');
   if (btn) btn.style.display = '';
+  var badge = document.getElementById('grokStatusBadge');
+  if (badge) { badge.textContent = '✅ 연결됨'; badge.style.color = '#10b981'; }
   renderSceneList(); // 씬 카드 ▶ 버튼도 갱신
 }
 
@@ -18310,6 +18415,14 @@ function grokVideoAllStop() {
 
 // ── Google Flow 연동 ──────────────────────────────────────────────────
 var _flowVideoAllRunning = false;
+
+async function _flowResolveUrl(url) {
+  // Chrome은 localhost HTTP를 secure context로 허용 → fetch 없이 직접 URL 사용
+  // 반환값: {url: string, isVideo: boolean}
+  var isVideoUrl = function(u) { return /\.(mp4|webm|mov)(\?|$)/i.test(u); };
+  if (!url) return {url: url, isVideo: false};
+  return {url: url, isVideo: isVideoUrl(url)};
+}
 
 async function flowProxyVideoGen(id) {
   syncAllScenes();
@@ -18360,7 +18473,7 @@ async function flowProxyVideoGen(id) {
     for (var i = 0; i < 100; i++) {
       await new Promise(function(r){ setTimeout(r, 3000); });
       s.flowProgress = Math.min(5 + i * 3, 92);
-      renderSceneList();
+      if (i % 10 === 0) renderSceneList();  // 30초마다만 전체 렌더링
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
@@ -18372,11 +18485,13 @@ async function flowProxyVideoGen(id) {
     if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃 또는 실패');
 
     s.flowProgress = 100;
-    s.imgDataUrl = result.result_url;
-    s.grokVideo = true;
+    var _vr = await _flowResolveUrl(result.result_url);
+    s.imgDataUrl = _vr.url;
+    s.grokVideo = _vr.isVideo;
+    s.flowVideo = _vr.isVideo;
     s.flowConverting = false;
     renderSceneList();
-    if (statusEl) statusEl.textContent = '✅ Flow 영상 완료! (씬 ' + id + ')';
+    if (statusEl) statusEl.textContent = '✅ Flow ' + (_vr.isVideo ? '영상' : '이미지') + ' 완료! (씬 ' + id + ')';
 
   } catch(e) {
     s.flowConverting = false;
@@ -18392,7 +18507,7 @@ async function flowProxyVideoGenAll() {
 
   _flowVideoAllRunning = true;
   document.getElementById('flowVideoAllBtn').style.display = 'none';
-  document.getElementById('flowVideoAllStopBtn').style.display = '';
+  document.getElementById('flowVideoAllStopBtn').style.display = 'inline-flex';
 
   var statusEl = document.getElementById('studioStatus');
   var done = 0;
@@ -18423,8 +18538,24 @@ async function flowProxyImageGen(id) {
   var s = scenes.find(function(x){ return x.id === id; });
   if (!s) return;
   var promptEl = document.getElementById('prompt-' + id);
-  var prompt = (promptEl ? promptEl.value.trim() : '') || s.prompt || s.script || '';
-  if (!prompt) { alert('이미지 프롬프트를 먼저 입력하세요.'); return; }
+  var prompt = (promptEl ? promptEl.value.trim() : '') || s.prompt || '';
+  var hasKorean = /[가-힣]/.test(prompt);
+
+  // 이미지 프롬프트 없거나 한국어면 → 자동 생성
+  if (!prompt || hasKorean) {
+    var statusEl0 = document.getElementById('studioStatus');
+    if (statusEl0) statusEl0.textContent = '✨ 이미지 프롬프트 자동 생성 중... (씬 ' + id + ')';
+    await generateScenePromptOnly(id);
+    syncAllScenes();
+    s = scenes.find(function(x){ return x.id === id; });
+    var pe2 = document.getElementById('prompt-' + id);
+    prompt = (pe2 ? pe2.value.trim() : '') || s.prompt || '';
+    if (!prompt || /[가-힣]/.test(prompt)) {
+      var se2 = document.getElementById('studioStatus');
+      if (se2) se2.textContent = '❌ 이미지 프롬프트 생성 실패 — 대본을 먼저 작성하세요';
+      return;
+    }
+  }
 
   var statusEl = document.getElementById('studioStatus');
   if (statusEl) statusEl.textContent = '🌊 Flow 이미지 생성 등록 중... (씬 ' + id + ')';
@@ -18447,7 +18578,7 @@ async function flowProxyImageGen(id) {
     for (var i = 0; i < 100; i++) {
       await new Promise(function(r){ setTimeout(r, 3000); });
       s.flowProgress = Math.min(5 + i * 3, 92);
-      renderSceneList();
+      if (i % 10 === 0) renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
@@ -18459,7 +18590,8 @@ async function flowProxyImageGen(id) {
     if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃 또는 실패');
 
     s.flowProgress = 100;
-    s.imgDataUrl = result.result_url;
+    var _ir = await _flowResolveUrl(result.result_url);
+    s.imgDataUrl = _ir.url;
     s.flowConverting = false;
     renderSceneList();
     if (statusEl) statusEl.textContent = '✅ Flow 이미지 완료! (씬 ' + id + ')';
@@ -18489,12 +18621,53 @@ async function flowProxyImageGenAll() {
   document.getElementById('flowImageAllBtn').style.display = '';
   if (statusEl) statusEl.textContent = '✅ Flow 이미지 전체 완료! (' + done + '/' + targets.length + ')';
 }
+
+async function flowProxyImageThenVideoGenAll() {
+  syncAllScenes();
+  var targets = scenes.filter(function(s){ return (s.prompt || s.script) && !s.flowConverting; });
+  if (!targets.length) { alert('프롬프트가 있는 장면이 없습니다.'); return; }
+
+  _flowVideoAllRunning = true;
+  document.getElementById('flowAllInOneBtn').style.display = 'none';
+  document.getElementById('flowVideoAllStopBtn').style.display = 'inline-flex';
+  var statusEl = document.getElementById('studioStatus');
+  var done = 0;
+
+  for (var i = 0; i < targets.length; i++) {
+    if (!_flowVideoAllRunning) break;
+    if (statusEl) statusEl.textContent = '🌊🎬 Flow 이미지+영상 생성 중... ' + (done+1) + '/' + targets.length + ' (씬 ' + targets[i].id + ')';
+    try { await flowProxyImageThenVideoGen(targets[i].id); } catch(e) {}
+    done++;
+  }
+
+  _flowVideoAllRunning = false;
+  document.getElementById('flowAllInOneBtn').style.display = '';
+  document.getElementById('flowVideoAllStopBtn').style.display = 'none';
+  if (statusEl) statusEl.textContent = '✅ Flow 이미지+영상 전체 완료! (' + done + '/' + targets.length + ')';
+}
+
 async function flowProxyImageThenVideoGen(id) {
   syncAllScenes();
   var s = scenes.find(function(x){ return x.id === id; });
   if (!s) return;
-  var prompt = (document.getElementById('prompt-' + id) ? document.getElementById('prompt-' + id).value.trim() : '') || s.prompt || s.script || '';
-  if (!prompt) { alert('이미지 프롬프트를 입력하세요.'); return; }
+  var pe = document.getElementById('prompt-' + id);
+  var prompt = (pe ? pe.value.trim() : '') || s.prompt || '';
+  var hasKorean = /[가-힣]/.test(prompt);
+
+  if (!prompt || hasKorean) {
+    var statusEl0 = document.getElementById('studioStatus');
+    if (statusEl0) statusEl0.textContent = '✨ 이미지 프롬프트 자동 생성 중... (씬 ' + id + ')';
+    await generateScenePromptOnly(id);
+    syncAllScenes();
+    s = scenes.find(function(x){ return x.id === id; });
+    var pe2 = document.getElementById('prompt-' + id);
+    prompt = (pe2 ? pe2.value.trim() : '') || s.prompt || '';
+    if (!prompt || /[가-힣]/.test(prompt)) {
+      var se2 = document.getElementById('studioStatus');
+      if (se2) se2.textContent = '❌ 이미지 프롬프트 생성 실패 — 대본을 먼저 작성하세요';
+      return;
+    }
+  }
 
   var statusEl = document.getElementById('studioStatus');
   if (statusEl) statusEl.textContent = '🌊 Flow 이미지→영상 생성 중... (씬 ' + id + ')';
@@ -18515,7 +18688,7 @@ async function flowProxyImageThenVideoGen(id) {
     for (var i = 0; i < 140; i++) {  // 최대 7분 대기
       await new Promise(function(r){ setTimeout(r, 3000); });
       s.flowProgress = Math.min(5 + i * 1.5, 94);
-      renderSceneList();
+      if (i % 10 === 0) renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
@@ -18527,11 +18700,13 @@ async function flowProxyImageThenVideoGen(id) {
     if (!result || result.status !== 'done') throw new Error(result && result.error ? result.error : '타임아웃');
 
     s.flowProgress = 100;
-    s.imgDataUrl = result.result_url;
-    s.grokVideo = result.result_url.endsWith('.mp4') || result.result_url.endsWith('.webm');
+    var _tvr = await _flowResolveUrl(result.result_url);
+    s.imgDataUrl = _tvr.url;
+    s.grokVideo = _tvr.isVideo;
+    s.flowVideo = _tvr.isVideo;
     s.flowConverting = false;
     renderSceneList();
-    if (statusEl) statusEl.textContent = '✅ Flow 이미지→영상 완료! (씬 ' + id + ')';
+    if (statusEl) statusEl.textContent = '✅ Flow ' + (_tvr.isVideo ? '이미지→영상' : '이미지') + ' 완료! (씬 ' + id + ')';
 
   } catch(e) {
     s.flowConverting = false;
@@ -18542,13 +18717,18 @@ async function flowProxyImageThenVideoGen(id) {
 // ── Google Flow 연동 끝 ───────────────────────────────────────────────
 
 async function grokProxyVideoGenAll() {
+  if (!window.GROK_USE_LOCAL) {
+    openApiKeyModal();
+    showToast('⚠️ Grok 로그인이 필요합니다. API 키 관리에서 로그인하세요.');
+    return;
+  }
   syncAllScenes();
   var targets = scenes.filter(function(s){ return s.imgDataUrl && !s.grokVideo && !s.grokVideoConverting; });
   if (!targets.length) { alert('변환할 이미지가 있는 장면이 없습니다.'); return; }
 
   _grokVideoAllRunning = true;
   document.getElementById('grokVideoAllBtn').style.display = 'none';
-  document.getElementById('grokVideoAllStopBtn').style.display = '';
+  document.getElementById('grokVideoAllStopBtn').style.display = 'inline-flex';
 
   var statusEl = document.getElementById('studioStatus');
   var total = targets.length;

@@ -20,8 +20,8 @@ timeout /t 1 >nul
 
 echo.
 echo [1/4] Downloading Companion...
-if not exist "%LOCALAPPDATA%\ScriptStudio" mkdir "%LOCALAPPDATA%\ScriptStudio"
-curl.exe -L --output "%LOCALAPPDATA%\ScriptStudio\ScriptStudioCompanion.exe" "https://scriptstudio-web.pages.dev/ScriptStudioCompanion.exe"
+if not exist "D:\ScriptStudio\Companion" mkdir "D:\ScriptStudio\Companion"
+curl.exe -L --output "D:\ScriptStudio\Companion\ScriptStudioCompanion.exe" "https://scriptstudio-web.pages.dev/ScriptStudioCompanion_v1.2.8.exe"
 if errorlevel 1 goto DOWNLOAD_ERR
 echo   Done.
 goto AFTER_DOWNLOAD
@@ -34,17 +34,17 @@ exit /b 1
 :AFTER_DOWNLOAD
 echo.
 echo [2/4] Unblocking file...
-PowerShell -ExecutionPolicy Bypass -NoProfile -Command "Unblock-File '%LOCALAPPDATA%\ScriptStudio\ScriptStudioCompanion.exe'"
+PowerShell -ExecutionPolicy Bypass -NoProfile -Command "Unblock-File 'D:\ScriptStudio\Companion\ScriptStudioCompanion.exe'"
 echo   Done.
 
 echo.
 echo [3/4] Registering autostart...
-PowerShell -ExecutionPolicy Bypass -NoProfile -Command "Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'ScriptStudioCompanion' -Value '%LOCALAPPDATA%\ScriptStudio\ScriptStudioCompanion.exe'"
+PowerShell -ExecutionPolicy Bypass -NoProfile -Command "Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'ScriptStudioCompanion' -Value 'D:\ScriptStudio\Companion\ScriptStudioCompanion.exe'"
 echo   Done.
 
 echo.
 echo   Starting Companion...
-start "" "%LOCALAPPDATA%\ScriptStudio\ScriptStudioCompanion.exe"
+start "" "D:\ScriptStudio\Companion\ScriptStudioCompanion.exe"
 
 echo.
 echo =================================================
@@ -84,10 +84,4 @@ copy /Y "%APPDATA%\scriptstudio\start-grok-proxy.bat" "%STARTUP_DIR%\ScriptStudi
 start "" /B cmd /c "cd /d "%GROK_DIR%" && set PORT=3747 && set XAI_PROXY_API_KEY=ss-grok-local-2026 && node server.js"
 echo   Grok proxy started.
 
-echo.
-echo =================================================
-echo   Setup Complete!
-echo   Click [Grok Login] button in the browser.
-echo =================================================
-echo.
-pause
+PowerShell -ExecutionPolicy Bypass -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Companion v1.2.8 installed successfully!`n`nCompanion is running in the background.`nPC will auto-start Companion on next boot.`n`nClick the ChatGPT Login button in the browser to sign in.', 'Setup Complete!', 'OK', [System.Windows.Forms.MessageBoxIcon]::Information)"
