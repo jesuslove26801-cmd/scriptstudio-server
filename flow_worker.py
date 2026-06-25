@@ -21,7 +21,9 @@ if hasattr(sys.stderr, "buffer"):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 SERVER_URL = "https://web-production-11acd.up.railway.app"
-SESSION_FILE = Path(__file__).parent / "flow_session.json"
+_SESSION_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "ScriptStudio"
+_SESSION_DIR.mkdir(parents=True, exist_ok=True)
+SESSION_FILE = _SESSION_DIR / "flow_session.json"
 DOWNLOAD_DIR = Path(__file__).parent / "flow_output"
 POLL_INTERVAL = 5
 FLOW_URL = "https://labs.google/fx/ko/tools/flow"
