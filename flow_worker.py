@@ -116,6 +116,30 @@ def _is_editor_text(text: str) -> bool:
     return any(p in text for p in patterns)
 
 
+async def _dismiss_popup(page):
+    """공지 팝업 닫기 (Maps Imagery Grounding / 시작하기 등)"""
+    for sel in [
+        "button:has-text('시작하기')",
+        "button:has-text('Get started')",
+        "button:has-text('Dismiss')",
+        "button:has-text('Got it')",
+        "button:has-text('확인')",
+        "button:has-text('닫기')",
+        "[aria-label='Close']",
+        "[aria-label='닫기']",
+    ]:
+        try:
+            btn = page.locator(sel).first
+            if await btn.is_visible(timeout=500):
+                await btn.click()
+                print(f"[팝업] 닫기: {sel}")
+                await asyncio.sleep(0.8)
+                return True
+        except Exception:
+            pass
+    return False
+
+
 async def _enter_editor(page) -> bool:
     """Flow 랜딩 → 에디터 진입. 성공하면 True"""
     DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -227,6 +251,8 @@ async def _find_chat_input(page):
 
 async def _send_prompt(page, prompt: str, image_path: str = "") -> bool:
     """프롬프트 (+ 이미지) 전송. 성공하면 True"""
+    # 팝업 먼저 닫기
+    await _dismiss_popup(page)
     # 입력창 찾기 전 스크린샷
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     await page.screenshot(path=str(DOWNLOAD_DIR / f"debug_before_input_{int(time.time())}.png"))
@@ -813,7 +839,7 @@ async def run_worker():
 
     async def _create_browser_ctx(p):
         b = await p.chromium.launch(
-            channel="chrome", headless=False,
+            channel="chrome", headless=True,
             args=["--disable-blink-features=AutomationControlled"])
         ctx = await b.new_context(
             storage_state=str(SESSION_FILE),
@@ -938,7 +964,8 @@ async def run_worker():
                     err_str = str(e).lower()
                     print(f"[탭 {tab_id}] 오류: {e}")
                     if task and task.get("task_id"):
-                        report_error(task["task_id"], str(e))
+                        short_err = str(e).split('\n')[0][:200]
+                        report_error(task["task_id"], short_err)
                     if any(k in err_str for k in ["closed", "disconnected", "target page", "browser has been"]):
                         print(f"[탭 {tab_id}] 브라우저 종료 → 탭 재생성")
                         try:
