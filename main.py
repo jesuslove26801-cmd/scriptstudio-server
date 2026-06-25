@@ -1207,7 +1207,7 @@ async def flow_create_task(req: Request):
 
 @app.get("/api/companion/latest")
 async def companion_latest():
-    ver = "1.3.9"
+    ver = "1.3.10"
     return {
         "version": ver,
         "download_url": f"https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v{ver}.bat"
