@@ -3,10 +3,8 @@ set "INSTALL_DIR=%LOCALAPPDATA%\ScriptStudio"
 set "EXE_NAME=ScriptStudioCompanion_v1.3.7.exe"
 set "DOWNLOAD_URL=https://scriptstudio-web.pages.dev/ScriptStudioCompanion_v1.3.7.exe"
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
-echo Stopping existing Companion...
-taskkill /F /IM "ScriptStudioCompanion_v1.3.7.exe" /T >nul 2>&1
-taskkill /F /IM "ScriptStudioCompanion_v1.3.6.exe" /T >nul 2>&1
-taskkill /F /IM "ScriptStudioCompanion_v1.3.5.exe" /T >nul 2>&1
+echo Stopping all Companion versions...
+wmic process where "name like 'ScriptStudioCompanion%%'" delete >nul 2>&1
 timeout /t 2 /nobreak >nul
 if exist "%INSTALL_DIR%\%EXE_NAME%" del "%INSTALL_DIR%\%EXE_NAME%"
 echo Downloading %EXE_NAME%...
@@ -18,7 +16,7 @@ if not exist "%INSTALL_DIR%\%EXE_NAME%" (
 )
 echo Adding to startup...
 powershell -Command "& { $s=(New-Object -COM WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\ScriptStudioCompanion.lnk'); $s.TargetPath='%INSTALL_DIR%\%EXE_NAME%'; $s.Save() }"
-echo Starting Companion...
+echo Starting Companion v1.3.7...
 start "" "%INSTALL_DIR%\%EXE_NAME%"
 echo.
 echo Done! Companion v1.3.7 is running in background.
