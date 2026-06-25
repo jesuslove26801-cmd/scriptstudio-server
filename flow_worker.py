@@ -835,28 +835,36 @@ async def run_worker():
                     print(f"poll 오류: {pe}")
                 await asyncio.sleep(POLL_INTERVAL)
 
-        browser, ctx = await _create_browser_ctx(p)
+        # 시작 시 브라우저를 열지 않음 — 실제 작업이나 로그인 요청 시에만 열기
+        browser = None
+        ctx = None
         poll_lock = asyncio.Lock()
-        print(f"워커 대기 중 ({PARALLEL_TABS}개 탭 병렬)...\n")
+        browser_lock = asyncio.Lock()
+        print(f"워커 대기 중 (브라우저는 첫 작업 시 열림)...\n")
 
         async def worker_tab(tab_id: int):
-            page = await ctx.new_page()
+            nonlocal browser, ctx
+            page = None
             print(f"[탭 {tab_id}] 시작")
 
             while True:
                 task = None
                 try:
-                    # 페이지 유효성 확인
-                    try:
-                        await page.evaluate("1")
-                    except Exception:
-                        print(f"[탭 {tab_id}] 페이지 닫힘 → 새 탭 생성")
+                    # 페이지 유효성 확인 (page가 있을 때만)
+                    if page is not None:
                         try:
-                            await page.close()
+                            await page.evaluate("1")
                         except Exception:
-                            pass
-                        page = await ctx.new_page()
-                        await asyncio.sleep(2)
+                            print(f"[탭 {tab_id}] 페이지 닫힘 → 새 탭 생성")
+                            try:
+                                await page.close()
+                            except Exception:
+                                pass
+                            try:
+                                page = await ctx.new_page()
+                            except Exception:
+                                page = None
+                            await asyncio.sleep(2)
 
                     # poll_lock으로 동시 poll 방지 (동일 태스크 중복 할당 차단)
                     async with poll_lock:
@@ -869,32 +877,44 @@ async def run_worker():
                             continue
 
                     if task.get("login_requested"):
-                        print(f"[탭 {tab_id}] 재로그인 요청 → 현재 브라우저에서 구글 로그인")
+                        print(f"[탭 {tab_id}] 로그인 요청 → 새 구글 로그인 창 열기")
+                        async with browser_lock:
+                            if browser:
+                                try:
+                                    await browser.close()
+                                except Exception:
+                                    pass
+                                browser = None
+                                ctx = None
+                        page = None
                         if SESSION_FILE.exists():
                             SESSION_FILE.unlink()
-                        try:
-                            await page.goto("https://accounts.google.com",
-                                            wait_until="domcontentloaded", timeout=30000)
-                            print("구글 로그인 창 열림 — 로그인 완료 대기 중...")
-                            for _ in range(180):
-                                await asyncio.sleep(1)
-                                try:
-                                    url = page.url
-                                    if "accounts.google.com" not in url and "signin" not in url:
-                                        break
-                                except Exception:
-                                    break
-                            await asyncio.sleep(2)
-                            await ctx.storage_state(path=str(SESSION_FILE))
-                            print("세션 저장 완료 — Flow 워커 재개")
-                        except Exception as le:
-                            print(f"로그인 처리 오류: {le}")
+                        await login_and_save_session(p)
                         await asyncio.sleep(POLL_INTERVAL)
                         continue
 
                     if not task.get("task_id"):
                         await asyncio.sleep(POLL_INTERVAL)
                         continue
+
+                    # task 있을 때만 브라우저/탭 생성
+                    async with browser_lock:
+                        if browser is None:
+                            if not SESSION_FILE.exists():
+                                print(f"[탭 {tab_id}] 세션 없음 — 구글 로그인 필요")
+                                report_error(task["task_id"], "구글 로그인 필요 — 웹에서 '구글 로그인' 버튼을 눌러주세요")
+                                await asyncio.sleep(POLL_INTERVAL)
+                                continue
+                            print("첫 작업 감지 → 브라우저 시작")
+                            browser, ctx = await _create_browser_ctx(p)
+
+                    if page is None:
+                        try:
+                            page = await ctx.new_page()
+                        except Exception as ne:
+                            print(f"[탭 {tab_id}] 탭 생성 실패: {ne}")
+                            await asyncio.sleep(POLL_INTERVAL)
+                            continue
 
                     task_id = task["task_id"]
                     print(f"\n[탭 {tab_id}] 작업: {task_id} | mode={task['mode']}")
@@ -920,7 +940,7 @@ async def run_worker():
                     if task and task.get("task_id"):
                         report_error(task["task_id"], str(e))
                     if any(k in err_str for k in ["closed", "disconnected", "target page", "browser has been"]):
-                        print(f"[탭 {tab_id}] 브라우저 종료 → 새 탭 재생성")
+                        print(f"[탭 {tab_id}] 브라우저 종료 → 탭 재생성")
                         try:
                             await page.close()
                         except Exception:
@@ -929,19 +949,22 @@ async def run_worker():
                             page = await ctx.new_page()
                         except Exception as ne:
                             print(f"[탭 {tab_id}] 탭 재생성 실패: {ne}")
+                            page = None
                     await asyncio.sleep(POLL_INTERVAL)
 
-            try:
-                await page.close()
-            except Exception:
-                pass
+            if page is not None:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
 
         try:
             await asyncio.gather(*[worker_tab(i) for i in range(PARALLEL_TABS)])
         except KeyboardInterrupt:
             print("\n워커 종료")
         finally:
-            await browser.close()
+            if browser:
+                await browser.close()
 
 
 if __name__ == "__main__":

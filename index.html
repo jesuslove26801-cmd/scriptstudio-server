@@ -835,7 +835,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <span style="font-size:15px;">🔔</span>
     <span id="ss-update-bar-title" style="color:#fbbf24;font-weight:700">Companion 설치 / 업데이트 필요</span>
     <span id="ss-update-bar-desc" style="color:#fde68a;margin-left:4px;font-weight:500;"></span>
-    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.6.bat" download
+    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.7.bat" download
        style="margin-left:auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:4px 12px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;">
       ⬇ 설치 / 업데이트
     </a>
@@ -18384,9 +18384,12 @@ async function flowRequestLogin(isAccountChange) {
 async function grokLocalLogin() {
   var btn = document.getElementById('grokLoginBtn');
   if (btn) btn.textContent = '⏳ 연결 확인 중...';
+  // 로컬 프록시 존재 여부 먼저 확인 (1.5초)
+  var proxyOk = false;
   try {
-    var chk = await fetch(window.GROK_LOCAL_URL + '/auth/status', { signal: AbortSignal.timeout(800) });
+    var chk = await fetch(window.GROK_LOCAL_URL + '/auth/status', { signal: AbortSignal.timeout(1500) });
     var st = await chk.json();
+    proxyOk = true;
     if (st.logged_in) {
       window.GROK_USE_LOCAL = true;
       window.GROK_PROXY_URL = window.GROK_LOCAL_URL;
@@ -18396,6 +18399,15 @@ async function grokLocalLogin() {
       showToast('✅ 로컬 Grok 프록시 연결됨! 본인 계정으로 영상 생성합니다.');
       return;
     }
+  } catch(e) {
+    proxyOk = false;
+  }
+  if (!proxyOk) {
+    if (btn) btn.textContent = '🔑 Grok 로그인';
+    showToast('⚠️ Grok 프록시가 실행 중이지 않습니다. ScriptStudio_Grok_Setup.bat을 먼저 실행해주세요.');
+    return;
+  }
+  try {
     if (btn) btn.textContent = '⏳ 로그인 요청 중...';
     var r = await fetch(window.GROK_LOCAL_URL + '/auth/login', { method: 'POST', signal: AbortSignal.timeout(15000) });
     var d = await r.json();
@@ -20338,7 +20350,7 @@ async function ssSaveUserData() {
       <b style="color:#34d399">ScriptStudio Companion</b>을 설치해야 합니다.<br>
       <span style="color:#6b7280;font-size:12px">백그라운드에서 조용히 실행되며, CapCut에 자동으로 프로젝트를 추가합니다.</span>
     </p>
-    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat"
+    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.7.bat"
        download
        style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#0891b2);color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.4);margin-bottom:16px">
       ⬇️ Companion 설치 (.bat)
@@ -20434,7 +20446,13 @@ async function ssSaveUserData() {
       gate.style.display = 'flex';
       document.getElementById('ss-gate-checking').style.display = 'none';
       document.getElementById('ss-gate-has-companion').style.display = 'block';
-      var LATEST_COMPANION_VERSION = '1.3.3';
+      var latestInfo = { version: '1.3.7', download_url: 'https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.7.bat' };
+      try {
+        var _lr = await fetch(window.SS_SERVER + '/api/companion/latest', { signal: AbortSignal.timeout(3000) });
+        latestInfo = await _lr.json();
+      } catch(e) {}
+      var LATEST_COMPANION_VERSION = latestInfo.version || '1.3.6';
+      var LATEST_DOWNLOAD_URL = latestInfo.download_url || ('https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v' + LATEST_COMPANION_VERSION + '.bat');
       var ok = await _ccCheckCompanion();
       // Companion 미설치 시 상태 행 업데이트
       var compRow = document.getElementById('ss-gate-companion-row');
@@ -20442,7 +20460,7 @@ async function ssSaveUserData() {
         if (ok) {
           compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(54,214,138,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div><div><div style="font-size:14px;font-weight:700;color:#36d68a;">Companion 실행 중</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">백그라운드에서 실행 중 · PC 시작 시 자동 실행</div></div>';
         } else {
-          compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(251,191,36,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚠️</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#fbbf24;">Companion 미실행</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">일부 기능(CapCut 내보내기 등)을 사용하려면 설치하세요</div></div><a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat" download style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">⬇ 설치</a>';
+          compRow.innerHTML = '<div style="width:36px;height:36px;background:rgba(251,191,36,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚠️</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#fbbf24;">Companion 미실행</div><div style="font-size:12px;color:#6080a0;margin-top:2px;">일부 기능(CapCut 내보내기 등)을 사용하려면 설치하세요</div></div><a href="' + LATEST_DOWNLOAD_URL + '" download style="background:linear-gradient(135deg,#7c5cfc,#40d4f5);color:#fff;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">⬇ 설치</a>';
         }
       }
       // 버전 체크 → 업데이트 배너
@@ -20451,11 +20469,14 @@ async function ssSaveUserData() {
           var vRes = await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(2000) });
           var vData = await vRes.json();
           var installed = vData.version || '1.0.0';
-          if (installed !== LATEST_COMPANION_VERSION) {
+          function _verCmp(a, b) { var pa=a.split('.').map(Number),pb=b.split('.').map(Number); for(var i=0;i<3;i++){if((pa[i]||0)<(pb[i]||0))return -1;if((pa[i]||0)>(pb[i]||0))return 1;}return 0; }
+          if (_verCmp(installed, LATEST_COMPANION_VERSION) < 0) {
             var banner = document.getElementById('ss-companion-update-banner');
             var desc = document.getElementById('ss-companion-update-desc');
+            var ulink = document.getElementById('ss-companion-update-link');
             if (banner) banner.style.display = 'flex';
             if (desc) desc.textContent = '설치됨: v' + installed + ' → 최신: v' + LATEST_COMPANION_VERSION;
+            if (ulink) ulink.href = LATEST_DOWNLOAD_URL;
           }
         } catch(e) {}
         // 로컬 AI 설치 여부 체크
@@ -20512,7 +20533,7 @@ async function ssSaveUserData() {
         <div style="font-size:13px;font-weight:700;color:#fbbf24;">Companion 업데이트 있음</div>
         <div style="font-size:12px;color:#fde68a;margin-top:3px;font-weight:500;" id="ss-companion-update-desc"></div>
       </div>
-      <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.3.bat" download
+      <a id="ss-companion-update-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.6.bat" download
          style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
         ⬇ 업데이트
       </a>
