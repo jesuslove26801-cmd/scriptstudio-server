@@ -1205,6 +1205,14 @@ async def flow_create_task(req: Request):
     }
     return {"status": "ok", "task_id": task_id}
 
+@app.get("/api/companion/latest")
+async def companion_latest():
+    ver = "1.3.6"
+    return {
+        "version": ver,
+        "download_url": f"https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v{ver}.bat"
+    }
+
 @app.get("/api/flow/worker/status")
 async def flow_worker_status():
     """프론트엔드에서 Flow 워커 연결 여부 확인"""

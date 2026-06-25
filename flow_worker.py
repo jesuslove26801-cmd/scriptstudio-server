@@ -822,8 +822,18 @@ async def run_worker():
 
     async with async_playwright() as p:
         if not SESSION_FILE.exists():
-            print("세션 없음 → 구글 로그인 필요")
-            await login_and_save_session(p)
+            print("세션 없음 → 웹에서 '구글 로그인' 버튼을 눌러주세요 (자동 실행 안 함)")
+            while not SESSION_FILE.exists():
+                try:
+                    resp = requests.get(f"{SERVER_URL}/api/flow/task/poll", timeout=10)
+                    task = resp.json()
+                    if task.get("login_requested"):
+                        print("로그인 요청 수신 → 구글 로그인 창 열기")
+                        await login_and_save_session(p)
+                        break
+                except Exception as pe:
+                    print(f"poll 오류: {pe}")
+                await asyncio.sleep(POLL_INTERVAL)
 
         browser, ctx = await _create_browser_ctx(p)
         poll_lock = asyncio.Lock()
@@ -859,11 +869,28 @@ async def run_worker():
                             continue
 
                     if task.get("login_requested"):
-                        print(f"[탭 {tab_id}] 재로그인 요청 → 세션 삭제 후 프로세스 재시작")
+                        print(f"[탭 {tab_id}] 재로그인 요청 → 현재 브라우저에서 구글 로그인")
                         if SESSION_FILE.exists():
                             SESSION_FILE.unlink()
-                        import os
-                        os.execv(sys.executable, [sys.executable] + sys.argv)
+                        try:
+                            await page.goto("https://accounts.google.com",
+                                            wait_until="domcontentloaded", timeout=30000)
+                            print("구글 로그인 창 열림 — 로그인 완료 대기 중...")
+                            for _ in range(180):
+                                await asyncio.sleep(1)
+                                try:
+                                    url = page.url
+                                    if "accounts.google.com" not in url and "signin" not in url:
+                                        break
+                                except Exception:
+                                    break
+                            await asyncio.sleep(2)
+                            await ctx.storage_state(path=str(SESSION_FILE))
+                            print("세션 저장 완료 — Flow 워커 재개")
+                        except Exception as le:
+                            print(f"로그인 처리 오류: {le}")
+                        await asyncio.sleep(POLL_INTERVAL)
+                        continue
 
                     if not task.get("task_id"):
                         await asyncio.sleep(POLL_INTERVAL)
