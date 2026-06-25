@@ -835,7 +835,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <span style="font-size:15px;">🔔</span>
     <span id="ss-update-bar-title" style="color:#fbbf24;font-weight:700">Companion 설치 / 업데이트 필요</span>
     <span id="ss-update-bar-desc" style="color:#fde68a;margin-left:4px;font-weight:500;"></span>
-    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.10.bat" download
+    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.11.bat" download
        style="margin-left:auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:4px 12px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;">
       ⬇ 설치 / 업데이트
     </a>
@@ -18578,8 +18578,8 @@ async function flowProxyVideoGen(id) {
     s.flowProgress = 5;
     for (var i = 0; i < 100; i++) {
       await new Promise(function(r){ setTimeout(r, 3000); });
-      s.flowProgress = Math.min(5 + i * 3, 92);
-      if (i % 10 === 0) renderSceneList();  // 30초마다만 전체 렌더링
+      s.flowProgress = Math.min(5 + i, 98);
+      if (i % 5 === 0) renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
@@ -18684,8 +18684,8 @@ async function flowProxyImageGen(id) {
     s.flowProgress = 5;
     for (var i = 0; i < 100; i++) {
       await new Promise(function(r){ setTimeout(r, 3000); });
-      s.flowProgress = Math.min(5 + i * 3, 92);
-      if (i % 10 === 0) renderSceneList();
+      s.flowProgress = Math.min(5 + i, 98);
+      if (i % 5 === 0) renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
@@ -18796,8 +18796,8 @@ async function flowProxyImageThenVideoGen(id) {
     s.flowProgress = 5;
     for (var i = 0; i < 140; i++) {  // 최대 7분 대기
       await new Promise(function(r){ setTimeout(r, 3000); });
-      s.flowProgress = Math.min(5 + i * 1.5, 94);
-      if (i % 10 === 0) renderSceneList();
+      s.flowProgress = Math.min(5 + i, 98);
+      if (i % 5 === 0) renderSceneList();
       try {
         var pollResp = await fetch(window.SS_SERVER + '/api/flow/task/' + taskData.task_id + '/status');
         var pollJson = await pollResp.json();
@@ -20400,7 +20400,7 @@ async function ssSaveUserData() {
       <b style="color:#34d399">ScriptStudio Companion</b>을 설치해야 합니다.<br>
       <span style="color:#6b7280;font-size:12px">백그라운드에서 조용히 실행되며, CapCut에 자동으로 프로젝트를 추가합니다.</span>
     </p>
-    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.10.bat"
+    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.11.bat"
        download
        style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#0891b2);color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.4);margin-bottom:16px">
       ⬇️ Companion 설치 (.bat)
@@ -20496,7 +20496,7 @@ async function ssSaveUserData() {
       gate.style.display = 'flex';
       document.getElementById('ss-gate-checking').style.display = 'none';
       document.getElementById('ss-gate-has-companion').style.display = 'block';
-      var latestInfo = { version: '1.3.10', download_url: 'https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.10.bat' };
+      var latestInfo = { version: '1.3.11', download_url: 'https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.11.bat' };
       try {
         var _lr = await fetch('https://web-production-11acd.up.railway.app/api/companion/latest', { signal: AbortSignal.timeout(3000) });
         latestInfo = await _lr.json();

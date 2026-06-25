@@ -142,6 +142,15 @@ async def _dismiss_popup(page):
 
 async def _enter_editor(page) -> bool:
     """Flow 랜딩 → 에디터 진입. 성공하면 True"""
+    # 이미 에디터에 있으면 goto 없이 바로 반환 (10~15초 절약)
+    try:
+        cur_text = await page.evaluate("() => document.body.innerText")
+        if _is_editor_text(cur_text):
+            print("[에디터] 이미 에디터 상태 — 재진입 생략")
+            return True
+    except Exception:
+        pass
+
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     await page.goto(FLOW_URL)
     await page.wait_for_load_state("networkidle")
