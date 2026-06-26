@@ -18719,16 +18719,20 @@ async function flowProxyImageGenAll() {
 
   document.getElementById('flowImageAllBtn').style.display = 'none';
   var statusEl = document.getElementById('studioStatus');
-  var done = 0;
+  var done = 0; var failed = 0;
+  if (statusEl) statusEl.textContent = '🌊 Flow 이미지 병렬 생성 중... (0/' + targets.length + ')';
 
-  for (var i = 0; i < targets.length; i++) {
-    if (statusEl) statusEl.textContent = '🌊 Flow 이미지 전체 생성 중... ' + (done+1) + '/' + targets.length;
-    try { await flowProxyImageGen(targets[i].id); } catch(e) {}
-    done++;
-  }
+  // 모든 장면을 동시에 제출 — flow_worker가 PARALLEL_TABS 수만큼 동시 처리
+  var results = await Promise.allSettled(targets.map(function(s) {
+    return flowProxyImageGen(s.id).then(function() {
+      done++;
+      if (statusEl) statusEl.textContent = '🌊 Flow 이미지 병렬 생성 중... (' + done + '/' + targets.length + ')';
+    });
+  }));
 
+  failed = results.filter(function(r){ return r.status === 'rejected'; }).length;
   document.getElementById('flowImageAllBtn').style.display = '';
-  if (statusEl) statusEl.textContent = '✅ Flow 이미지 전체 완료! (' + done + '/' + targets.length + ')';
+  if (statusEl) statusEl.textContent = '✅ Flow 이미지 완료! (' + (targets.length - failed) + '/' + targets.length + ')' + (failed ? ' ❌ ' + failed + '개 실패' : '');
 }
 
 async function flowProxyImageThenVideoGenAll() {
