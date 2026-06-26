@@ -144,15 +144,6 @@ async def _dismiss_popup(page):
 
 async def _enter_editor(page) -> bool:
     """Flow 랜딩 → 에디터 진입. 성공하면 True"""
-    # 이미 에디터에 있으면 goto 없이 바로 반환 (10~15초 절약)
-    try:
-        cur_text = await page.evaluate("() => document.body.innerText")
-        if _is_editor_text(cur_text):
-            print("[에디터] 이미 에디터 상태 — 재진입 생략")
-            return True
-    except Exception:
-        pass
-
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     await page.goto(FLOW_URL)
     await page.wait_for_load_state("networkidle")
@@ -560,28 +551,33 @@ async def _download_video_element(page) -> str:
     return ""
 
 
-async def _download_image_via_browser(page, result_type: str) -> str:
-    """생성된 이미지 요소를 Playwright locator.screenshot()으로 직접 캡처 (CORS 우회)"""
+async def _download_image_via_browser(page, result_type: str, skip_srcs: set = None) -> str:
+    """생성된 이미지 요소를 직접 다운로드 (가장 최근 추가된 이미지 우선)"""
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     save_path = DOWNLOAD_DIR / f"flow_{result_type}_{int(time.time())}.png"
+    if skip_srcs is None:
+        skip_srcs = set()
     try:
         imgs = page.locator("img")
         count = await imgs.count()
-        best = None
-        best_area = 0
-        best_src = ""
+        candidates = []
         for i in range(count):
             img = imgs.nth(i)
             src = await img.get_attribute("src") or ""
             if any(x in src for x in ["favicon", "logo", "avatar", "profile", "icon"]):
                 continue
+            if src in skip_srcs:
+                continue
             box = await img.bounding_box()
             if box and box["width"] >= 80 and box["height"] >= 80:
-                area = box["width"] * box["height"]
-                if area > best_area:
-                    best_area = area
-                    best = img
-                    best_src = src
+                candidates.append((i, img, src, box["width"] * box["height"]))
+        # 가장 마지막에 추가된(DOM 순서 마지막) 이미지 선택 — 가장 최근 생성물
+        if candidates:
+            idx, best, best_src, best_area = candidates[-1]
+        else:
+            best = None
+            best_src = ""
+            best_area = 0
         if best:
             # src URL로 직접 다운로드 (캡션 오버레이 없는 원본)
             if best_src:
