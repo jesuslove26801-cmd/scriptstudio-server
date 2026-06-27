@@ -1187,12 +1187,25 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
         if not (media_path and os.path.exists(media_path)):
             is_grok = return_zip and bool(getattr(sc, 'grokVideo', False))
             try:
-                from PIL import Image as _PIL_Image
-                black_path = os.path.join(media_dir, f"black_{i+1:03d}.jpg")
-                _PIL_Image.new('RGB', (w, h), (0, 0, 0)).save(black_path, 'JPEG', quality=10)
-                media_path = black_path
                 if is_grok:
-                    grok_placeholder_map[i] = f"scene_{i+1:02d}_grok.mp4"
+                    # Grok 비디오 플레이스홀더: MP4로 만들어야 CapCut이 video 타입으로 인식
+                    black_path = os.path.join(media_dir, f"black_{i+1:03d}.mp4")
+                    import subprocess as _sp_bk
+                    _sp_bk.run([
+                        FFMPEG_PATH, "-y", "-f", "lavfi",
+                        "-i", f"color=c=black:s={w}x{h}:r=24",
+                        "-t", str(max(1, int(total_dur))),
+                        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "35",
+                        black_path
+                    ], capture_output=True, timeout=30)
+                    if os.path.exists(black_path):
+                        media_path = black_path
+                        grok_placeholder_map[i] = f"scene_{i+1:02d}_grok.mp4"
+                else:
+                    from PIL import Image as _PIL_Image
+                    black_path = os.path.join(media_dir, f"black_{i+1:03d}.jpg")
+                    _PIL_Image.new('RGB', (w, h), (0, 0, 0)).save(black_path, 'JPEG', quality=10)
+                    media_path = black_path
             except Exception:
                 pass
 
@@ -1284,7 +1297,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                 patched = patched.replace(capcut_draft_path, ROOT_PLACEHOLDER)
                 # Grok 씬: black frame 경로 → ##GROK_FOLDER## 플레이스홀더로 교체
                 for idx, grok_fname in grok_placeholder_map.items():
-                    black_full = f"{patched_media_prefix}/black_{idx+1:03d}.jpg"
+                    black_full = f"{patched_media_prefix}/black_{idx+1:03d}.mp4"
                     patched = patched.replace(black_full, f"{GROK_PLACEHOLDER}/{grok_fname}")
                 if patched != content:
                     with open(json_file, "w", encoding="utf-8") as f:
