@@ -696,6 +696,22 @@ async def _run_single_generation(page, prompt: str, local_image: str, mode: str,
     for i in range(max_wait):
         await asyncio.sleep(10)
 
+        # 할당량/오류 메시지 감지 → 즉시 실패 처리
+        quota_err = await page.evaluate("""() => {
+            const phrases = ['할당량 한도에 도달', '업그레이드하여 더 많이 채팅',
+                             'quota limit', 'rate limit', 'limit reached'];
+            for (const el of document.querySelectorAll('p,span,div,[role="alert"]')) {
+                const t = (el.innerText || el.textContent || '').trim();
+                if (t.length < 5) continue;
+                for (const ph of phrases) {
+                    if (t.includes(ph)) return t.slice(0, 120);
+                }
+            }
+            return null;
+        }""")
+        if quota_err:
+            raise RuntimeError(f"Flow 할당량 초과: {quota_err}")
+
         # AI 팝업 자동 응답 (크레딧 승인 / 재생시간 선택 등)
         if mode in ("img2video", "text2img_video"):
             clicked = await page.evaluate("""() => {

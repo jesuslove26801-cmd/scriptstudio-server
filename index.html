@@ -941,6 +941,7 @@ input[type=password]:focus { border-color: var(--acc); }
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button id="grokLoginBtn" onclick="grokLocalLogin()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(167,139,250,.4);background:rgba(167,139,250,.1);color:#a78bfa;cursor:pointer">🔑 Grok 로그인</button>
+        <button id="grokLogoutBtn" onclick="grokLocalLogout()" style="display:none;padding:6px 14px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.1);color:#ef4444;cursor:pointer">🔓 로그아웃</button>
       </div>
       <div id="grokLoginUrl" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.5);border-radius:8px">
         <div style="font-size:10px;color:var(--text3);margin-bottom:6px">👇 아래 링크를 클릭해서 Grok 로그인을 완료하세요</div>
@@ -2750,6 +2751,13 @@ input[type=password]:focus { border-color: var(--acc); }
                 <button type="button" class="btn btn-sm" onclick="openAiRefineHelpModal()" style="padding:2px 8px;font-size:10px">AI 보정 기능 설치 안내 보기</button>
               </div>
             </div>
+            <div style="grid-column: span 2">
+              <div class="field-label" style="margin-bottom:6px">자막 특수문자 처리</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+                <input type="checkbox" id="vid-sub-remove-punct" onchange="updateSubPreview()">
+                쉼표(,)·마침표(.) 숨기기
+              </label>
+            </div>
           </div>
           </div><!-- /vid-subtitle-settings -->
           <div id="vid-sub-preview-panel" style="display:none;margin-top:12px;border:1px solid var(--border);border-radius:8px;background:var(--s2);padding:10px;max-height:260px;overflow:auto">
@@ -2946,8 +2954,8 @@ async function onSubtitleRefineModeChange() {
     try {
       var cmUrl = '/api/chatmock/status';
       try {
-        await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1000) });
-        cmUrl = 'http://localhost:19283/chatmock-status';
+        await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(1000) });
+        cmUrl = 'http://127.0.0.1:19283/chatmock-status';
       } catch(_) {}
       var res = await fetch(cmUrl);
       var data = await res.json();
@@ -3218,7 +3226,7 @@ async function videoPreviewSubtitleSplit() {
     // ChatMock 보정 모드: Companion 경유로 GPT 자막 보정
     if (payload.subtitle_refine_mode === 'chatmock') {
       try {
-        await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(800) });
+        await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(800) });
         var model = payload.subtitle_refine_model || 'gpt-5.4';
         var refined = [];
         for (var si = 0; si < data.previews.length; si++) {
@@ -3234,7 +3242,7 @@ async function videoPreviewSubtitleSplit() {
               max_tokens: 500,
               temperature: 0.3
             };
-            var cmRes = await fetch('http://localhost:19283/chatmock-chat', {
+            var cmRes = await fetch('http://127.0.0.1:19283/chatmock-chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(cmBody),
@@ -4698,7 +4706,7 @@ var _ccCompanionDeviceId = null;
 
 async function _ccCheckCompanion() {
   try {
-    var r = await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(2000) });
+    var r = await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(2000) });
     if (!r.ok) return null;
     var d = await r.json();
     _ccCompanionDeviceId = d.device_id || null;
@@ -4759,6 +4767,7 @@ async function videoExportCapCut() {
     device_id: _ccCompanionDeviceId || '',
     subtitle_size: parseInt(document.getElementById('vid-subfontsize').value) || 45,
     subtitle_position: document.getElementById('vid-subposition') ? document.getElementById('vid-subposition').value : 'bottom',
+    remove_punct: !!(document.getElementById('vid-sub-remove-punct') && document.getElementById('vid-sub-remove-punct').checked),
     motion_effect: 'none',
   };
 
@@ -6170,8 +6179,8 @@ async function checkChatMock() {
   try {
     var url = '/api/chatmock/status';
     try {
-      await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1000) });
-      url = 'http://localhost:19283/chatmock-status';
+      await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(1000) });
+      url = 'http://127.0.0.1:19283/chatmock-status';
     } catch(_) {}
     var r = await fetch(url);
     var d = await r.json();
@@ -8444,7 +8453,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       var imgOg = document.getElementById('codex-img-optgroup');
       // Companion 경유 chatmock 확인
-      var cmR = await fetch('http://localhost:19283/chatmock-status', { signal: AbortSignal.timeout(2000) }).catch(function(){return null;});
+      var cmR = await fetch('http://127.0.0.1:19283/chatmock-status', { signal: AbortSignal.timeout(2000) }).catch(function(){return null;});
       if (cmR && cmR.ok) {
         var cmD = await cmR.json();
         if (cmD.running && imgOg) imgOg.style.display = '';
@@ -8962,7 +8971,13 @@ function buildSceneCardHTML(s, idx) {
     + '<button class="sdrop-item" onclick="flowProxyVideoGen(' + s.id + ');closeSceneDrop(\'sdrop-img-' + s.id + '\')" style="color:#34d399"' + (s.imgDataUrl ? '' : ' disabled') + '>🌊 Flow: 이미지→영상 변환</button>'
     + '<button class="sdrop-item" onclick="flowProxyImageThenVideoGen(' + s.id + ');closeSceneDrop(\'sdrop-img-' + s.id + '\')" style="color:#34d399">🌊 Flow: 이미지+영상 한번에</button>'
     + '<div class="sdrop-sep"></div>'
-    + '<button class="sdrop-item" onclick="grokProxyVideoGen(' + s.id + ');closeSceneDrop(\'sdrop-img-' + s.id + '\')" style="color:#a78bfa"' + (s.imgDataUrl ? '' : ' disabled') + '>🤖 Grok: 이미지→영상 변환</button>'
+    + '<div style="display:flex;align-items:center;gap:4px;padding:2px 10px">'
+    + '<button class="sdrop-item" onclick="grokProxyVideoGen(' + s.id + ');closeSceneDrop(\'sdrop-img-' + s.id + '\')" style="color:#a78bfa;flex:1;padding:6px 8px"' + (s.imgDataUrl ? '' : ' disabled') + '>🤖 Grok: 이미지→영상</button>'
+    + '<select onchange="setGrokDuration(' + s.id + ',this.value)" style="background:var(--s2);border:1px solid rgba(167,139,250,.4);border-radius:5px;color:#a78bfa;font-size:11px;padding:3px 4px;cursor:pointer">'
+    + '<option value="8"' + ((s.grokVideoDuration||8)==8?' selected':'') + '>8초</option>'
+    + '<option value="10"' + ((s.grokVideoDuration||8)==10?' selected':'') + '>10초</option>'
+    + '</select>'
+    + '</div>'
     + '</div>'
     + '</div>'
     + '</div>'
@@ -9604,9 +9619,9 @@ async function callCodexImg(prompt, aspect) {
   if (_codexLastScene) body.prev_scene = _codexLastScene;
   // Companion 경유 먼저 시도 (ChatGPT image_generation 툴 사용)
   var useCompanion = false;
-  try { await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1500) }); useCompanion = true; } catch(_) {}
+  try { await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(1500) }); useCompanion = true; } catch(_) {}
   if (useCompanion) {
-    var rc = await fetch('http://localhost:19283/chatmock-generate-image', {
+    var rc = await fetch('http://127.0.0.1:19283/chatmock-generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -14967,7 +14982,7 @@ async function chatMockRestartFromBanner() {
   var banner = document.getElementById('chatmock-restart-banner');
   if (banner) { var btn = banner.querySelector('button'); if (btn) { btn.textContent = '재시작 중...'; btn.disabled = true; } }
   try {
-    var r = await fetch('http://localhost:19283/chatmock-restart', { method: 'POST', signal: AbortSignal.timeout(8000) });
+    var r = await fetch('http://127.0.0.1:19283/chatmock-restart', { method: 'POST', signal: AbortSignal.timeout(8000) });
     var d = await r.json();
     if (banner) banner.remove();
     alert(d.message || 'ChatMock 재시작 완료. 잠시 후 다시 시도하세요.');
@@ -14986,13 +15001,13 @@ async function checkAllChatGPT() {
   // Companion 앱 경유 상태 확인 (웹 버전) → 실패 시 Railway fallback
   var useCompanion = false;
   try {
-    await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1500) });
+    await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(1500) });
     useCompanion = true;
   } catch(_) {}
   // ChatMock 확인
   try {
     var r1 = useCompanion
-      ? await fetch('http://localhost:19283/chatmock-status', { signal: AbortSignal.timeout(3000) })
+      ? await fetch('http://127.0.0.1:19283/chatmock-status', { signal: AbortSignal.timeout(3000) })
       : await fetch('/api/chatmock/status');
     var d1 = await r1.json();
     cmOk = d1.running;
@@ -15008,7 +15023,7 @@ async function checkAllChatGPT() {
   // Codex 확인
   try {
     var r2 = useCompanion
-      ? await fetch('http://localhost:19283/codex-status', { signal: AbortSignal.timeout(3000) })
+      ? await fetch('http://127.0.0.1:19283/codex-status', { signal: AbortSignal.timeout(3000) })
       : await fetch('/api/codex/status');
     var d2 = await r2.json();
     cxOk = d2.logged_in;
@@ -15031,7 +15046,7 @@ async function loginAllChatGPT() {
   if (msg) msg.textContent = '로그인 창 여는 중...';
   // Companion 앱으로 먼저 시도 (웹 버전) — 로컬에서 chatmock/codex 실행
   try {
-    var rc = await fetch('http://localhost:19283/chatgpt-login', { method: 'POST', signal: AbortSignal.timeout(6000) });
+    var rc = await fetch('http://127.0.0.1:19283/chatgpt-login', { method: 'POST', signal: AbortSignal.timeout(6000) });
     var dc = await rc.json();
     if (msg) msg.textContent = dc.message || '로그인 창이 열렸습니다. 완료 후 "상태 확인"을 눌러주세요.';
     if (!dc.ok && msg) msg.style.color = 'var(--err)';
@@ -15052,7 +15067,7 @@ async function loginCodexCompanion() {
   var msg = document.getElementById('chatgpt-unified-msg');
   if (msg) { msg.textContent = '이미지 로그인 창 여는 중...'; msg.style.color = ''; }
   try {
-    var r = await fetch('http://localhost:19283/codex-login', { method: 'POST', signal: AbortSignal.timeout(6000) });
+    var r = await fetch('http://127.0.0.1:19283/codex-login', { method: 'POST', signal: AbortSignal.timeout(6000) });
     var d = await r.json();
     if (msg) { msg.textContent = (d.message || '이미지 로그인 창이 열렸습니다.') + ' 로그인 완료 후 잠시 기다리세요...'; }
     if (!d.ok && msg) { msg.style.color = 'var(--err)'; return; }
@@ -15099,9 +15114,9 @@ async function startChatMockServer() {
   if (msg) { msg.textContent = 'ChatMock 서버 시작 요청 중...'; msg.style.color = '#818cf8'; }
   try {
     var useCompanion = false;
-    try { await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1500) }); useCompanion = true; } catch(_) {}
+    try { await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(1500) }); useCompanion = true; } catch(_) {}
     var r = useCompanion
-      ? await fetch('http://localhost:19283/chatmock-restart', { method: 'POST', signal: AbortSignal.timeout(12000) })
+      ? await fetch('http://127.0.0.1:19283/chatmock-restart', { method: 'POST', signal: AbortSignal.timeout(12000) })
       : await fetch('/api/chatmock/start', { method: 'POST' });
     var d = await r.json();
     if (msg) { msg.textContent = '✅ ' + (d.message || '서버 시작됨'); msg.style.color = '#10b981'; }
@@ -16835,9 +16850,17 @@ async function qwenGenerateAll() {
   statusEl.textContent = '서버 확인 중...';
   if (prog) prog.style.width = '0%';
 
-  // 서버 확인 (8880 직접 먼저, 그 다음 Companion)
-  await qwenEnsureLocalServer();
-  await qwenCheckServer();
+  // Edge TTS 보이스는 서버 불필요. Qwen3 보이스만 서버 확인.
+  var _edgeCheck = ['SunHi','InJoon','HyunSu','Aria','Guy'];
+  if (!_edgeCheck.includes(qwenSelectedVoice)) {
+    await qwenCheckServer();
+    if (!QWEN_SERVER) {
+      statusEl.textContent = 'Qwen3 서버에 연결할 수 없습니다. Kaggle 노트북을 실행하세요.';
+      genBtn.disabled = false; stopBtn.style.display = 'none';
+      qwenRunning = false;
+      return;
+    }
+  }
 
   var total = qwenScenes.length;
   var lang = document.getElementById('qwen-language').value;
@@ -18362,18 +18385,10 @@ async function flowRequestLogin(isAccountChange) {
   var badge = document.getElementById('flowStatusBadge');
   if (badge) { badge.textContent = '⏳ 요청 중...'; badge.style.color = '#34d399'; }
   try {
-    // 연결 여부 먼저 확인
-    var stR = await fetch(window.SS_SERVER + '/api/flow/worker/status', { signal: AbortSignal.timeout(4000) });
-    var stD = await stR.json();
-    if (!stD.connected) {
-      if (badge) { badge.textContent = '⚠️ Companion 미연결'; badge.style.color = '#f59e0b'; }
-      showToast('⚠️ ScriptStudio Companion 앱이 실행 중이지 않습니다. Companion을 먼저 실행해주세요.');
-      return;
-    }
     var r = await fetch(window.SS_SERVER + '/api/flow/worker/request-login', { method: 'POST', signal: AbortSignal.timeout(5000) });
     var d = await r.json();
     if (d.ok) {
-      showToast('🌊 ' + (isAccountChange ? '계정 변경' : '구글 로그인') + ' 요청 전송 완료 — Companion 앱에서 로그인 창이 열립니다.');
+      showToast('🌊 ' + (isAccountChange ? '계정 변경' : '구글 로그인') + ' 요청 전송 완료 — 잠시 후 Chrome 로그인 창이 열립니다. (Companion이 실행 중이어야 합니다)');
       if (badge) { badge.textContent = '⏳ 로그인 대기 중...'; badge.style.color = '#34d399'; }
     }
   } catch(e) {
@@ -18407,7 +18422,7 @@ async function grokLocalLogin() {
     // Companion에 자동 시작 요청
     var companionOk = false;
     try {
-      await fetch('http://localhost:19283/health', { signal: AbortSignal.timeout(1000) });
+      await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(1000) });
       companionOk = true;
     } catch(_) {}
 
@@ -18418,7 +18433,7 @@ async function grokLocalLogin() {
     }
 
     if (btn) btn.textContent = '⏳ Grok 프록시 시작 중...';
-    var launchRes = await fetch('http://localhost:19283/grok-start', { method: 'POST', signal: AbortSignal.timeout(5000) }).catch(function(){return null;});
+    var launchRes = await fetch('http://127.0.0.1:19283/grok-start', { method: 'POST', signal: AbortSignal.timeout(5000) }).catch(function(){return null;});
     var launchData = launchRes ? await launchRes.json().catch(function(){return {};}) : {};
 
     if (!launchData.ok && launchData.message === 'node_not_found') {
@@ -18509,7 +18524,30 @@ function _showGrokVideoButtons() {
   if (btn) btn.style.display = '';
   var badge = document.getElementById('grokStatusBadge');
   if (badge) { badge.textContent = '✅ 연결됨'; badge.style.color = '#10b981'; }
-  renderSceneList(); // 씬 카드 ▶ 버튼도 갱신
+  var logoutBtn = document.getElementById('grokLogoutBtn');
+  if (logoutBtn) logoutBtn.style.display = '';
+  var loginBtn = document.getElementById('grokLoginBtn');
+  if (loginBtn) { loginBtn.textContent = '✅ Grok 연결됨'; loginBtn.style.color = '#10b981'; }
+  renderSceneList();
+}
+
+async function grokLocalLogout() {
+  var logoutBtn = document.getElementById('grokLogoutBtn');
+  if (logoutBtn) logoutBtn.textContent = '⏳ 로그아웃 중...';
+  try {
+    await fetch(window.GROK_LOCAL_URL + '/auth/logout', { method: 'POST', signal: AbortSignal.timeout(3000) });
+  } catch(e) {}
+  window.GROK_USE_LOCAL = false;
+  window.GROK_PROXY_URL = null;
+  var loginBtn = document.getElementById('grokLoginBtn');
+  if (loginBtn) { loginBtn.textContent = '🔑 Grok 로그인'; loginBtn.style.color = '#a78bfa'; }
+  if (logoutBtn) { logoutBtn.style.display = 'none'; logoutBtn.textContent = '🔓 로그아웃'; }
+  var badge = document.getElementById('grokStatusBadge');
+  if (badge) { badge.textContent = '미연결'; badge.style.color = ''; }
+  var videoBtn = document.getElementById('grokVideoAllBtn');
+  if (videoBtn) videoBtn.style.display = 'none';
+  showToast('✅ Grok 로그아웃 완료. 다른 계정으로 다시 로그인하세요.');
+  renderSceneList();
 }
 
 function grokVideoAllStop() {
@@ -18867,7 +18905,7 @@ async function grokProxyVideoGenAll() {
 function makeEditBox(id, scenePrompt) {
   var ta = 'width:100%;background:var(--s2);border:1px solid rgba(167,139,250,.3);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;resize:none;box-sizing:border-box;outline:none';
   var tabBtn = function(label, active, onclick) {
-    return '<button onclick="' + onclick + '" id="edit-tab-' + label + '-' + id + '" style="flex:1;padding:5px 0;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;border:1px solid rgba(167,139,250,.4);'
+    return '<button onclick="' + onclick + '" id="edit-tab-' + label + '-' + id + '" style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;border:1px solid rgba(167,139,250,.4);white-space:nowrap;overflow:hidden;'
       + (active ? 'background:rgba(167,139,250,.3);color:#a78bfa;' : 'background:transparent;color:var(--text3);')
       + '">' + label + '</button>';
   };
@@ -18875,6 +18913,7 @@ function makeEditBox(id, scenePrompt) {
     + '<div style="display:flex;gap:4px;margin-bottom:2px">'
     + tabBtn('이미지 수정', true, 'grokEditSwitchTab(' + id + ',\'modify\')')
     + tabBtn('새로 생성', false, 'grokEditSwitchTab(' + id + ',\'regen\')')
+    + tabBtn('영상 생성', false, 'grokEditSwitchTab(' + id + ',\'video\')')
     + '</div>'
     // 수정 탭
     + '<div id="grok-edit-pane-modify-' + id + '">'
@@ -18890,20 +18929,38 @@ function makeEditBox(id, scenePrompt) {
     + '<button class="btn btn-sm" onclick="grokEditToggle(' + id + ')" style="background:var(--s3);border-color:var(--border)">취소</button>'
     + '<button class="btn btn-sm" onclick="grokRegenApply(' + id + ')" style="flex:1;background:rgba(99,179,237,.2);border-color:rgba(99,179,237,.5);color:#63b3ed;font-weight:700">🎨 새로 생성</button>'
     + '</div></div>'
+    // 영상 생성 탭
+    + '<div id="grok-edit-pane-video-' + id + '" style="display:none">'
+    + '<textarea id="grok-vid-prompt-' + id + '" rows="3" placeholder="영상 프롬프트 입력 (한글/영어)&#10;예: 벚꽃이 날리는 교토 거리, 사람들이 천천히 걷는 모습&#10;예: A serene mountain landscape with flowing river, cinematic" style="' + ta + '"></textarea>'
+    + '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+    + '<button class="btn btn-sm" onclick="grokEditToggle(' + id + ')" style="background:var(--s3);border-color:var(--border)">취소</button>'
+    + '<select id="grok-vid-dur-' + id + '" style="background:var(--s2);border:1px solid rgba(52,211,153,.4);border-radius:6px;color:#34d399;font-size:11px;padding:4px 6px;cursor:pointer">'
+    + '<option value="8">8초</option>'
+    + '<option value="10">10초</option>'
+    + '</select>'
+    + '<button class="btn btn-sm" onclick="grokTextVideoApply(' + id + ')" style="flex:1;background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.5);color:#34d399;font-weight:700">🎬 영상 생성</button>'
+    + '</div></div>'
     + '</div>';
 }
 
 function grokEditSwitchTab(id, tab) {
   var modPane = document.getElementById('grok-edit-pane-modify-' + id);
   var regPane = document.getElementById('grok-edit-pane-regen-' + id);
+  var vidPane = document.getElementById('grok-edit-pane-video-' + id);
   var modBtn  = document.getElementById('edit-tab-이미지 수정-' + id);
   var regBtn  = document.getElementById('edit-tab-새로 생성-' + id);
-  if (!modPane || !regPane) return;
-  var isModify = tab === 'modify';
-  modPane.style.display = isModify ? '' : 'none';
-  regPane.style.display = isModify ? 'none' : '';
-  if (modBtn) { modBtn.style.background = isModify ? 'rgba(167,139,250,.3)' : 'transparent'; modBtn.style.color = isModify ? '#a78bfa' : 'var(--text3)'; }
-  if (regBtn) { regBtn.style.background = isModify ? 'transparent' : 'rgba(167,139,250,.3)'; regBtn.style.color = isModify ? 'var(--text3)' : '#a78bfa'; }
+  var vidBtn  = document.getElementById('edit-tab-영상 생성-' + id);
+  var panes = [modPane, regPane, vidPane];
+  var btns  = [modBtn, regBtn, vidBtn];
+  var tabs  = ['modify', 'regen', 'video'];
+  tabs.forEach(function(t, i) {
+    var isActive = t === tab;
+    if (panes[i]) panes[i].style.display = isActive ? '' : 'none';
+    if (btns[i]) {
+      btns[i].style.background = isActive ? 'rgba(167,139,250,.3)' : 'transparent';
+      btns[i].style.color = isActive ? '#a78bfa' : 'var(--text3)';
+    }
+  });
 }
 
 async function grokRegenApply(id) {
@@ -18935,6 +18992,101 @@ async function grokRegenApply(id) {
   } catch(e) {
     s.imgStatus = 'error'; s.imgError = e.message;
     updateSceneCard(id);
+  }
+}
+
+// ── 텍스트 프롬프트로 영상 직접 생성 ──────────────────────────────────────
+function setGrokDuration(id, val) {
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (s) s.grokVideoDuration = Number(val);
+}
+
+async function grokTextVideoApply(id) {
+  var s = scenes.find(function(x){ return x.id === id; });
+  if (!s) return;
+  var ta = document.getElementById('grok-vid-prompt-' + id);
+  var prompt = ta ? ta.value.trim() : '';
+  if (!prompt) { alert('영상 프롬프트를 입력하세요.'); return; }
+  if (!window.GROK_PROXY_URL) { alert('Grok 프록시가 연결되지 않았습니다.'); return; }
+  var durEl = document.getElementById('grok-vid-dur-' + id);
+  var duration = durEl ? Number(durEl.value) : (s.grokVideoDuration || 8);
+
+  grokEditToggle(id);
+
+  var statusEl = document.getElementById('studioStatus');
+  if (statusEl) statusEl.textContent = '🎬 Grok 영상 생성 중... ' + prompt.slice(0, 50) + (prompt.length > 50 ? '...' : '');
+  s.grokVideoConverting = true;
+  s.grokVideoProgress = 0;
+  renderSceneList();
+
+  try {
+    // 영상 생성 요청 (이미지 없음 — 텍스트 프롬프트만)
+    var reqBody = { model: 'grok-imagine-video', prompt: prompt, duration: duration };
+    var res = await fetch(window.GROK_PROXY_URL + '/v1/videos/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY },
+      body: JSON.stringify(reqBody)
+    });
+    if (!res.ok) {
+      var eBody = await res.text();
+      throw new Error(eBody || '요청 실패');
+    }
+    var job = await res.json();
+    var jobId = job.request_id || job.id;
+    if (!jobId) throw new Error('job id 없음: ' + JSON.stringify(job));
+
+    // 폴링 (완료까지 대기) — 최대 15분 (180회 × 5초)
+    var videoUrl = null;
+    for (var i = 0; i < 180; i++) {
+      await new Promise(function(r){ setTimeout(r, 5000); });
+      var poll = await fetch(window.GROK_PROXY_URL + '/v1/videos/' + jobId, {
+        headers: { 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY }
+      });
+      var pdata = await poll.json();
+      console.log('[Grok TextVideo 폴링]', i, JSON.stringify(pdata));
+      s.grokVideoProgress = pdata.progress || Math.min(95, (i + 1) * 2);
+      renderSceneList();
+      if (statusEl) statusEl.textContent = '🎬 Grok 영상 생성 중... ' + (pdata.progress || 0) + '%';
+      if (pdata.status === 'done') {
+        videoUrl = (pdata.video && pdata.video.url) || pdata.url || pdata.download_url;
+        break;
+      }
+      if (pdata.status === 'failed' || pdata.status === 'expired') throw new Error('Grok 영상 생성 실패: ' + (pdata.error || pdata.status));
+    }
+    if (!videoUrl) throw new Error('영상 URL을 받지 못했습니다 (타임아웃)');
+
+    // Companion에 파일 저장 요청 (/grok-download 엔드포인트)
+    var sceneIdx = scenes.findIndex(function(x){ return x.id === id; });
+    var localFilename = 'scene_' + String(sceneIdx + 1).padStart(2, '0') + '_grok.mp4';
+    try {
+      var dlRes = await fetch('http://127.0.0.1:19283/grok-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: videoUrl, filename: localFilename })
+      });
+      var dlData = await dlRes.json();
+      if (dlData.ok) {
+        s.grokVideoPath = 'http://127.0.0.1:19283/grok-video/' + localFilename;
+        s.imgDataUrl = s.grokVideoPath;
+      } else {
+        s.imgDataUrl = videoUrl;
+      }
+    } catch(e) {
+      // Companion 없으면 CDN URL 직접 사용
+      s.imgDataUrl = videoUrl;
+    }
+    s.grokVideo = true;
+    s.grokVideoConverting = false;
+    s.grokVideoProgress = 100;
+    s.imgStatus = 'done';
+    renderSceneList();
+    if (statusEl) statusEl.textContent = '✅ Grok 영상 생성 완료! (씬 ' + (scenes.findIndex(function(x){return x.id===id;})+1) + ')';
+  } catch(e) {
+    s.grokVideoConverting = false;
+    s.grokVideoProgress = 0;
+    renderSceneList();
+    alert('Grok 영상 생성 실패: ' + e.message);
+    if (statusEl) statusEl.textContent = '❌ Grok 영상 생성 실패: ' + e.message;
   }
 }
 
@@ -19082,47 +19234,72 @@ async function grokProxyVideoGen(id) {
   s.grokVideoProgress = 0;
   renderSceneList();
 
-  // 이미지 base64 추출
-  async function toBase64(src) {
+  // 이미지를 data URL(base64)로 변환
+  async function toDataUrl(src) {
     if (!src) return null;
-    if (src.startsWith('data:')) return src.split(',')[1];
-    var resp = await fetch(src);
+    if (src.startsWith('data:')) return src;
+    var fetchUrl = src.startsWith('http') ? src : (window.SS_SERVER || '') + src;
+    var resp = await fetch(fetchUrl);
     var blob = await resp.blob();
     return new Promise(function(resolve) {
       var r = new FileReader();
-      r.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+      r.onload = function(e){ resolve(e.target.result); };
       r.readAsDataURL(blob);
     });
   }
 
+  // data URL을 JPEG로 압축 (payload 크기 제한 대비)
+  async function compressToJpeg(dataUrl, quality) {
+    return new Promise(function(resolve) {
+      var img = new Image();
+      img.onload = function() {
+        var cv = document.createElement('canvas');
+        cv.width = img.width; cv.height = img.height;
+        cv.getContext('2d').drawImage(img, 0, 0);
+        resolve(cv.toDataURL('image/jpeg', quality || 0.85));
+      };
+      img.onerror = function() { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+
   try {
-    var imgB64 = await toBase64(s.imgDataUrl);
-    // 이미지를 URL로 서버에 업로드해서 공개 URL 획득
-    var imgPublicUrl = null;
-    if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
-      imgPublicUrl = window.SS_SERVER + s.imgDataUrl;
-    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('http')) {
-      imgPublicUrl = s.imgDataUrl;
-    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
-      // base64 → Railway에 업로드해서 공개 URL 획득
-      var uploadRes = await fetch(window.SS_SERVER + '/api/save-image', {
+    var imgDataUrl = await toDataUrl(s.imgDataUrl);
+    if (!imgDataUrl) throw new Error('이미지가 없습니다.');
+
+    // 1차: Railway에 업로드해서 공개 URL 획득 (xAI가 직접 다운로드 가능)
+    var imageUrl = null;
+    try {
+      var ext = imgDataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+      var ts = Date.now();
+      var uploadRes = await fetch((window.SS_SERVER || '') + '/api/save-image', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({image: s.imgDataUrl})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: imgDataUrl, ext: ext, filename: 'grok_vid_' + ts + '.' + ext })
       });
-      var uploadData = await uploadRes.json();
-      if (uploadData.url) {
-        imgPublicUrl = window.SS_SERVER + uploadData.url;
-      } else {
-        throw new Error('이미지 업로드 실패: ' + (uploadData.message || JSON.stringify(uploadData)));
+      if (uploadRes.ok) {
+        var uploadData = await uploadRes.json();
+        if (uploadData.url) {
+          imageUrl = (window.SS_SERVER || '') + uploadData.url;
+          console.log('[Grok Video] Railway 공개 URL:', imageUrl);
+        }
       }
+    } catch(e) {
+      console.warn('[Grok Video] Railway 업로드 실패, base64로 전환:', e.message);
     }
-    console.log('[Grok Video] imgPublicUrl:', imgPublicUrl);
-    if (!imgPublicUrl) throw new Error('이미지가 없습니다.');
+
+    // 2차: Railway 실패 시 base64 직접 전달
+    if (!imageUrl) {
+      if (imgDataUrl.length > 2 * 1024 * 1024) {
+        imgDataUrl = await compressToJpeg(imgDataUrl, 0.82);
+      }
+      imageUrl = imgDataUrl;
+      console.log('[Grok Video] base64 fallback 크기:', Math.round(imgDataUrl.length / 1024) + 'KB');
+    }
 
     // 1. 영상 생성 요청
-    var reqBody = { model: 'grok-imagine-video-1.5', prompt: prompt, image: { url: imgPublicUrl } };
-    console.log('[Grok Video] 요청:', JSON.stringify({ model: reqBody.model, prompt: reqBody.prompt, image_url: imgPublicUrl }));
+    var reqBody = { model: 'grok-imagine-video-1.5', prompt: prompt, image: { url: imageUrl }, duration: s.grokVideoDuration || 8 };
+    console.log('[Grok Video] 요청:', JSON.stringify({ model: reqBody.model, prompt: reqBody.prompt, image_type: imageUrl.startsWith('data:') ? 'base64' : 'url' }));
     var res = await fetch(window.GROK_PROXY_URL + '/v1/videos/generations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY },
@@ -19130,16 +19307,16 @@ async function grokProxyVideoGen(id) {
     });
     if (!res.ok) {
       var eBody = await res.text();
-      console.error('[Grok Video] 실패 - image_url:', imgPublicUrl, 'prompt:', prompt, '응답:', eBody);
+      console.error('[Grok Video] 실패 - prompt:', prompt, '응답:', eBody);
       throw new Error(eBody || '요청 실패');
     }
     var job = await res.json();
     var jobId = job.request_id || job.id;
     if (!jobId) throw new Error('job id 없음: ' + JSON.stringify(job));
 
-    // 2. 폴링 (완료까지 대기)
+    // 2. 폴링 (완료까지 대기) — 최대 15분 (180회 × 5초)
     var videoUrl = null;
-    for (var i = 0; i < 60; i++) {
+    for (var i = 0; i < 180; i++) {
       await new Promise(function(r){ setTimeout(r, 5000); });
       var poll = await fetch(window.GROK_PROXY_URL + '/v1/videos/' + jobId, {
         headers: { 'Authorization': 'Bearer ' + window.GROK_PROXY_KEY }
@@ -19152,9 +19329,9 @@ async function grokProxyVideoGen(id) {
       if (pdata.status === 'failed' || pdata.status === 'expired') throw new Error('Grok 영상 생성 실패: ' + pdata.status);
       s.grokVideoProgress = pdata.progress || 0;
       renderSceneList();
-      if (statusEl) statusEl.textContent = '🎬 Grok 영상 변환 중... ' + (pdata.progress || 0) + '%';
+      if (statusEl) statusEl.textContent = '🎬 Grok 영상 변환 중... ' + (pdata.progress || 0) + '% (약 ' + Math.round(i*5/60) + '분 경과)';
     }
-    if (!videoUrl) throw new Error('타임아웃 — Grok 응답 없음');
+    if (!videoUrl) throw new Error('타임아웃 — Grok 응답 없음 (15분)');
 
     // 3. 씬에 영상 적용
     var sceneIdx = scenes.findIndex(function(x){ return x.id === id; });
@@ -19165,14 +19342,14 @@ async function grokProxyVideoGen(id) {
     if (window.GROK_USE_LOCAL) {
       if (statusEl) statusEl.textContent = '💾 Grok 영상 저장 중... (' + localFilename + ')';
       try {
-        var dlRes = await fetch('http://localhost:19283/grok-download', {
+        var dlRes = await fetch('http://127.0.0.1:19283/grok-download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: videoUrl, filename: localFilename })
         });
         var dlData = await dlRes.json();
         if (dlData.ok) {
-          s.grokVideoPath = 'http://localhost:19283/grok-video/' + localFilename;
+          s.grokVideoPath = 'http://127.0.0.1:19283/grok-video/' + localFilename;
           s.imgDataUrl = s.grokVideoPath;
         } else {
           s.imgDataUrl = videoUrl; // 저장 실패 시 CDN URL 사용
@@ -19436,7 +19613,7 @@ function grokStartPolling(totalTasks) {
           targetScene.imgDataUrl = item.videoUrl + '?t=' + Date.now();
           targetScene.grokVideo = true;
           if (item.localFilename) {
-            targetScene.grokVideoPath = 'http://localhost:19283/grok-video/' + item.localFilename;
+            targetScene.grokVideoPath = 'http://127.0.0.1:19283/grok-video/' + item.localFilename;
           }
           updateSceneCard(targetScene.id);
           grokAutoLog('✅ 씬 ' + sceneNo + ' 영상 적용 완료 → 스튜디오 이미지 교체됨');
