@@ -1239,10 +1239,17 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
 
         # 자막: subtitleTimings 있으면 청크별, 없으면 script 전체를 단일 자막으로
         # 마지막 청크는 gap까지 포함한 total_dur로 늘려서 gap 구간에 이전 자막 유지
+        _remove_punct = bool(getattr(req, 'remove_punct', False))
+        def _clean_sub(t):
+            t = t.replace('"', '').replace("'", '').replace('-', '').replace('—', '').replace('–', '').strip()
+            if _remove_punct:
+                t = t.replace(',', '').replace('.', '').replace('，', '').replace('。', '')
+            return t.strip()
+
         if sc.subtitleTimings:
             timings = [t for t in sc.subtitleTimings if (t.get('text') or '').strip()]
             for idx_t, timing in enumerate(timings):
-                txt = (timing.get('text') or '').replace('"', '').replace("'", '').replace('-', '').replace('—', '').replace('–', '').strip()
+                txt = _clean_sub(timing.get('text') or '')
                 sub_start = float(timing.get('start', 0))
                 sub_end = float(timing.get('end', 0))
                 if idx_t == len(timings) - 1:
@@ -1265,7 +1272,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
             total_chars = sum(len(c) for c in chunks) or 1
             offset_us = 0
             for ci, chunk_txt in enumerate(chunks):
-                chunk_txt = chunk_txt.replace('"', '').replace("'", '').replace('-', '').replace('—', '').replace('–', '').strip()
+                chunk_txt = _clean_sub(chunk_txt)
                 proportion = len(chunk_txt) / total_chars if chunk_txt else 0
                 c_dur = int(audio_dur_us * proportion)
                 if ci == len(chunks) - 1:
