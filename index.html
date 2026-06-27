@@ -15387,13 +15387,14 @@ async function initLicenseGuard() {
   localStorage.removeItem('clipflow_license_admin_key');
   var hint = document.getElementById('localUnlockHint');
   try {
-    var r = await fetch('/api/license/status');
+    var r = await fetch((window.SS_SERVER || '') + '/api/license/status', { signal: AbortSignal.timeout(4000) });
     var d = await r.json();
     if (hint && d.required) hint.textContent = '이 기기 ID: ' + getLocalMachineId();
     if (!d.required) return;
     await licenseValidateAndSchedule();
   } catch(e) {
-    showLicenseOverlay(true, '라이선스 서버 연결 실패: ' + e.message);
+    // 라이선스 서버 미연결 시 차단하지 않음 (공개 베타)
+    return;
   }
 }
 
@@ -18584,27 +18585,27 @@ async function flowProxyVideoGen(id) {
   renderSceneList();
 
   try {
-    // 이미지 공개 URL 확보
+    // 이미지 base64 직접 추출 (Railway 파일시스템 의존 제거)
+    var imageData = '';
+    if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
+      var commaIdx = s.imgDataUrl.indexOf(',');
+      if (commaIdx !== -1) imageData = s.imgDataUrl.slice(commaIdx + 1);
+    }
+    // base64 없으면 URL 방식 폴백 (http/https 이미지)
     var imageUrl = '';
-    if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
-      imageUrl = window.SS_SERVER + s.imgDataUrl;
-    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('http')) {
-      imageUrl = s.imgDataUrl;
-    } else if (s.imgDataUrl && s.imgDataUrl.startsWith('data:')) {
-      var upResp = await fetch(window.SS_SERVER + '/api/save-image', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ data: s.imgDataUrl, filename: 'flow_src_' + id + '.png' })
-      });
-      var upJson = await upResp.json();
-      imageUrl = window.SS_SERVER + (upJson.url || '');
+    if (!imageData) {
+      if (s.imgDataUrl && s.imgDataUrl.startsWith('/download-image/')) {
+        imageUrl = window.SS_SERVER + s.imgDataUrl;
+      } else if (s.imgDataUrl && s.imgDataUrl.startsWith('http') && !s.imgDataUrl.includes('localhost')) {
+        imageUrl = s.imgDataUrl;
+      }
     }
 
     // Flow 작업 등록
     var regResp = await fetch(window.SS_SERVER + '/api/flow/task', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ mode: 'img2video', prompt: prompt, image_url: imageUrl, delay: 5 })
+      body: JSON.stringify({ mode: 'img2video', prompt: prompt, image_url: imageUrl, image_data: imageData, delay: 5 })
     });
     var taskData = await regResp.json();
     if (!taskData.task_id) throw new Error('Flow 작업 등록 실패');

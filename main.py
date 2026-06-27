@@ -1197,8 +1197,9 @@ async def flow_create_task(req: Request):
         "task_id":    task_id,
         "mode":       mode,
         "prompt":     body.get("prompt", ""),
-        "image_url":  body.get("image_url", ""),   # img2video 시 시작 이미지 URL
-        "delay":      int(body.get("delay", 10)),  # 작업 후 딜레이(초)
+        "image_url":  body.get("image_url", ""),
+        "image_data": body.get("image_data", ""),  # base64 직접 (Railway 파일시스템 우회)
+        "delay":      int(body.get("delay", 10)),
         "status":     "pending",
         "result_url": "",
         "created_at": time.time(),
