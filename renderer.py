@@ -1234,10 +1234,12 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                 else:
                     resolved_audio = candidate
         if resolved_audio and os.path.exists(resolved_audio):
+            # WAV 실제 길이로 클램프 (pymediainfo 불필요, 내장 wave 모듈 사용)
             try:
-                from pycapcut.local_materials import AudioMaterial as _AM
-                _am = _AM(os.path.abspath(resolved_audio))
-                _safe_dur_us = min(audio_dur_us, _am.duration)
+                import wave as _wave
+                with _wave.open(os.path.abspath(resolved_audio), 'rb') as _wf:
+                    _actual_us = int(_wf.getnframes() / _wf.getframerate() * 1_000_000)
+                _safe_dur_us = min(audio_dur_us, _actual_us) if _actual_us > 0 else audio_dur_us
             except Exception:
                 _safe_dur_us = audio_dur_us
             audio_seg = cc.AudioSegment(os.path.abspath(resolved_audio), trange(timeline_us, _safe_dur_us))
