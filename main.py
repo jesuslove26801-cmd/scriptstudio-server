@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, UploadFile, File
+﻿from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,10 +24,10 @@ from apscheduler.triggers.cron import CronTrigger
 import pytz
 import io
 
-# GrokBridge 연동 (MakeLensAuto 없이 로컬 복사본 사용)
+# GrokBridge ?곕룞 (MakeLensAuto ?놁씠 濡쒖뺄 蹂듭궗蹂??ъ슜)
 SERVER_URL = "https://web-production-11acd.up.railway.app"
 
-# FFmpeg + fontconfig 자동 설치 (Railway Linux 환경)
+# FFmpeg + fontconfig ?먮룞 ?ㅼ튂 (Railway Linux ?섍꼍)
 import shutil as _shutil
 if sys.platform != "win32":
     # 1. FFmpeg
@@ -40,7 +40,7 @@ if sys.platform != "win32":
         except Exception:
             pass
 
-    # 2. fontconfig 최소 설정 (자막 ASS 필터용)
+    # 2. fontconfig 理쒖냼 ?ㅼ젙 (?먮쭑 ASS ?꾪꽣??
     import os as _os
     if not _os.environ.get("FONTCONFIG_FILE"):
         _fc_dir = "/tmp/fc_conf"
@@ -60,7 +60,7 @@ if sys.platform != "win32":
 </fontconfig>""")
         _os.environ["FONTCONFIG_FILE"] = _fc_conf
         _os.environ["FONTCONFIG_PATH"] = _fc_dir
-        # apt로 기본 폰트 설치 시도
+        # apt濡?湲곕낯 ?고듃 ?ㅼ튂 ?쒕룄
         try:
             import subprocess as _sp
             _sp.run(["apt-get", "install", "-y", "-q", "fontconfig", "fonts-dejavu-core"], capture_output=True)
@@ -71,23 +71,23 @@ if sys.platform != "win32":
 _grok_bridge = None
 _grok_available = False
 _grok_load_error = ""
-# 완료된 Grok 영상 목록: {sceneNo: videoPath} — 프론트엔드가 폴링해서 씬에 적용
+# ?꾨즺??Grok ?곸긽 紐⑸줉: {sceneNo: videoPath} ???꾨줎?몄뿏?쒓? ?대쭅?댁꽌 ?ъ뿉 ?곸슜
 _grok_completed_videos: dict = {}
-# 실패한 Grok 씬 목록: {sceneNo: errorMsg}
+# ?ㅽ뙣??Grok ??紐⑸줉: {sceneNo: errorMsg}
 _grok_failed_scenes: dict = {}
-# 작업 전송 시각 (이 시각 이후 생성된 파일만 감지)
+# ?묒뾽 ?꾩넚 ?쒓컖 (???쒓컖 ?댄썑 ?앹꽦???뚯씪留?媛먯?)
 _grok_session_start_time: float = 0.0
-# 씬 번호별 원본 작업 데이터 캐시 (재실행 요청 시 제공용)
+# ??踰덊샇蹂??먮낯 ?묒뾽 ?곗씠??罹먯떆 (?ъ떎???붿껌 ???쒓났??
 _grok_task_cache: dict = {}
 
 def _try_load_grok_bridge():
     global _grok_bridge, _grok_available, _grok_load_error
     import traceback as _tb
-    # PyInstaller 번들 경로를 sys.path에 추가
+    # PyInstaller 踰덈뱾 寃쎈줈瑜?sys.path??異붽?
     _meipass = getattr(sys, '_MEIPASS', None)
     if _meipass and _meipass not in sys.path:
         sys.path.insert(0, _meipass)
-    # 현재 파일 디렉토리도 추가
+    # ?꾩옱 ?뚯씪 ?붾젆?좊━??異붽?
     _curdir = os.path.dirname(os.path.abspath(__file__))
     if _curdir not in sys.path:
         sys.path.insert(0, _curdir)
@@ -103,16 +103,16 @@ def _try_load_grok_bridge():
             success = data.get('success', False)
             if success and scene_no and target_path:
                 _grok_completed_videos[int(scene_no)] = target_path
-                print(f"[ScriptStudio] 씬 {scene_no} 영상 완료: {target_path}")
+                print(f"[ScriptStudio] ??{scene_no} ?곸긽 ?꾨즺: {target_path}")
 
         _grok_bridge.on_video_moved = _on_video_moved
 
         def _on_task_failed(data):
             scene_no = data.get('sceneNo')
-            error_msg = data.get('error', '생성 실패')
+            error_msg = data.get('error', '?앹꽦 ?ㅽ뙣')
             if scene_no:
                 _grok_failed_scenes[int(scene_no)] = error_msg
-                print(f"[ScriptStudio] 씬 {scene_no} 생성 실패: {error_msg}")
+                print(f"[ScriptStudio] ??{scene_no} ?앹꽦 ?ㅽ뙣: {error_msg}")
 
         _grok_bridge.on_task_failed = _on_task_failed
         
@@ -133,13 +133,13 @@ def _try_load_grok_bridge():
                         _grok_bridge.download_folder or ''
                     ))
                 except Exception as e:
-                    print(f"재실행 요청 처리 실패: {e}")
+                    print(f"?ъ떎???붿껌 泥섎━ ?ㅽ뙣: {e}")
             else:
                 try:
                     import asyncio
                     loop = asyncio.get_running_loop()
                     loop.create_task(_grok_bridge.send_retry_scene_error(
-                        scene_no, "원본 작업 데이터를 찾을 수 없습니다. 본 프로그램에서 다시 전송해주세요."
+                        scene_no, "?먮낯 ?묒뾽 ?곗씠?곕? 李얠쓣 ???놁뒿?덈떎. 蹂??꾨줈洹몃옩?먯꽌 ?ㅼ떆 ?꾩넚?댁＜?몄슂."
                     ))
                 except Exception:
                     pass
@@ -150,7 +150,7 @@ def _try_load_grok_bridge():
         _grok_bridge = None
         _grok_available = False
         _grok_load_error = _tb.format_exc()
-        # 에러를 파일에 기록 (frozen exe에서 console=False이므로)
+        # ?먮윭瑜??뚯씪??湲곕줉 (frozen exe?먯꽌 console=False?대?濡?
         try:
             _log_path = os.path.join(os.path.expanduser("~"), "grok_bridge_error.txt")
             with open(_log_path, "w", encoding="utf-8") as _lf:
@@ -160,7 +160,7 @@ def _try_load_grok_bridge():
 
 _try_load_grok_bridge()
 
-# Vertex AI 서비스 계정 키 경로 (없으면 Vertex AI 비활성화)
+# Vertex AI ?쒕퉬??怨꾩젙 ??寃쎈줈 (?놁쑝硫?Vertex AI 鍮꾪솢?깊솕)
 VERTEX_KEY_PATHS = [
     os.path.join(os.path.abspath("."), "ScriptStudio_Electron_Portable", "erudite-scholar-493007-e1-df410f3a9113.json"),
     os.path.join(os.path.abspath("."), "vertex_key.json"),
@@ -179,32 +179,32 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-# 로깅 설정
+# 濡쒓퉭 ?ㅼ젙
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# ── Kaggle 자동 스케줄러 ──
+# ?? Kaggle ?먮룞 ?ㅼ?以꾨윭 ??
 _KST = pytz.timezone("Asia/Seoul")
-_KAGGLE_KERNEL_SLUG_A = os.environ.get("KAGGLE_KERNEL_SLUG_A", "qwen3-tts-t4-server")   # T4 커널 (주)
-_KAGGLE_KERNEL_SLUG_B = os.environ.get("KAGGLE_KERNEL_SLUG_B", "qwen3-tts-t4-server")   # T4 커널 (동일)
+_KAGGLE_KERNEL_SLUG_A = os.environ.get("KAGGLE_KERNEL_SLUG_A", "qwen3-tts-t4-server")   # T4 而ㅻ꼸 (二?
+_KAGGLE_KERNEL_SLUG_B = os.environ.get("KAGGLE_KERNEL_SLUG_B", "qwen3-tts-t4-server")   # T4 而ㅻ꼸 (?숈씪)
 
 async def _startup_kaggle_if_offline():
-    """Railway 재시작 후 URL이 없으면 60초 대기 후 Kaggle 자동 재시작"""
+    """Railway ?ъ떆????URL???놁쑝硫?60珥??湲???Kaggle ?먮룞 ?ъ떆??""
     await asyncio.sleep(60)
     if not _kaggle_tts_url:
-        logger.info("[재시작 감지] Kaggle URL 없음 → 자동 재시작 시도")
+        logger.info("[?ъ떆??媛먯?] Kaggle URL ?놁쓬 ???먮룞 ?ъ떆???쒕룄")
         await _auto_start_kaggle(_KAGGLE_KERNEL_SLUG_B)
 
 async def _auto_start_kaggle(slug: str):
-    logger.info(f"[스케줄러] Kaggle 자동 시작: {slug}")
+    logger.info(f"[?ㅼ?以꾨윭] Kaggle ?먮룞 ?쒖옉: {slug}")
     try:
         loop = asyncio.get_event_loop()
         rc, out = await loop.run_in_executor(None, lambda: _kaggle_push_sync_slug(slug))
-        logger.info(f"[스케줄러] push rc={rc} out={out[:200]}")
+        logger.info(f"[?ㅼ?以꾨윭] push rc={rc} out={out[:200]}")
     except Exception as e:
-        logger.error(f"[스케줄러] 오류: {e}")
+        logger.error(f"[?ㅼ?以꾨윭] ?ㅻ쪟: {e}")
 
 def _kaggle_push_sync_slug(slug: str):
     import subprocess as sp
@@ -233,22 +233,22 @@ async def startup_scheduler():
     _scheduler.add_job(_auto_start_kaggle, args=[_KAGGLE_KERNEL_SLUG_B],
                        trigger=CronTrigger(hour=12, minute=0, timezone=_KST), id="kaggle_noon")
     _scheduler.start()
-    logger.info("[스케줄러] Kaggle 자동 시작 등록: 노트북A=자정, 노트북B=정오 (KST)")
-    # Railway 재시작 시 URL이 비어있으면 자동으로 Kaggle 커널 재시작
+    logger.info("[?ㅼ?以꾨윭] Kaggle ?먮룞 ?쒖옉 ?깅줉: ?명듃遺갂=?먯젙, ?명듃遺갃=?뺤삤 (KST)")
+    # Railway ?ъ떆????URL??鍮꾩뼱?덉쑝硫??먮룞?쇰줈 Kaggle 而ㅻ꼸 ?ъ떆??
     asyncio.create_task(_startup_kaggle_if_offline())
 
 @app.on_event("shutdown")
 async def shutdown_scheduler():
     _scheduler.shutdown()
 
-# Qwen3-TTS 로컬 (Gradio) 라우트 등록
+# Qwen3-TTS 濡쒖뺄 (Gradio) ?쇱슦???깅줉
 try:
     from fresh_qwen_local import install_fresh_qwen_local_routes
     install_fresh_qwen_local_routes(app)
 except Exception as _fql_err:
-    logger.warning(f"[fresh_qwen_local] 라우트 등록 실패 (무시): {_fql_err}")
+    logger.warning(f"[fresh_qwen_local] ?쇱슦???깅줉 ?ㅽ뙣 (臾댁떆): {_fql_err}")
 
-# CORS 설정
+# CORS ?ㅼ젙
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -261,7 +261,7 @@ _STYLE_PREVIEWS_DIR = os.path.join(os.path.dirname(__file__), "style-previews")
 if os.path.isdir(_STYLE_PREVIEWS_DIR):
     app.mount("/style-previews", StaticFiles(directory=_STYLE_PREVIEWS_DIR), name="style-previews")
 
-# 422 오류 상세 로깅 핸들러
+# 422 ?ㅻ쪟 ?곸꽭 濡쒓퉭 ?몃뱾??
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     safe_errors = []
@@ -271,23 +271,23 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "msg": str(e.get("msg", "")),
             "type": str(e.get("type", "")),
         })
-        logger.error(f"  [422] 필드: {e.get('loc')} | 오류: {e.get('msg')} | 타입: {e.get('type')}")
+        logger.error(f"  [422] ?꾨뱶: {e.get('loc')} | ?ㅻ쪟: {e.get('msg')} | ??? {e.get('type')}")
     return JSONResponse(
         status_code=422,
-        content={"status": "error", "message": "요청 데이터 형식 오류", "detail": safe_errors}
+        content={"status": "error", "message": "?붿껌 ?곗씠???뺤떇 ?ㅻ쪟", "detail": safe_errors}
     )
 
-# 전역 예외 핸들러 — 어떤 예외든 JSON으로 반환
+# ?꾩뿭 ?덉쇅 ?몃뱾?????대뼡 ?덉쇅??JSON?쇰줈 諛섑솚
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     tb = traceback.format_exc()
-    logger.error(f"[전역오류] {exc}\n{tb}")
+    logger.error(f"[?꾩뿭?ㅻ쪟] {exc}\n{tb}")
     return JSONResponse(
         status_code=500,
         content={"status": "error", "message": str(exc), "detail": tb[-1000:]}
     )
 
-# 데이터 스키마
+# ?곗씠???ㅽ궎留?
 class SceneData(BaseModel):
     model_config = {"extra": "ignore"}
     id: int
@@ -317,7 +317,7 @@ class RenderRequest(BaseModel):
     w: int
     h: int
     fps: int
-    subtitle_font: str = "맑은 고딕"
+    subtitle_font: str = "留묒? 怨좊뵓"
     subtitle_color: str = "&H00FFFFFF"
     subtitle_bg: str = "box"
     subtitle_size: int = 45
@@ -330,10 +330,10 @@ class RenderRequest(BaseModel):
     show_subtitle: bool = True
     motion_effect: Optional[str] = None
 
-# 정적 파일 서빙을 위한 경로 설정
+# ?뺤쟻 ?뚯씪 ?쒕튃???꾪븳 寃쎈줈 ?ㅼ젙
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
-    html_path = resource_path("index.html") if os.path.exists(resource_path("index.html")) else resource_path("최종본.html")
+    html_path = resource_path("index.html") if os.path.exists(resource_path("index.html")) else resource_path("理쒖쥌蹂?html")
     with open(html_path, "r", encoding="utf-8") as f:
         content = f.read()
     from fastapi.responses import HTMLResponse as _HR
@@ -374,15 +374,15 @@ def load_font_map():
             pass
     return font_map_cache
 
-# OAuth2 로그인 상태
+# OAuth2 濡쒓렇???곹깭
 _oauth_state: dict = {}  # flow, credentials, project_id
 
 @app.get("/api/vertex-token")
 async def get_vertex_token():
-    """Vertex AI 토큰 반환: OAuth2 로그인 우선, 없으면 서비스 계정 키"""
+    """Vertex AI ?좏겙 諛섑솚: OAuth2 濡쒓렇???곗꽑, ?놁쑝硫??쒕퉬??怨꾩젙 ??""
     now = time.time()
 
-    # ① OAuth2 로그인된 경우
+    # ??OAuth2 濡쒓렇?몃맂 寃쎌슦
     creds_oauth = _oauth_state.get("credentials")
     if creds_oauth:
         if _vertex_token_cache["token"] and _vertex_token_cache["expires_at"] > now + 60:
@@ -396,12 +396,12 @@ async def get_vertex_token():
             return {"status": "ok", "token": creds_oauth.token,
                     "project_id": _oauth_state.get("project_id", "")}
         except Exception as e:
-            logger.error(f"OAuth 토큰 갱신 실패: {e}")
-            return JSONResponse(status_code=401, content={"status": "error", "message": f"OAuth 토큰 갱신 실패: {e}"})
+            logger.error(f"OAuth ?좏겙 媛깆떊 ?ㅽ뙣: {e}")
+            return JSONResponse(status_code=401, content={"status": "error", "message": f"OAuth ?좏겙 媛깆떊 ?ㅽ뙣: {e}"})
 
-    # ② 서비스 계정 키 파일
+    # ???쒕퉬??怨꾩젙 ???뚯씪
     if not _vertex_key_path:
-        return JSONResponse(status_code=404, content={"status": "error", "message": "로그인이 필요합니다 (Google 로그인 버튼 클릭)"})
+        return JSONResponse(status_code=404, content={"status": "error", "message": "濡쒓렇?몄씠 ?꾩슂?⑸땲??(Google 濡쒓렇??踰꾪듉 ?대┃)"})
 
     if _vertex_token_cache["token"] and _vertex_token_cache["expires_at"] > now + 60:
         return {"status": "ok", "token": _vertex_token_cache["token"], "project_id": _vertex_project_id}
@@ -426,10 +426,10 @@ async def get_vertex_token():
 
         return {"status": "ok", "token": creds.token, "project_id": project_id}
     except Exception as e:
-        logger.error(f"Vertex AI 토큰 발급 실패: {e}")
+        logger.error(f"Vertex AI ?좏겙 諛쒓툒 ?ㅽ뙣: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
-# 환경변수 VERTEX_KEY_JSON 에서 키 로드 (Railway 재시작 후에도 유지)
+# ?섍꼍蹂??VERTEX_KEY_JSON ?먯꽌 ??濡쒕뱶 (Railway ?ъ떆???꾩뿉???좎?)
 _VERTEX_KEY_ENV = os.environ.get("VERTEX_KEY_JSON", "")
 if _VERTEX_KEY_ENV and not _vertex_key_path:
     try:
@@ -443,7 +443,7 @@ if _VERTEX_KEY_ENV and not _vertex_key_path:
     except Exception as _e:
         pass
 
-# project_id 캐시 (서비스 계정용)
+# project_id 罹먯떆 (?쒕퉬??怨꾩젙??
 _vertex_project_id = ""
 try:
     if _vertex_key_path:
@@ -459,7 +459,7 @@ async def vertex_key_upload(file: UploadFile = File(...)):
         contents = await file.read()
         key_data = json.loads(contents)
         if key_data.get("type") != "service_account":
-            return JSONResponse(status_code=400, content={"status": "error", "message": "서비스 계정 키 파일이 아닙니다"})
+            return JSONResponse(status_code=400, content={"status": "error", "message": "?쒕퉬??怨꾩젙 ???뚯씪???꾨떃?덈떎"})
         project_id = key_data.get("project_id", "")
         save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vertex_key.json")
         with open(save_path, "wb") as f:
@@ -469,11 +469,11 @@ async def vertex_key_upload(file: UploadFile = File(...)):
         _vertex_token_cache = {"token": None, "expires_at": 0}
         return {"status": "ok", "project_id": project_id}
     except json.JSONDecodeError:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "유효한 JSON 파일이 아닙니다"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?좏슚??JSON ?뚯씪???꾨떃?덈떎"})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
-# ── Google OAuth2 로그인 엔드포인트 ──
+# ?? Google OAuth2 濡쒓렇???붾뱶?ъ씤????
 
 class GoogleAuthStartReq(BaseModel):
     client_id: str
@@ -482,7 +482,7 @@ class GoogleAuthStartReq(BaseModel):
 
 @app.post("/api/auth/google/start")
 async def google_auth_start(req: GoogleAuthStartReq):
-    """OAuth2 인증 URL 생성 및 브라우저 오픈"""
+    """OAuth2 ?몄쬆 URL ?앹꽦 諛?釉뚮씪?곗? ?ㅽ뵂"""
     import webbrowser
     try:
         from google_auth_oauthlib.flow import Flow
@@ -516,20 +516,20 @@ async def google_auth_start(req: GoogleAuthStartReq):
         webbrowser.open(auth_url)
         return {"status": "ok", "auth_url": auth_url}
     except Exception as e:
-        logger.error(f"OAuth 시작 오류: {e}")
+        logger.error(f"OAuth ?쒖옉 ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.get("/api/auth/google/callback")
 async def google_auth_callback(code: str = "", error: str = "", state: str = ""):
-    """OAuth2 콜백 — 인증 코드 교환"""
+    """OAuth2 肄쒕갚 ???몄쬆 肄붾뱶 援먰솚"""
     if error:
-        return HTMLResponse(f"<html><body style='font-family:sans-serif;padding:40px'><h2>❌ 인증 취소됨</h2><p>{error}</p><p>이 창을 닫으세요.</p></body></html>")
+        return HTMLResponse(f"<html><body style='font-family:sans-serif;padding:40px'><h2>???몄쬆 痍⑥냼??/h2><p>{error}</p><p>??李쎌쓣 ?レ쑝?몄슂.</p></body></html>")
     if not code:
-        return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'><h2>❌ 코드 없음</h2><p>이 창을 닫으세요.</p></body></html>")
+        return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'><h2>??肄붾뱶 ?놁쓬</h2><p>??李쎌쓣 ?レ쑝?몄슂.</p></body></html>")
 
     flow = _oauth_state.get("flow")
     if not flow:
-        return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'><h2>❌ 세션 만료</h2><p>다시 로그인해주세요.</p></body></html>")
+        return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'><h2>???몄뀡 留뚮즺</h2><p>?ㅼ떆 濡쒓렇?명빐二쇱꽭??</p></body></html>")
 
     try:
         import os as _os
@@ -541,32 +541,32 @@ async def google_auth_callback(code: str = "", error: str = "", state: str = "")
         _vertex_token_cache["token"] = creds.token
         _vertex_token_cache["expires_at"] = time.time() + 3600
 
-        logger.info("Google OAuth2 로그인 성공")
+        logger.info("Google OAuth2 濡쒓렇???깃났")
         return HTMLResponse("""
 <html><head><meta charset='utf-8'></head>
 <body style='font-family:sans-serif;padding:40px;text-align:center;background:#0d1117;color:#e6edf3'>
-  <h2 style='color:#36d68a'>✅ Google 로그인 성공!</h2>
-  <p>이 창을 닫고 ScriptStudio로 돌아가세요.</p>
+  <h2 style='color:#36d68a'>??Google 濡쒓렇???깃났!</h2>
+  <p>??李쎌쓣 ?リ퀬 ScriptStudio濡??뚯븘媛?몄슂.</p>
   <script>setTimeout(()=>window.close(),2000);</script>
 </body></html>""")
     except Exception as e:
-        logger.error(f"OAuth 콜백 오류: {e}")
-        return HTMLResponse(f"<html><body style='font-family:sans-serif;padding:40px'><h2>❌ 인증 오류</h2><p>{e}</p></body></html>")
+        logger.error(f"OAuth 肄쒕갚 ?ㅻ쪟: {e}")
+        return HTMLResponse(f"<html><body style='font-family:sans-serif;padding:40px'><h2>???몄쬆 ?ㅻ쪟</h2><p>{e}</p></body></html>")
 
 @app.get("/api/auth/google/status")
 async def google_auth_status():
-    """로그인 상태 조회"""
+    """濡쒓렇???곹깭 議고쉶"""
     creds = _oauth_state.get("credentials")
     if creds and _vertex_token_cache.get("token"):
         return {"status": "ok", "logged_in": True, "project_id": _oauth_state.get("project_id", "")}
-    # 서비스 계정 키가 있으면 그것도 '연결됨'으로 간주
+    # ?쒕퉬??怨꾩젙 ?ㅺ? ?덉쑝硫?洹멸쾬??'?곌껐???쇰줈 媛꾩＜
     if _vertex_key_path:
         return {"status": "ok", "logged_in": True, "project_id": _vertex_project_id, "via": "service_account"}
     return {"status": "ok", "logged_in": False}
 
 @app.post("/api/auth/google/logout")
 async def google_auth_logout():
-    """로그아웃"""
+    """濡쒓렇?꾩썐"""
     _oauth_state.clear()
     _vertex_token_cache["token"] = None
     _vertex_token_cache["expires_at"] = 0
@@ -577,7 +577,7 @@ async def api_fonts():
     fmap = load_font_map()
     fonts_list = sorted(list(fmap.keys()))
     if not fonts_list:
-        fonts_list = ["맑은 고딕", "굴림", "돋움", "궁서", "Arial"]
+        fonts_list = ["留묒? 怨좊뵓", "援대┝", "?뗭?", "沅곸꽌", "Arial"]
     return {"status": "success", "fonts": fonts_list}
 
 @app.get("/api/font_file/{font_name}")
@@ -595,7 +595,7 @@ async def api_status():
     ffmpeg_path = shutil.which("ffmpeg")
     return {"status": "ok", "platform": sys.platform, "ffmpeg": ffmpeg_path or "NOT FOUND"}
 
-# Kaggle TTS 서버 URL 브로커
+# Kaggle TTS ?쒕쾭 URL 釉뚮줈而?
 _URL_CACHE_FILE = "/tmp/kaggle_tts_url.txt"
 
 def _load_cached_url() -> str:
@@ -617,13 +617,13 @@ _kaggle_tts_url: str = ""
 _kaggle_url_registered_at: float = 0.0
 _KAGGLE_SECRET = os.environ.get("KAGGLE_SECRET", "")
 
-# ── Edge TTS ──────────────────────────────────────────────────────────────────
+# ?? Edge TTS ??????????????????????????????????????????????????????????????????
 EDGE_VOICES = {
-    "SunHi":  "ko-KR-SunHiNeural",   # 여성 한국어
-    "InJoon": "ko-KR-InJoonNeural",  # 남성 한국어
-    "HyunSu": "ko-KR-HyunsuNeural", # 남성 한국어
-    "Aria":   "en-US-AriaNeural",    # 여성 영어
-    "Guy":    "en-US-GuyNeural",     # 남성 영어
+    "SunHi":  "ko-KR-SunHiNeural",   # ?ъ꽦 ?쒓뎅??
+    "InJoon": "ko-KR-InJoonNeural",  # ?⑥꽦 ?쒓뎅??
+    "HyunSu": "ko-KR-HyunsuNeural", # ?⑥꽦 ?쒓뎅??
+    "Aria":   "en-US-AriaNeural",    # ?ъ꽦 ?곸뼱
+    "Guy":    "en-US-GuyNeural",     # ?⑥꽦 ?곸뼱
 }
 
 @app.post("/api/edge-tts")
@@ -653,8 +653,8 @@ async def edge_tts_generate(req: Request):
 async def edge_tts_voices():
     return {"voices": [{"id": k, "description": v} for k, v in EDGE_VOICES.items()]}
 
-# 보이스 프로필 저장소 (Railway 재시작 전까지 유지)
-_voice_profiles: dict = {}  # name → {audio_b64, language, ref_text}
+# 蹂댁씠???꾨줈????μ냼 (Railway ?ъ떆???꾧퉴吏 ?좎?)
+_voice_profiles: dict = {}  # name ??{audio_b64, language, ref_text}
 
 @app.post("/api/voice-profile/save")
 async def save_voice_profile(req: Request):
@@ -672,7 +672,7 @@ async def save_voice_profile(req: Request):
         "ref_text": form.get("ref_text") or "",
         "audio_b64": base64.b64encode(audio_bytes).decode()
     }
-    logger.info(f"보이스 프로필 저장: {name}")
+    logger.info(f"蹂댁씠???꾨줈????? {name}")
     return {"status": "ok", "name": name}
 
 @app.get("/api/voice-profile/list")
@@ -705,13 +705,13 @@ async def set_qwen_url(req: Request):
     _kaggle_tts_url = new_url
     _kaggle_url_registered_at = time.time()
     _save_cached_url(_kaggle_tts_url)
-    logger.info(f"Kaggle TTS URL 등록: {_kaggle_tts_url}")
+    logger.info(f"Kaggle TTS URL ?깅줉: {_kaggle_tts_url}")
     return {"status": "ok", "url": _kaggle_tts_url}
 
 @app.get("/api/qwen-url")
 async def get_qwen_url():
     if not _kaggle_tts_url:
-        return JSONResponse(status_code=503, content={"status": "offline", "message": "TTS 서버가 오프라인입니다. Kaggle 노트북을 실행하세요."})
+        return JSONResponse(status_code=503, content={"status": "offline", "message": "TTS ?쒕쾭媛 ?ㅽ봽?쇱씤?낅땲?? Kaggle ?명듃遺곸쓣 ?ㅽ뻾?섏꽭??"})
     return {"status": "ok", "url": _kaggle_tts_url}
 
 _KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "junryong")
@@ -732,15 +732,15 @@ subprocess.run(["git", "clone", "--depth", "1",
     f"https://jesuslove26801-cmd:{GITHUB_TOKEN}@github.com/jesuslove26801-cmd/qwen3-tts-runpod",
     "/kaggle/working/tts"])
 
-# 2. transformers 버전 확인 후 필요할 때만 재설치
+# 2. transformers 踰꾩쟾 ?뺤씤 ???꾩슂???뚮쭔 ?ъ꽕移?
 try:
     import transformers as _tr
     assert _tr.__version__ == "4.57.3"
-    print(f"transformers {_tr.__version__} 이미 설치됨 — skip")
+    print(f"transformers {_tr.__version__} ?대? ?ㅼ튂????skip")
 except (ImportError, AssertionError):
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "transformers==4.57.3"])
 
-# 3. 없는 패키지만 설치
+# 3. ?녿뒗 ?⑦궎吏留??ㅼ튂
 _need = {p: n for p, n in {
     "fastapi": "fastapi", "uvicorn": "uvicorn", "python-multipart": "multipart",
     "soundfile": "soundfile", "librosa": "librosa", "einops": "einops",
@@ -750,7 +750,7 @@ _need = {p: n for p, n in {
 if _need:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + list(_need.keys()))
 
-# 4. qwen-tts 항상 재설치
+# 4. qwen-tts ??긽 ?ъ꽕移?
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", "/kaggle/working/tts"])
 
 if not os.path.exists("/usr/local/bin/cloudflared"):
@@ -762,7 +762,7 @@ if not os.path.exists("/usr/local/bin/cloudflared"):
 subprocess.run(["pkill", "-f", "uvicorn"], capture_output=True)
 time.sleep(2)
 
-# T4 최적화: config.yaml 생성 (CUDA Graphs + torch.compile)
+# T4 理쒖쟻?? config.yaml ?앹꽦 (CUDA Graphs + torch.compile)
 import pathlib
 _cfg_dir = pathlib.Path.home() / "qwen3-tts"
 _cfg_dir.mkdir(exist_ok=True)
@@ -796,7 +796,7 @@ cf_log = open("/kaggle/working/cf.log", "w")
 subprocess.Popen(["/usr/local/bin/cloudflared", "tunnel", "--url", "http://localhost:8880"],
     stderr=cf_log, stdout=subprocess.DEVNULL)
 
-# 5. cloudflare 폴링 (90초 고정 → 최대 2분 폴링)
+# 5. cloudflare ?대쭅 (90珥?怨좎젙 ??理쒕? 2遺??대쭅)
 tunnel_url = None
 for _ in range(40):
     time.sleep(3)
@@ -810,9 +810,9 @@ print("Tunnel URL:", tunnel_url)
 if tunnel_url:
     r = requests.post(f"{RAILWAY_URL}/api/set-qwen-url",
         json={"url": tunnel_url, "secret": ""})
-    print("Railway 등록:", r.status_code, r.json())
-    # 모델 자동 로딩 대기 (최대 10분)
-    print("모델 자동 로딩 대기 중... /health 폴링")
+    print("Railway ?깅줉:", r.status_code, r.json())
+    # 紐⑤뜽 ?먮룞 濡쒕뵫 ?湲?(理쒕? 10遺?
+    print("紐⑤뜽 ?먮룞 濡쒕뵫 ?湲?以?.. /health ?대쭅")
     for _w in range(200):
         time.sleep(3)
         try:
@@ -820,19 +820,19 @@ if tunnel_url:
             if hr.status_code == 200:
                 info = hr.json()
                 if info.get("backend", {}).get("ready", False):
-                    print(f"✅ 모델 로딩 완료! ({_w * 3}초)")
+                    print(f"??紐⑤뜽 濡쒕뵫 ?꾨즺! ({_w * 3}珥?")
                     break
                 else:
                     if _w % 10 == 0:
-                        print(f"모델 로딩 중... ({_w * 3}초 경과)")
+                        print(f"紐⑤뜽 濡쒕뵫 以?.. ({_w * 3}珥?寃쎄낵)")
         except Exception as e:
             if _w % 10 == 0:
-                print(f"서버 대기중: {e}")
+                print(f"?쒕쾭 ?湲곗쨷: {e}")
 else:
-    print("터널 URL을 찾지 못했습니다.")
+    print("?곕꼸 URL??李얠? 紐삵뻽?듬땲??")
 
-# 보이스 프로필 자동 동기화 (Railway → Kaggle)
-print("보이스 프로필 동기화 중...")
+# 蹂댁씠???꾨줈???먮룞 ?숆린??(Railway ??Kaggle)
+print("蹂댁씠???꾨줈???숆린??以?..")
 try:
     import base64, io
     pl_res = requests.get(f"{RAILWAY_URL}/api/voice-profile/list", timeout=10)
@@ -848,16 +848,16 @@ try:
                     "x_vector_only_mode": "false" if det.get("ref_text") else "true"}
             reg = requests.post(f"http://localhost:8880/v1/voice-library/profiles",
                                 files=files, data=data, timeout=30)
-            print(f"  {pname} 등록: {reg.status_code}")
+            print(f"  {pname} ?깅줉: {reg.status_code}")
         except Exception as pe:
-            print(f"  {pname} 실패: {pe}")
+            print(f"  {pname} ?ㅽ뙣: {pe}")
     if not profiles:
-        print("  저장된 프로필 없음")
+        print("  ??λ맂 ?꾨줈???놁쓬")
 except Exception as e:
-    print(f"프로필 동기화 실패: {e}")
+    print(f"?꾨줈???숆린???ㅽ뙣: {e}")
 
-# 커널 살아있는 동안 서버 유지 + 5분마다 URL 재등록 (Railway 재시작 대응)
-print("서버 유지 중... (최대 9시간)")
+# 而ㅻ꼸 ?댁븘?덈뒗 ?숈븞 ?쒕쾭 ?좎? + 5遺꾨쭏??URL ?щ벑濡?(Railway ?ъ떆?????
+print("?쒕쾭 ?좎? 以?.. (理쒕? 9?쒓컙)")
 _keep_tick = 0
 while True:
     time.sleep(60)
@@ -905,7 +905,7 @@ def _kaggle_push_sync(script: str):
             json.dump(notebook, f)
         with open(os.path.join(tmp, "kernel-metadata.json"), "w") as f:
             json.dump(meta, f)
-        # 디버그: 실제 쓰여진 메타데이터 확인
+        # ?붾쾭洹? ?ㅼ젣 ?곗뿬吏?硫뷀??곗씠???뺤씤
         with open(os.path.join(tmp, "kernel-metadata.json")) as dbg:
             logger.info(f"metadata content: {dbg.read()}")
         result = sp.run(["kaggle", "kernels", "push", "-p", tmp],
@@ -925,10 +925,10 @@ async def start_kaggle_server(req: Request):
     data = await req.json() if req.headers.get("content-type", "").startswith("application/json") else {}
     master_email = os.environ.get("MASTER_EMAIL", "master@gmail.com")
     if data.get("email", "").lower() != master_email.lower():
-        return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
+        return JSONResponse(status_code=403, content={"status": "error", "message": "沅뚰븳 ?놁쓬"})
     global _kaggle_start_time
     if not _GITHUB_TOKEN:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "GITHUB_TOKEN 미설정"})
+        return JSONResponse(status_code=503, content={"status": "error", "message": "GITHUB_TOKEN 誘몄꽕??})
 
     _kaggle_start_time = time.time()
     script = KAGGLE_SETUP_SCRIPT.replace("__GITHUB_TOKEN__", _GITHUB_TOKEN).replace("__RAILWAY_URL__", _RAILWAY_URL)
@@ -937,30 +937,30 @@ async def start_kaggle_server(req: Request):
         rc, out = await asyncio.get_event_loop().run_in_executor(None, _kaggle_push_sync, script)
         logger.info(f"kaggle push rc={rc} out={out[:200]}")
         if rc == 0:
-            return {"status": "ok", "message": "Kaggle 노트북 실행 시작됨"}
+            return {"status": "ok", "message": "Kaggle ?명듃遺??ㅽ뻾 ?쒖옉??}
         else:
-            return JSONResponse(status_code=500, content={"status": "error", "message": f"kaggle push 실패: {out[:300]}"})
+            return JSONResponse(status_code=500, content={"status": "error", "message": f"kaggle push ?ㅽ뙣: {out[:300]}"})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.get("/api/kaggle-status")
 async def get_kaggle_status():
-    # push 이후에 등록된 URL만 ready로 반환 (이전 세션 URL 무시)
+    # push ?댄썑???깅줉??URL留?ready濡?諛섑솚 (?댁쟾 ?몄뀡 URL 臾댁떆)
     if _kaggle_tts_url and _kaggle_url_registered_at >= _kaggle_start_time:
-        return {"status": "ready", "url": _kaggle_tts_url, "message": "✅ 서버 준비 완료!"}
+        return {"status": "ready", "url": _kaggle_tts_url, "message": "???쒕쾭 以鍮??꾨즺!"}
     try:
         out = await asyncio.get_event_loop().run_in_executor(None, _kaggle_status_sync)
         logger.info(f"kaggle status: {out[:100]}")
         if "running" in out.lower():
-            return {"status": "running", "message": "🔄 서버 시작 중... (약 2~3분 소요)"}
+            return {"status": "running", "message": "?봽 ?쒕쾭 ?쒖옉 以?.. (??2~3遺??뚯슂)"}
         elif "queued" in out.lower():
-            return {"status": "queued", "message": "⏳ GPU 할당 대기 중..."}
+            return {"status": "queued", "message": "??GPU ?좊떦 ?湲?以?.."}
         elif "complete" in out.lower():
-            return {"status": "complete", "message": "완료 (터널 등록 대기 중...)"}
+            return {"status": "complete", "message": "?꾨즺 (?곕꼸 ?깅줉 ?湲?以?..)"}
         elif "error" in out.lower():
-            return {"status": "error", "message": f"❌ 오류: {out[:100]}"}
+            return {"status": "error", "message": f"???ㅻ쪟: {out[:100]}"}
     except Exception as e:
-        logger.warning(f"Kaggle 상태 조회 실패: {e}")
+        logger.warning(f"Kaggle ?곹깭 議고쉶 ?ㅽ뙣: {e}")
     return {"status": "idle", "message": ""}
 
 @app.post("/api/stop-kaggle")
@@ -968,7 +968,7 @@ async def stop_kaggle_server(req: Request):
     data = await req.json() if req.headers.get("content-type", "").startswith("application/json") else {}
     master_email = os.environ.get("MASTER_EMAIL", "master@gmail.com")
     if data.get("email", "").lower() != master_email.lower():
-        return JSONResponse(status_code=403, content={"status": "error", "message": "권한 없음"})
+        return JSONResponse(status_code=403, content={"status": "error", "message": "沅뚰븳 ?놁쓬"})
     global _kaggle_tts_url
     try:
         import subprocess as sp
@@ -976,7 +976,7 @@ async def stop_kaggle_server(req: Request):
         sp.run(["kaggle", "kernels", "cancel", f"{_KAGGLE_USERNAME}/{_KAGGLE_KERNEL_SLUG}"],
                capture_output=True, timeout=30)
         _kaggle_tts_url = ""
-        return {"status": "ok", "message": "서버 중지 요청됨"}
+        return {"status": "ok", "message": "?쒕쾭 以묒? ?붿껌??}
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
@@ -985,7 +985,7 @@ class EmailCheckReq(BaseModel):
     password: str
 
 USER_DATA_FILE = "outputs/user_data.json"
-USER_DATA_TTL = 7 * 24 * 3600  # 1주일
+USER_DATA_TTL = 7 * 24 * 3600  # 1二쇱씪
 
 def _get_secret():
     return os.environ.get("SECRET_KEY", "ss-secret-2026-xK9")
@@ -1013,7 +1013,7 @@ def _persist_all_user_data(data: dict):
 
 @app.post("/api/check-access")
 async def check_access(req: EmailCheckReq):
-    # USERS 형식: "email1:pass1,email2:pass2" (개별 비밀번호)
+    # USERS ?뺤떇: "email1:pass1,email2:pass2" (媛쒕퀎 鍮꾨?踰덊샇)
     users_env = os.environ.get("USERS", "")
     if users_env:
         user_map = {}
@@ -1023,20 +1023,20 @@ async def check_access(req: EmailCheckReq):
                 e, p = entry.split(":", 1)
                 user_map[e.strip().lower()] = p.strip()
         if not user_map:
-            return JSONResponse(status_code=500, content={"status": "error", "message": "서버 설정 오류"})
+            return JSONResponse(status_code=500, content={"status": "error", "message": "?쒕쾭 ?ㅼ젙 ?ㅻ쪟"})
         stored = user_map.get(req.email.strip().lower())
         if stored and req.password == stored:
             return {"status": "ok", "token": _make_token(req.email.strip().lower())}
-        return JSONResponse(status_code=401, content={"status": "error", "message": "이메일 또는 비밀번호가 올바르지 않습니다"})
-    # 하위 호환: ALLOWED_EMAILS + ACCESS_PASSWORD
+        return JSONResponse(status_code=401, content={"status": "error", "message": "?대찓???먮뒗 鍮꾨?踰덊샇媛 ?щ컮瑜댁? ?딆뒿?덈떎"})
+    # ?섏쐞 ?명솚: ALLOWED_EMAILS + ACCESS_PASSWORD
     allowed = os.environ.get("ALLOWED_EMAILS", "")
     password = os.environ.get("ACCESS_PASSWORD", "")
     allowed_list = [e.strip().lower() for e in allowed.split(",") if e.strip()]
     if not allowed_list or not password:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "서버 설정 오류"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "?쒕쾭 ?ㅼ젙 ?ㅻ쪟"})
     if req.email.strip().lower() in allowed_list and req.password == password:
         return {"status": "ok", "token": _make_token(req.email.strip().lower())}
-    return JSONResponse(status_code=401, content={"status": "error", "message": "이메일 또는 비밀번호가 올바르지 않습니다"})
+    return JSONResponse(status_code=401, content={"status": "error", "message": "?대찓???먮뒗 鍮꾨?踰덊샇媛 ?щ컮瑜댁? ?딆뒿?덈떎"})
 
 class UserSaveReq(BaseModel):
     email: str
@@ -1046,11 +1046,11 @@ class UserSaveReq(BaseModel):
 @app.post("/api/user/save")
 async def user_save(req: UserSaveReq):
     if not _verify_token(req.email, req.token):
-        return JSONResponse(status_code=401, content={"status": "error", "message": "인증 실패"})
+        return JSONResponse(status_code=401, content={"status": "error", "message": "?몄쬆 ?ㅽ뙣"})
     all_data = _load_all_user_data()
     now = time.time()
     all_data[req.email.strip().lower()] = {"saved_at": now, "data": req.data}
-    # 만료된 데이터 정리
+    # 留뚮즺???곗씠???뺣━
     all_data = {k: v for k, v in all_data.items() if now - v.get("saved_at", 0) < USER_DATA_TTL}
     _persist_all_user_data(all_data)
     return {"status": "ok"}
@@ -1058,7 +1058,7 @@ async def user_save(req: UserSaveReq):
 @app.get("/api/user/load")
 async def user_load(email: str, token: str):
     if not _verify_token(email, token):
-        return JSONResponse(status_code=401, content={"status": "error", "message": "인증 실패"})
+        return JSONResponse(status_code=401, content={"status": "error", "message": "?몄쬆 ?ㅽ뙣"})
     all_data = _load_all_user_data()
     entry = all_data.get(email.strip().lower())
     if not entry:
@@ -1075,9 +1075,9 @@ async def api_progress():
 
 @app.post("/api/render")
 async def api_render(req: RenderRequest):
-    logger.info(f"렌더링 요청: {len(req.scenes)}장면 | {req.w}x{req.h} @ {req.fps}fps | 폰트={req.subtitle_font} | 트랜지션={req.transition_type}")
+    logger.info(f"?뚮뜑留??붿껌: {len(req.scenes)}?λ㈃ | {req.w}x{req.h} @ {req.fps}fps | ?고듃={req.subtitle_font} | ?몃옖吏??{req.transition_type}")
     try:
-        # Grok 동영상 씬에 실제 파일 경로 주입
+        # Grok ?숈쁺???ъ뿉 ?ㅼ젣 ?뚯씪 寃쎈줈 二쇱엯
         for i, scene in enumerate(req.scenes):
             if scene.grokVideo and not scene.grokVideoPath:
                 import re as _re
@@ -1094,21 +1094,21 @@ async def api_render(req: RenderRequest):
                     if fpath and os.path.exists(fpath):
                         scene.grokVideoPath = fpath
         output_file = await render_video(req)
-        logger.info(f"렌더링 완료: {output_file}")
+        logger.info(f"?뚮뜑留??꾨즺: {output_file}")
         return {"status": "success", "file": output_file}
     except Exception as e:
-        logger.error(f"렌더링 실패: {e}", exc_info=True)
+        logger.error(f"?뚮뜑留??ㅽ뙣: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"status": "error", "message": str(e)}
         )
 
-# ── Companion Task 저장소 (메모리) ────────────────────────────────────
-_companion_tasks: dict = {}  # task_id → {zip_url, device_id, status, created_at}
+# ?? Companion Task ??μ냼 (硫붾え由? ????????????????????????????????????
+_companion_tasks: dict = {}  # task_id ??{zip_url, device_id, status, created_at}
 
 @app.post("/api/preview-subtitles")
 async def api_preview_subtitles(req: RenderRequest):
-    """자막 분할 미리보기 — 씬별 script를 청크로 분할해 반환"""
+    """?먮쭑 遺꾪븷 誘몃━蹂닿린 ???щ퀎 script瑜?泥?겕濡?遺꾪븷??諛섑솚"""
     try:
         from renderer import build_scene_subtitle_preview
         previews = []
@@ -1119,18 +1119,18 @@ async def api_preview_subtitles(req: RenderRequest):
             previews.append({"lines": chunks})
         return {"status": "success", "previews": previews}
     except Exception as e:
-        logger.error(f"자막 분할 실패: {e}", exc_info=True)
+        logger.error(f"?먮쭑 遺꾪븷 ?ㅽ뙣: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.post("/api/export-capcut")
 async def api_export_capcut(req: RenderRequest):
-    """웹에서 CapCut 내보내기 요청 → ZIP 생성 → companion task 등록"""
+    """?뱀뿉??CapCut ?대낫?닿린 ?붿껌 ??ZIP ?앹꽦 ??companion task ?깅줉"""
     try:
         device_id = req.device_id or ""
         from renderer import export_capcut_project
         result = export_capcut_project(req, return_zip=True)
         if result.get("status") != "success":
-            return JSONResponse(status_code=500, content={"status": "error", "message": "CapCut 프로젝트 생성 실패"})
+            return JSONResponse(status_code=500, content={"status": "error", "message": "CapCut ?꾨줈?앺듃 ?앹꽦 ?ㅽ뙣"})
 
         zip_name  = result.get("zip_file")
         zip_url   = f"{SERVER_URL}/download-audio/{zip_name}"
@@ -1147,16 +1147,16 @@ async def api_export_capcut(req: RenderRequest):
         }
         return {"status": "success", "task_id": task_id, "draft_name": result["draft_name"]}
     except Exception as e:
-        logger.error(f"CapCut 내보내기 실패: {e}", exc_info=True)
+        logger.error(f"CapCut ?대낫?닿린 ?ㅽ뙣: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.get("/api/companion/task/poll")
 async def companion_poll(device_id: str = ""):
-    """Companion 앱이 3초마다 호출 → 자신의 device_id에 해당하는 pending 작업 반환"""
+    """Companion ?깆씠 3珥덈쭏???몄텧 ???먯떊??device_id???대떦?섎뒗 pending ?묒뾽 諛섑솚"""
     now = time.time()
     for tid, task in list(_companion_tasks.items()):
         if task["status"] == "pending" and (not device_id or task["device_id"] == device_id):
-            if now - task["created_at"] > 300:  # 5분 지난 작업 자동 삭제
+            if now - task["created_at"] > 300:  # 5遺?吏???묒뾽 ?먮룞 ??젣
                 del _companion_tasks[tid]
                 continue
             task["status"] = "sent"
@@ -1165,7 +1165,7 @@ async def companion_poll(device_id: str = ""):
 
 @app.post("/api/companion/task/{task_id}/complete")
 async def companion_complete(task_id: str, req: Request):
-    """Companion 앱이 작업 완료/실패 보고"""
+    """Companion ?깆씠 ?묒뾽 ?꾨즺/?ㅽ뙣 蹂닿퀬"""
     body = await req.json()
     if task_id in _companion_tasks:
         _companion_tasks[task_id]["status"] = body.get("status", "done")
@@ -1173,24 +1173,24 @@ async def companion_complete(task_id: str, req: Request):
 
 @app.get("/api/companion/task/{task_id}/status")
 async def companion_task_status(task_id: str):
-    """웹 프론트엔드가 작업 완료 여부 폴링"""
+    """???꾨줎?몄뿏?쒓? ?묒뾽 ?꾨즺 ?щ? ?대쭅"""
     task = _companion_tasks.get(task_id)
     if not task:
         return {"status": "not_found"}
     return {"status": task["status"], "draft_name": task.get("draft_name")}
 
-# ── Google Flow Task 저장소 (메모리) ─────────────────────────────────
-_flow_tasks: dict = {}  # task_id → {mode, prompt, image_url, status, result_url, created_at}
-_flow_last_poll: float = 0.0  # 워커 마지막 poll 시각
-_flow_login_requested: bool = False  # 재로그인 요청 플래그
+# ?? Google Flow Task ??μ냼 (硫붾え由? ?????????????????????????????????
+_flow_tasks: dict = {}  # task_id ??{mode, prompt, image_url, status, result_url, created_at}
+_flow_last_poll: float = 0.0  # ?뚯빱 留덉?留?poll ?쒓컖
+_flow_login_requested: bool = False  # ?щ줈洹몄씤 ?붿껌 ?뚮옒洹?
 
 @app.post("/api/flow/task")
 async def flow_create_task(req: Request):
-    """웹 프론트엔드가 Flow 작업 등록 (text2img 또는 img2video)"""
+    """???꾨줎?몄뿏?쒓? Flow ?묒뾽 ?깅줉 (text2img ?먮뒗 img2video)"""
     body = await req.json()
     mode = body.get("mode", "text2img")  # "text2img" | "img2video" | "text2img_video"
     if mode not in ("text2img", "img2video", "text2img_video"):
-        return JSONResponse(status_code=400, content={"status": "error", "message": "mode는 text2img, img2video, text2img_video"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "mode??text2img, img2video, text2img_video"})
 
     task_id = f"flow_{int(time.time())}_{mode[:3]}"
     _flow_tasks[task_id] = {
@@ -1198,7 +1198,7 @@ async def flow_create_task(req: Request):
         "mode":       mode,
         "prompt":     body.get("prompt", ""),
         "image_url":  body.get("image_url", ""),
-        "image_data": body.get("image_data", ""),  # base64 직접 (Railway 파일시스템 우회)
+        "image_data": body.get("image_data", ""),  # base64 吏곸젒 (Railway ?뚯씪?쒖뒪???고쉶)
         "delay":      int(body.get("delay", 10)),
         "status":     "pending",
         "result_url": "",
@@ -1208,7 +1208,7 @@ async def flow_create_task(req: Request):
 
 @app.get("/api/companion/latest")
 async def companion_latest():
-    ver = "1.3.15"
+    ver = "1.3.16"
     return {
         "version": ver,
         "download_url": f"https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v{ver}.bat"
@@ -1216,20 +1216,20 @@ async def companion_latest():
 
 @app.get("/api/flow/worker/status")
 async def flow_worker_status():
-    """프론트엔드에서 Flow 워커 연결 여부 확인"""
+    """?꾨줎?몄뿏?쒖뿉??Flow ?뚯빱 ?곌껐 ?щ? ?뺤씤"""
     connected = (time.time() - _flow_last_poll) < 30
     return {"connected": connected}
 
 @app.post("/api/flow/worker/request-login")
 async def flow_request_login():
-    """프론트엔드에서 구글 재로그인 요청 → 다음 poll에서 워커가 감지"""
+    """?꾨줎?몄뿏?쒖뿉??援ш? ?щ줈洹몄씤 ?붿껌 ???ㅼ쓬 poll?먯꽌 ?뚯빱媛 媛먯?"""
     global _flow_login_requested
     _flow_login_requested = True
     return {"ok": True}
 
 @app.get("/api/flow/task/poll")
 async def flow_poll():
-    """로컬 Flow 워커가 주기적으로 호출 → pending 작업 반환"""
+    """濡쒖뺄 Flow ?뚯빱媛 二쇨린?곸쑝濡??몄텧 ??pending ?묒뾽 諛섑솚"""
     global _flow_last_poll, _flow_login_requested
     _flow_last_poll = time.time()
     if _flow_login_requested:
@@ -1238,7 +1238,7 @@ async def flow_poll():
     now = time.time()
     for tid, task in list(_flow_tasks.items()):
         if task["status"] == "pending":
-            if now - task["created_at"] > 900:  # 15분 초과 자동 삭제
+            if now - task["created_at"] > 900:  # 15遺?珥덇낵 ?먮룞 ??젣
                 del _flow_tasks[tid]
                 continue
             task["status"] = "sent"
@@ -1247,7 +1247,7 @@ async def flow_poll():
 
 @app.post("/api/flow/task/{task_id}/complete")
 async def flow_complete(task_id: str, req: Request):
-    """로컬 워커가 Flow 작업 완료/실패 보고"""
+    """濡쒖뺄 ?뚯빱媛 Flow ?묒뾽 ?꾨즺/?ㅽ뙣 蹂닿퀬"""
     body = await req.json()
     if task_id in _flow_tasks:
         _flow_tasks[task_id]["status"] = body.get("status", "done")
@@ -1257,7 +1257,7 @@ async def flow_complete(task_id: str, req: Request):
 
 @app.get("/api/flow/task/{task_id}/status")
 async def flow_task_status(task_id: str):
-    """웹 프론트엔드가 작업 상태 폴링"""
+    """???꾨줎?몄뿏?쒓? ?묒뾽 ?곹깭 ?대쭅"""
     task = _flow_tasks.get(task_id)
     if not task:
         return {"status": "not_found"}
@@ -1270,12 +1270,12 @@ async def flow_task_status(task_id: str):
 
 @app.get("/api/flow/tasks")
 async def flow_list_tasks():
-    """현재 큐에 있는 모든 Flow 작업 목록 (디버그용)"""
+    """?꾩옱 ?먯뿉 ?덈뒗 紐⑤뱺 Flow ?묒뾽 紐⑸줉 (?붾쾭洹몄슜)"""
     return {"tasks": list(_flow_tasks.values())}
 
 @app.post("/api/flow/upload")
 async def flow_upload(file: UploadFile = File(...)):
-    """로컬 워커가 Flow 결과물(이미지/영상)을 서버에 업로드"""
+    """濡쒖뺄 ?뚯빱媛 Flow 寃곌낵臾??대?吏/?곸긽)???쒕쾭???낅줈??""
     out_dir = "outputs"
     os.makedirs(out_dir, exist_ok=True)
     safe_name = f"flow_{int(time.time())}_{file.filename}"
@@ -1291,7 +1291,7 @@ async def api_export_xml(req: RenderRequest):
         from renderer import export_premiere_xml
         result = export_premiere_xml(req)
         if result.get("status") != "success":
-            return JSONResponse(status_code=500, content={"status": "error", "message": "XML 생성 실패"})
+            return JSONResponse(status_code=500, content={"status": "error", "message": "XML ?앹꽦 ?ㅽ뙣"})
 
         import zipfile as _zf
         out_dir = "outputs"
@@ -1309,7 +1309,7 @@ async def api_export_xml(req: RenderRequest):
         return {"status": "success", "zip_file": zip_name, "file_count": 2,
                 "xml_file": result["xml_file"], "srt_file": result["srt_file"]}
     except Exception as e:
-        logger.error(f"XML 내보내기 실패: {e}", exc_info=True)
+        logger.error(f"XML ?대낫?닿린 ?ㅽ뙣: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 _whisper_model = None
@@ -1317,7 +1317,7 @@ _whisper_model = None
 def _get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
-        # PyInstaller 번들: _MEIPASS를 PATH에 추가해 whisper가 ffmpeg 찾도록 보장
+        # PyInstaller 踰덈뱾: _MEIPASS瑜?PATH??異붽???whisper媛 ffmpeg 李얜룄濡?蹂댁옣
         _meipass = getattr(sys, '_MEIPASS', None)
         if _meipass and _meipass not in os.environ.get('PATH', ''):
             os.environ['PATH'] = _meipass + os.pathsep + os.environ.get('PATH', '')
@@ -1329,15 +1329,15 @@ def _get_whisper_model():
 
 @app.post("/api/analyze-audio")
 async def analyze_audio(file: UploadFile = File(...)):
-    """Whisper로 음성 파일을 분석하여 단어별 타이밍 정보 반환"""
+    """Whisper濡??뚯꽦 ?뚯씪??遺꾩꽍?섏뿬 ?⑥뼱蹂???대컢 ?뺣낫 諛섑솚"""
     try:
         import whisper as _whisper
     except ImportError:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "Whisper 미설치 (로컬 서버 전용 기능)"})
+        return JSONResponse(status_code=503, content={"status": "error", "message": "Whisper 誘몄꽕移?(濡쒖뺄 ?쒕쾭 ?꾩슜 湲곕뒫)"})
 
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
     try:
-        logger.info(f"음성 분석 시작: {file.filename}")
+        logger.info(f"?뚯꽦 遺꾩꽍 ?쒖옉: {file.filename}")
         with os.fdopen(tmp_fd, 'wb') as f:
             f.write(await file.read())
 
@@ -1354,10 +1354,10 @@ async def analyze_audio(file: UploadFile = File(...)):
                         timings.append({"word": word["word"], "start": word["start"], "end": word["end"]})
 
         full_text = result.get("text", "").strip()
-        logger.info(f"음성 분석 완료: {len(timings)}개 단어 감지")
+        logger.info(f"?뚯꽦 遺꾩꽍 ?꾨즺: {len(timings)}媛??⑥뼱 媛먯?")
         return {"status": "success", "text": full_text, "timings": timings, "duration": result.get("duration", 0)}
     except Exception as e:
-        logger.error(f"음성 분석 실패: {e}", exc_info=True)
+        logger.error(f"?뚯꽦 遺꾩꽍 ?ㅽ뙣: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
     finally:
         try:
@@ -1397,7 +1397,7 @@ async def download_file(filename: str):
 
 @app.post("/api/save-video-upload")
 async def save_video_upload(request: Request):
-    """WebCodecs 렌더링 결과를 스트리밍으로 받아 outputs에 저장"""
+    """WebCodecs ?뚮뜑留?寃곌낵瑜??ㅽ듃由щ컢?쇰줈 諛쏆븘 outputs?????""
     try:
         os.makedirs("outputs", exist_ok=True)
         filename = f"video_{int(time.time())}.mp4"
@@ -1408,7 +1408,7 @@ async def save_video_upload(request: Request):
         abs_path = os.path.abspath(file_path)
         return {"status": "ok", "filename": filename, "path": abs_path}
     except Exception as e:
-        logger.error(f"save-video-upload 오류: {e}")
+        logger.error(f"save-video-upload ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.get("/api/output-path/{filename}")
@@ -1417,7 +1417,7 @@ async def get_output_path(filename: str):
     abs_path = os.path.abspath(file_path)
     if os.path.exists(abs_path):
         return {"status": "ok", "path": abs_path}
-    return JSONResponse(status_code=404, content={"status": "error", "message": "파일 없음"})
+    return JSONResponse(status_code=404, content={"status": "error", "message": "?뚯씪 ?놁쓬"})
 
 @app.post("/api/save-audio")
 async def save_audio_named(request: Request):
@@ -1426,7 +1426,7 @@ async def save_audio_named(request: Request):
     b64 = data.get("data", "")
     filename = data.get("filename", f"audio_{int(time.time())}.wav")
     if not b64:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "데이터 없음"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?곗씠???놁쓬"})
     try:
         os.makedirs("outputs", exist_ok=True)
         file_path = os.path.join("outputs", filename)
@@ -1448,8 +1448,8 @@ async def download_audio_file(filename: str, request: Request):
         "mp4": "video/mp4", "webm": "video/webm", "gif": "image/gif",
         "zip": "application/zip",
     }.get(ext, "application/octet-stream")
-    # filename 파라미터 제거 → Content-Disposition: inline (브라우저 인라인 재생)
-    # FileResponse는 Starlette에서 Range 요청 자동 지원
+    # filename ?뚮씪誘명꽣 ?쒓굅 ??Content-Disposition: inline (釉뚮씪?곗? ?몃씪???ъ깮)
+    # FileResponse??Starlette?먯꽌 Range ?붿껌 ?먮룞 吏??
     return FileResponse(path=file_path, media_type=media_type, headers={"Accept-Ranges": "bytes"})
 
 @app.post("/api/upload-audio")
@@ -1464,15 +1464,15 @@ async def upload_audio(file: UploadFile = File(...)):
         abs_path = os.path.abspath(file_path)
         return {"status": "success", "filename": filename, "path": abs_path}
     except Exception as e:
-        logger.error(f"upload-audio 오류: {e}")
+        logger.error(f"upload-audio ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.post("/api/save-image")
 async def save_image(request: Request):
-    """base64 이미지를 outputs 폴더에 저장 후 다운로드 URL 반환"""
+    """base64 ?대?吏瑜?outputs ?대뜑????????ㅼ슫濡쒕뱶 URL 諛섑솚"""
     data = await request.json()
     b64 = data.get("data", "") or data.get("image", "")
-    # data URL 형식(data:image/png;base64,xxx)이면 base64 부분만 추출
+    # data URL ?뺤떇(data:image/png;base64,xxx)?대㈃ base64 遺遺꾨쭔 異붿텧
     if b64 and "," in b64:
         b64 = b64.split(",", 1)[1]
     ext = data.get("ext", "png")
@@ -1482,7 +1482,7 @@ async def save_image(request: Request):
             ext = "jpg"
     filename = data.get("filename", f"image_{int(time.time())}.{ext}")
     if not b64:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "데이터 없음"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?곗씠???놁쓬"})
     try:
         import base64 as _b64
         os.makedirs("outputs", exist_ok=True)
@@ -1504,21 +1504,21 @@ async def download_image_file(filename: str):
 
 @app.post("/api/save-all-images")
 async def save_all_images(request: Request):
-    """여러 이미지를 outputs 폴더에 저장하고 ZIP으로 묶어서 경로 반환"""
+    """?щ윭 ?대?吏瑜?outputs ?대뜑????ν븯怨?ZIP?쇰줈 臾띠뼱??寃쎈줈 諛섑솚"""
     import base64 as _b64
     import zipfile
     data = await request.json()
-    images = data.get("images", [])        # [{filename, data, ext}, ...] — base64
-    server_files = data.get("server_files", [])  # [{zipName, filename}, ...] — 서버 저장 파일
+    images = data.get("images", [])        # [{filename, data, ext}, ...] ??base64
+    server_files = data.get("server_files", [])  # [{zipName, filename}, ...] ???쒕쾭 ????뚯씪
     if not images and not server_files:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "이미지 없음"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?대?吏 ?놁쓬"})
     try:
         os.makedirs("outputs", exist_ok=True)
         zip_name = f"images_{int(time.time())}.zip"
         zip_path = os.path.join("outputs", zip_name)
         saved = []
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as zf:
-            # base64 이미지
+            # base64 ?대?吏
             for img in images:
                 fn = img.get("filename", f"scene_{int(time.time())}.png")
                 b64 = img.get("data", "")
@@ -1526,7 +1526,7 @@ async def save_all_images(request: Request):
                     continue
                 zf.writestr(fn, _b64.b64decode(b64))
                 saved.append(fn)
-            # 서버 저장 파일
+            # ?쒕쾭 ????뚯씪
             for sf in server_files:
                 src = os.path.join("outputs", sf.get("filename", ""))
                 zip_entry = sf.get("zipName", sf.get("filename", ""))
@@ -1534,24 +1534,24 @@ async def save_all_images(request: Request):
                     zf.write(src, zip_entry)
                     saved.append(zip_entry)
         if not saved:
-            return JSONResponse(status_code=400, content={"status": "error", "message": "이미지 없음"})
+            return JSONResponse(status_code=400, content={"status": "error", "message": "?대?吏 ?놁쓬"})
         return {"status": "ok", "zip": zip_name, "count": len(saved), "path": f"outputs/{zip_name}"}
     except Exception as e:
-        logger.error(f"save-all-images 오류: {e}")
+        logger.error(f"save-all-images ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.post("/api/youtube-transcripts")
 async def youtube_transcripts(request: Request):
-    """유튜브 채널 URL → 최근 영상 2~3개 자막 자동 수집"""
+    """?좏뒠釉?梨꾨꼸 URL ??理쒓렐 ?곸긽 2~3媛??먮쭑 ?먮룞 ?섏쭛"""
     import re
     try:
         from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
     except ImportError:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "youtube-transcript-api 미설치"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "youtube-transcript-api 誘몄꽕移?})
 
     data = await request.json()
     channel_url = data.get("channel_url", "").strip()
-    video_urls  = data.get("video_urls", [])   # 개별 영상 URL 목록 (채널 대신 직접 지정 가능)
+    video_urls  = data.get("video_urls", [])   # 媛쒕퀎 ?곸긽 URL 紐⑸줉 (梨꾨꼸 ???吏곸젒 吏??媛??
 
     def extract_video_id(url: str):
         m = re.search(r'(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})', url)
@@ -1573,7 +1573,7 @@ async def youtube_transcripts(request: Request):
         except Exception:
             return None
 
-    # 영상 URL 목록이 직접 주어진 경우
+    # ?곸긽 URL 紐⑸줉??吏곸젒 二쇱뼱吏?寃쎌슦
     if video_urls:
         results = []
         for url in video_urls[:5]:
@@ -1584,23 +1584,23 @@ async def youtube_transcripts(request: Request):
             if txt:
                 results.append({"video_id": vid, "url": url, "transcript": txt})
         if not results:
-            return JSONResponse(status_code=404, content={"status": "error", "message": "자막을 가져올 수 없습니다. 자막이 비활성화된 영상이거나 지원하지 않는 형식입니다."})
+            return JSONResponse(status_code=404, content={"status": "error", "message": "?먮쭑??媛?몄삱 ???놁뒿?덈떎. ?먮쭑??鍮꾪솢?깊솕???곸긽?닿굅??吏?먰븯吏 ?딅뒗 ?뺤떇?낅땲??"})
         return {"status": "ok", "transcripts": results}
 
-    # 채널 URL에서 최근 영상 ID 추출 (yt-dlp 없이 간단 스크래핑)
+    # 梨꾨꼸 URL?먯꽌 理쒓렐 ?곸긽 ID 異붿텧 (yt-dlp ?놁씠 媛꾨떒 ?ㅽ겕?섑븨)
     if not channel_url:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "channel_url 또는 video_urls 필요"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "channel_url ?먮뒗 video_urls ?꾩슂"})
 
     try:
         import urllib.request
         import html
-        # 채널 페이지 HTML에서 영상 ID 추출
+        # 梨꾨꼸 ?섏씠吏 HTML?먯꽌 ?곸긽 ID 異붿텧
         req = urllib.request.Request(channel_url + "/videos", headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             page = resp.read().decode("utf-8", errors="ignore")
         vids = list(dict.fromkeys(re.findall(r'"videoId":"([A-Za-z0-9_-]{11})"', page)))[:5]
         if not vids:
-            return JSONResponse(status_code=404, content={"status": "error", "message": "채널에서 영상을 찾을 수 없습니다. 영상 URL을 직접 입력해주세요."})
+            return JSONResponse(status_code=404, content={"status": "error", "message": "梨꾨꼸?먯꽌 ?곸긽??李얠쓣 ???놁뒿?덈떎. ?곸긽 URL??吏곸젒 ?낅젰?댁＜?몄슂."})
         results = []
         for vid in vids:
             txt = fetch_transcript(vid)
@@ -1609,18 +1609,18 @@ async def youtube_transcripts(request: Request):
             if len(results) >= 3:
                 break
         if not results:
-            return JSONResponse(status_code=404, content={"status": "error", "message": "자막이 있는 영상을 찾지 못했습니다. 영상 URL을 직접 입력해주세요."})
+            return JSONResponse(status_code=404, content={"status": "error", "message": "?먮쭑???덈뒗 ?곸긽??李얠? 紐삵뻽?듬땲?? ?곸긽 URL??吏곸젒 ?낅젰?댁＜?몄슂."})
         return {"status": "ok", "transcripts": results}
     except Exception as e:
-        logger.error(f"youtube-transcripts 오류: {e}")
+        logger.error(f"youtube-transcripts ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 
-# ── GrokBridge API ──
+# ?? GrokBridge API ??
 
 @app.get("/api/grok/status")
 async def grok_status():
-    """GrokBridge 연결 상태 반환"""
+    """GrokBridge ?곌껐 ?곹깭 諛섑솚"""
     if not _grok_available or not _grok_bridge:
         return {"status": "ok", "available": False, "running": False, "connected": False, "error": _grok_load_error[:300] if _grok_load_error else ""}
     return {
@@ -1638,9 +1638,9 @@ async def grok_status():
 
 @app.post("/api/grok/start")
 async def grok_start():
-    """GrokBridge WebSocket 서버 시작 (포트 9876)"""
+    """GrokBridge WebSocket ?쒕쾭 ?쒖옉 (?ы듃 9876)"""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     try:
         if not _grok_bridge.is_running:
             await _grok_bridge.start()
@@ -1650,7 +1650,7 @@ async def grok_start():
 
 @app.post("/api/grok/open-chrome")
 async def grok_open_chrome():
-    """Chrome을 열고 grok.com으로 이동"""
+    """Chrome???닿퀬 grok.com?쇰줈 ?대룞"""
     import subprocess as _sp
     url = "https://grok.com"
     if sys.platform == "win32":
@@ -1669,13 +1669,13 @@ async def grok_open_chrome():
         except Exception as e:
             return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
     else:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "Chrome 자동 실행은 Windows 전용 기능입니다."})
+        return JSONResponse(status_code=503, content={"status": "error", "message": "Chrome ?먮룞 ?ㅽ뻾? Windows ?꾩슜 湲곕뒫?낅땲??"})
 
 @app.post("/api/grok/stop")
 async def grok_stop():
-    """GrokBridge WebSocket 서버 중지"""
+    """GrokBridge WebSocket ?쒕쾭 以묒?"""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     try:
         await _grok_bridge.stop()
         return {"status": "ok", "running": _grok_bridge.is_running}
@@ -1687,13 +1687,13 @@ class GrokSetFolderReq(BaseModel):
 
 @app.post("/api/grok/set-folder")
 async def grok_set_folder(req: GrokSetFolderReq):
-    """다운로드 폴더 설정"""
+    """?ㅼ슫濡쒕뱶 ?대뜑 ?ㅼ젙"""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     try:
         folder = req.download_folder.strip()
         if not folder:
-            return JSONResponse(status_code=400, content={"status": "error", "message": "폴더 경로 필요"})
+            return JSONResponse(status_code=400, content={"status": "error", "message": "?대뜑 寃쎈줈 ?꾩슂"})
         os.makedirs(folder, exist_ok=True)
         _grok_bridge.download_folder = folder
         if _grok_bridge.is_connected:
@@ -1774,33 +1774,33 @@ def _process_grok_image_and_prompt(t: GrokTask, use_crop169: bool, use_korean_te
 
 @app.post("/api/grok/send-tasks")
 async def grok_send_tasks(req: GrokSendTasksReq):
-    """씬 작업 목록을 MakeLensAuto 확장프로그램으로 전송"""
+    """???묒뾽 紐⑸줉??MakeLensAuto ?뺤옣?꾨줈洹몃옩?쇰줈 ?꾩넚"""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     if not _grok_bridge.is_running:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "GrokBridge 서버가 실행 중이 아닙니다. 먼저 서버를 시작해주세요."})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "GrokBridge ?쒕쾭媛 ?ㅽ뻾 以묒씠 ?꾨떃?덈떎. 癒쇱? ?쒕쾭瑜??쒖옉?댁＜?몄슂."})
     if not _grok_bridge.is_connected:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "MakeLensAuto 확장프로그램이 연결되지 않았습니다."})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "MakeLensAuto ?뺤옣?꾨줈洹몃옩???곌껐?섏? ?딆븯?듬땲??"})
     try:
         global _grok_session_start_time, _grok_completed_videos, _grok_task_cache
-        # 새 세션 시작 전 이전 작업 취소 (확장앱 대기열 초기화)
+        # ???몄뀡 ?쒖옉 ???댁쟾 ?묒뾽 痍⑥냼 (?뺤옣???湲곗뿴 珥덇린??
         await _grok_bridge.cancel_all_tasks()
         
         import asyncio
-        await asyncio.sleep(0.5)  # 확장앱이 CANCEL_ALL을 처리하고 큐를 비울 시간을 약간 줌
+        await asyncio.sleep(0.5)  # ?뺤옣?깆씠 CANCEL_ALL??泥섎━?섍퀬 ?먮? 鍮꾩슱 ?쒓컙???쎄컙 以?
 
-        # 이전 완료 목록 초기화 + 현재 시각 기록
+        # ?댁쟾 ?꾨즺 紐⑸줉 珥덇린??+ ?꾩옱 ?쒓컖 湲곕줉
         _grok_completed_videos = {}
         _grok_session_start_time = time.time()
 
-        # 다운로드 폴더 설정
+        # ?ㅼ슫濡쒕뱶 ?대뜑 ?ㅼ젙
         if req.download_folder:
             folder = req.download_folder.strip()
             os.makedirs(folder, exist_ok=True)
             _grok_bridge.download_folder = folder
             await _grok_bridge.set_project_path(folder, folder)
 
-        # 배치 모드 설정: 실패해도 다음 작업 계속 진행
+        # 諛곗튂 紐⑤뱶 ?ㅼ젙: ?ㅽ뙣?대룄 ?ㅼ쓬 ?묒뾽 怨꾩냽 吏꾪뻾
         await _grok_bridge.update_settings({
             "continueOnError": True,
             "maxRetryCount": 3
@@ -1816,26 +1816,26 @@ async def grok_send_tasks(req: GrokSendTasksReq):
                 "folderName": ""
             })
 
-        # 캐시에 저장하여 재실행 요청 시 사용
+        # 罹먯떆????ν븯???ъ떎???붿껌 ???ъ슜
         for t in tasks_info:
             _grok_task_cache[t["sceneNo"]] = t
 
-        # 사이드패널에 전체 목록 미리보기 먼저 전송
+        # ?ъ씠?쒗뙣?먯뿉 ?꾩껜 紐⑸줉 誘몃━蹂닿린 癒쇱? ?꾩넚
         preview_info = [{"sceneNo": t["sceneNo"], "prompt": t["prompt"], "folderName": ""} for t in tasks_info]
         await _grok_bridge.send_queue_preview(preview_info, is_new_run=True)
 
         await _grok_bridge.add_all_tasks(tasks_info)
         return {"status": "ok", "sent": len(tasks_info)}
     except Exception as e:
-        logger.error(f"grok/send-tasks 오류: {e}")
+        logger.error(f"grok/send-tasks ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 @app.get("/api/grok/completed")
 async def grok_completed():
-    """완료된 Grok 영상 목록 반환 (프론트엔드가 폴링하여 씬에 적용)"""
+    """?꾨즺??Grok ?곸긽 紐⑸줉 諛섑솚 (?꾨줎?몄뿏?쒓? ?대쭅?섏뿬 ?ъ뿉 ?곸슜)"""
     import re
 
-    # 세션 시작 후 지정 폴더에 생성된 scene_XX_grok.mp4 파일만 스캔
+    # ?몄뀡 ?쒖옉 ??吏???대뜑???앹꽦??scene_XX_grok.mp4 ?뚯씪留??ㅼ틪
     if _grok_session_start_time > 0 and _grok_bridge and _grok_bridge.download_folder and os.path.isdir(_grok_bridge.download_folder):
         folder = _grok_bridge.download_folder
         for fname in os.listdir(folder):
@@ -1859,18 +1859,18 @@ async def grok_completed():
 
 @app.get("/api/grok/video/{scene_no}")
 async def grok_video_file(scene_no: int):
-    """씬 번호로 Grok 생성 영상 파일 제공"""
+    """??踰덊샇濡?Grok ?앹꽦 ?곸긽 ?뚯씪 ?쒓났"""
     video_path = _grok_completed_videos.get(scene_no)
     if not video_path or not os.path.exists(video_path):
-        return JSONResponse(status_code=404, content={"error": "영상 없음"})
+        return JSONResponse(status_code=404, content={"error": "?곸긽 ?놁쓬"})
     return FileResponse(path=video_path, media_type="video/mp4",
                         filename=os.path.basename(video_path))
 
 @app.post("/api/grok/cancel")
 async def grok_cancel():
-    """전체 작업 취소"""
+    """?꾩껜 ?묒뾽 痍⑥냼"""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     try:
         await _grok_bridge.cancel_all_tasks()
         return {"status": "ok"}
@@ -1880,11 +1880,11 @@ async def grok_cancel():
 
 @app.post("/api/grok/resume")
 async def grok_resume():
-    """실패로 멈춘 대기열 이어서 실행"""
+    """?ㅽ뙣濡?硫덉텣 ?湲곗뿴 ?댁뼱???ㅽ뻾"""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     if not _grok_bridge.is_connected:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "확장프로그램이 연결되지 않았습니다."})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?뺤옣?꾨줈洹몃옩???곌껐?섏? ?딆븯?듬땲??"})
     try:
         await _grok_bridge.resume_queue()
         return {"status": "ok"}
@@ -1900,11 +1900,11 @@ class GrokUpdateSettingsReq(BaseModel):
 
 @app.post("/api/grok/update-settings")
 async def grok_update_settings(req: GrokUpdateSettingsReq):
-    """확장앱 런타임 설정 변경"""
+    """?뺤옣???고????ㅼ젙 蹂寃?""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     if not _grok_bridge.is_connected:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "확장프로그램이 연결되지 않았습니다."})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?뺤옣?꾨줈洹몃옩???곌껐?섏? ?딆븯?듬땲??"})
     try:
         settings = {k: v for k, v in req.dict().items() if v is not None}
         await _grok_bridge.update_settings(settings)
@@ -1920,11 +1920,11 @@ class GrokRetrySceneReq(BaseModel):
 
 @app.post("/api/grok/retry-scene")
 async def grok_retry_scene(req: GrokRetrySceneReq):
-    """특정 씬 재실행"""
+    """?뱀젙 ???ъ떎??""
     if not _grok_available or not _grok_bridge:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge 없음"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "grok_bridge ?놁쓬"})
     if not _grok_bridge.is_connected:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "확장프로그램이 연결되지 않았습니다."})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "?뺤옣?꾨줈洹몃옩???곌껐?섏? ?딆븯?듬땲??"})
     try:
         await _grok_bridge.send_retry_scene_data(
             scene_no=req.sceneNo,
@@ -1959,10 +1959,10 @@ def _qwen_bat_path() -> str:
 @app.post("/api/start-qwen-server")
 async def start_qwen_server():
     if sys.platform != "win32":
-        return JSONResponse({"ok": False, "error": "Qwen3-TTS는 로컬 Windows 전용 기능입니다."}, status_code=503)
+        return JSONResponse({"ok": False, "error": "Qwen3-TTS??濡쒖뺄 Windows ?꾩슜 湲곕뒫?낅땲??"}, status_code=503)
     bat_path = _qwen_bat_path()
     if not bat_path:
-        return JSONResponse({"ok": False, "error": "Qwen3-TTS 런처를 찾을 수 없습니다."}, status_code=404)
+        return JSONResponse({"ok": False, "error": "Qwen3-TTS ?곗쿂瑜?李얠쓣 ???놁뒿?덈떎."}, status_code=404)
     try:
         subprocess.Popen(bat_path, creationflags=subprocess.CREATE_NEW_CONSOLE, shell=True)
         return JSONResponse({"ok": True, "bat": bat_path})
@@ -1978,10 +1978,10 @@ def _get_whisper_model():
         from faster_whisper import WhisperModel
         try:
             _whisper_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
-            logger.info("[Whisper] large-v3 CUDA 로드 완료")
+            logger.info("[Whisper] large-v3 CUDA 濡쒕뱶 ?꾨즺")
         except Exception:
             _whisper_model = WhisperModel("large-v3", device="cpu", compute_type="int8")
-            logger.info("[Whisper] large-v3 CPU 로드 완료")
+            logger.info("[Whisper] large-v3 CPU 濡쒕뱶 ?꾨즺")
     return _whisper_model
 
 @app.post("/api/whisper-align")
@@ -1989,19 +1989,19 @@ async def whisper_align(request: Request):
     try:
         from faster_whisper import WhisperModel as _WM
     except ImportError:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "faster-whisper 미설치 (로컬 서버 전용 기능)"})
+        return JSONResponse(status_code=503, content={"status": "error", "message": "faster-whisper 誘몄꽕移?(濡쒖뺄 ?쒕쾭 ?꾩슜 湲곕뒫)"})
     data = await request.json()
     audio_url = data.get("audio_url", "")
     if not audio_url:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "audio_url 없음"})
-    # URL → 파일 경로 변환
+        return JSONResponse(status_code=400, content={"status": "error", "message": "audio_url ?놁쓬"})
+    # URL ???뚯씪 寃쎈줈 蹂??
     if audio_url.startswith("/download-audio/"):
         filename = audio_url.replace("/download-audio/", "")
         audio_path = os.path.join("outputs", filename)
     else:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "지원하지 않는 URL 형식"})
+        return JSONResponse(status_code=400, content={"status": "error", "message": "吏?먰븯吏 ?딅뒗 URL ?뺤떇"})
     if not os.path.exists(audio_path):
-        return JSONResponse(status_code=404, content={"status": "error", "message": f"파일 없음: {audio_path}"})
+        return JSONResponse(status_code=404, content={"status": "error", "message": f"?뚯씪 ?놁쓬: {audio_path}"})
     try:
         model = await asyncio.to_thread(_get_whisper_model)
         def _transcribe():
@@ -2017,7 +2017,7 @@ async def whisper_align(request: Request):
         timings = await asyncio.to_thread(_transcribe)
         return {"status": "ok", "timings": timings}
     except Exception as e:
-        logger.error(f"[Whisper] 오류: {e}")
+        logger.error(f"[Whisper] ?ㅻ쪟: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 
@@ -2037,9 +2037,9 @@ if __name__ == "__main__":
                 if _grok_available and _grok_bridge:
                     try:
                         await _grok_bridge.start()
-                        print("[ScriptStudio] GrokBridge WebSocket 서버 시작: ws://localhost:9876")
+                        print("[ScriptStudio] GrokBridge WebSocket ?쒕쾭 ?쒖옉: ws://localhost:9876")
                     except Exception as _be:
-                        print(f"[ScriptStudio] GrokBridge 시작 실패 (무시): {_be}")
+                        print(f"[ScriptStudio] GrokBridge ?쒖옉 ?ㅽ뙣 (臾댁떆): {_be}")
                 config = uvicorn.Config(app, host="127.0.0.1", port=8000, reload=False)
                 server = uvicorn.Server(config)
                 await server.serve()
@@ -2047,7 +2047,7 @@ if __name__ == "__main__":
 
         t = threading.Thread(target=_run_server, daemon=True)
         t.start()
-        time.sleep(1.5)  # 서버 기동 대기
+        time.sleep(1.5)  # ?쒕쾭 湲곕룞 ?湲?
 
         webview.create_window(
             "ScriptStudio",
@@ -2059,10 +2059,11 @@ if __name__ == "__main__":
         webview.start()
 
     except ImportError:
-        # pywebview 미설치 시 브라우저로 폴백
+        # pywebview 誘몄꽕移???釉뚮씪?곗?濡??대갚
         import webbrowser
         def _open_browser():
             time.sleep(1.2)
             webbrowser.open("http://localhost:8000")
         threading.Thread(target=_open_browser, daemon=True).start()
         uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+
