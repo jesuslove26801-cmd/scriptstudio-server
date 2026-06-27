@@ -1208,7 +1208,7 @@ async def flow_create_task(req: Request):
 
 @app.get("/api/companion/latest")
 async def companion_latest():
-    ver = "1.3.16"
+    ver = "1.3.17"
     return {
         "version": ver,
         "download_url": f"https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v{ver}.bat"
@@ -2066,4 +2066,5 @@ if __name__ == "__main__":
             webbrowser.open("http://localhost:8000")
         threading.Thread(target=_open_browser, daemon=True).start()
         uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+
 
