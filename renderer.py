@@ -1234,7 +1234,13 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                 else:
                     resolved_audio = candidate
         if resolved_audio and os.path.exists(resolved_audio):
-            audio_seg = cc.AudioSegment(os.path.abspath(resolved_audio), trange(timeline_us, audio_dur_us))
+            try:
+                from pycapcut.local_materials import AudioMaterial as _AM
+                _am = _AM(os.path.abspath(resolved_audio))
+                _safe_dur_us = min(audio_dur_us, _am.duration)
+            except Exception:
+                _safe_dur_us = audio_dur_us
+            audio_seg = cc.AudioSegment(os.path.abspath(resolved_audio), trange(timeline_us, _safe_dur_us))
             script.add_segment(audio_seg)
 
         # 자막: subtitleTimings 있으면 청크별, 없으면 script 전체를 단일 자막으로
