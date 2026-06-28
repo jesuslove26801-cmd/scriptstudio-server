@@ -835,7 +835,7 @@ input[type=password]:focus { border-color: var(--acc); }
     <span style="font-size:15px;">🔔</span>
     <span id="ss-update-bar-title" style="color:#fbbf24;font-weight:700">Companion 설치 / 업데이트 필요</span>
     <span id="ss-update-bar-desc" style="color:#fde68a;margin-left:4px;font-weight:500;"></span>
-    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.24.bat" download
+    <a id="ss-update-bar-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.25.bat" download
        style="margin-left:auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:4px 12px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;">
       ⬇ 설치 / 업데이트
     </a>
@@ -3223,43 +3223,48 @@ async function videoPreviewSubtitleSplit() {
       data = { status: 'success', previews: previews };
     }
 
-    // ChatMock 보정 모드: Companion 경유로 GPT 자막 보정
+    // ChatMock 보정 모드: Companion 경유로 GPT 자막 보정 (5개씩 병렬 처리)
     if (payload.subtitle_refine_mode === 'chatmock') {
       try {
         await fetch('http://127.0.0.1:19283/health', { signal: AbortSignal.timeout(800) });
         var model = payload.subtitle_refine_model || 'gpt-5.4';
-        var refined = [];
-        for (var si = 0; si < data.previews.length; si++) {
-          var chunks = (data.previews[si].lines || []).filter(function(l){ return l && l.trim(); });
-          if (!chunks.length) { refined.push(data.previews[si]); continue; }
-          try {
-            var cmBody = {
-              model: model,
-              messages: [
-                { role: 'system', content: '당신은 한국어 자막 교정 전문가입니다. 주어진 자막 청크 배열의 각 항목을 자연스럽고 간결하게 교정하되, 청크 수와 의미를 유지하세요. JSON 배열만 반환하세요.' },
-                { role: 'user', content: JSON.stringify(chunks) }
-              ],
-              max_tokens: 500,
-              temperature: 0.3
-            };
-            var cmRes = await fetch('http://127.0.0.1:19283/chatmock-chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(cmBody),
-              signal: AbortSignal.timeout(15000)
-            });
-            var cmData = await cmRes.json();
-            var content = ((cmData.choices || [])[0] || {}).message && cmData.choices[0].message.content;
-            if (content) {
-              content = content.trim().replace(/^```json\s*/,'').replace(/\s*```$/,'');
-              var corrected = JSON.parse(content);
-              if (Array.isArray(corrected) && corrected.length) {
-                refined.push({ lines: corrected.map(function(l){ return String(l).trim(); }).filter(Boolean) });
-                continue;
+        var refined = new Array(data.previews.length);
+        var BATCH = 5;
+        for (var b = 0; b < data.previews.length; b += BATCH) {
+          if (statusEl) statusEl.textContent = 'ChatMock 보정 중... (' + Math.min(b + BATCH, data.previews.length) + '/' + data.previews.length + ')';
+          var batchPreviews = data.previews.slice(b, b + BATCH);
+          var batchResults = await Promise.all(batchPreviews.map(async function(preview, bi) {
+            var chunks = (preview.lines || []).filter(function(l){ return l && l.trim(); });
+            if (!chunks.length) return preview;
+            try {
+              var cmBody = {
+                model: model,
+                messages: [
+                  { role: 'system', content: '당신은 한국어 자막 교정 전문가입니다. 주어진 자막 청크 배열의 각 항목을 자연스럽고 간결하게 교정하되, 청크 수와 의미를 유지하세요. JSON 배열만 반환하세요.' },
+                  { role: 'user', content: JSON.stringify(chunks) }
+                ],
+                max_tokens: 500,
+                temperature: 0.3
+              };
+              var cmRes = await fetch('http://127.0.0.1:19283/chatmock-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cmBody),
+                signal: AbortSignal.timeout(15000)
+              });
+              var cmData = await cmRes.json();
+              var content = ((cmData.choices || [])[0] || {}).message && cmData.choices[0].message.content;
+              if (content) {
+                content = content.trim().replace(/^```json\s*/,'').replace(/\s*```$/,'');
+                var corrected = JSON.parse(content);
+                if (Array.isArray(corrected) && corrected.length) {
+                  return { lines: corrected.map(function(l){ return String(l).trim(); }).filter(Boolean) };
+                }
               }
-            }
-          } catch(_) {}
-          refined.push(data.previews[si]);
+            } catch(_) {}
+            return preview;
+          }));
+          batchResults.forEach(function(r, bi) { refined[b + bi] = r; });
         }
         data = { status: 'success', previews: refined };
         if (statusEl) statusEl.textContent = 'ChatMock 보정 완료';
@@ -14836,22 +14841,16 @@ async function exportProject() {
   var ind = document.getElementById('autoSaveIndicator');
   if (ind) { ind.textContent = '저장 중…'; ind.style.color = 'var(--text3)'; }
   var resolvedScenes = await Promise.all(scenes.map(async function(s) {
-    // 오디오: base64 변환 금지 (80씬×수MB = 수백MB JSON → 실패)
-    // 서버 URL 경로만 저장 — outputs/ 폴더는 앱 재시작 후에도 유지됨
+    // 오디오: base64로 변환하여 포함 (Railway 재시작 후에도 TTS 유지)
+    var audioDataUrl = null;
     var audioPath = null;
-    if (s.audioUrl && !s.audioUrl.startsWith('data:')) {
-      audioPath = s.audioUrl; // "/download-audio/xxx.mp3" 형태
-    } else if (s.audioUrl && s.audioUrl.startsWith('data:')) {
-      // 이미 base64면 서버에 업로드해서 경로로 변환
-      try {
-        var b64 = s.audioUrl.split(',')[1];
-        var ext = s.audioUrl.indexOf('mp3') >= 0 ? 'mp3' : 'wav';
-        var fname = 'project_audio_' + s.id + '_' + Date.now() + '.' + ext;
-        var ur = await fetch('/api/save-audio', { method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ filename: fname, data: b64 }) });
-        var ud = await ur.json();
-        if (ud.status === 'ok') { audioPath = ud.url; s.audioUrl = ud.url; }
-      } catch(_) {}
+    if (s.audioUrl) {
+      if (s.audioUrl.startsWith('data:')) {
+        audioDataUrl = s.audioUrl;
+      } else {
+        audioDataUrl = await resolveUrl(s.audioUrl);
+        if (!audioDataUrl) audioPath = s.audioUrl; // 변환 실패 시 URL 폴백
+      }
     }
     return {
       id: s.id,
@@ -14862,7 +14861,7 @@ async function exportProject() {
       grokVideo: s.grokVideo || false,
       grokVideoPath: s.grokVideoPath || null,
       imgDataUrl: s.imgB64 ? 'data:image/png;base64,' + s.imgB64 : await resolveUrl(s.imgDataUrl),
-      audioDataUrl: null,
+      audioDataUrl: audioDataUrl,
       audioPath: audioPath,
       audioDuration: s.audioDuration || null,
       subtitleTimings: s.subtitleTimings || null
@@ -20583,7 +20582,7 @@ async function ssSaveUserData() {
       <b style="color:#34d399">ScriptStudio Companion</b>을 설치해야 합니다.<br>
       <span style="color:#6b7280;font-size:12px">백그라운드에서 조용히 실행되며, CapCut에 자동으로 프로젝트를 추가합니다.</span>
     </p>
-    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.24.bat"
+    <a href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.25.bat"
        download
        style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#0891b2);color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.4);margin-bottom:16px">
       ⬇️ Companion 설치 (.bat)
@@ -20679,7 +20678,7 @@ async function ssSaveUserData() {
       gate.style.display = 'flex';
       document.getElementById('ss-gate-checking').style.display = 'none';
       document.getElementById('ss-gate-has-companion').style.display = 'block';
-      var latestInfo = { version: '1.3.24', download_url: 'https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.24.bat' };
+      var latestInfo = { version: '1.3.25', download_url: 'https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.25.bat' };
       try {
         var _lr = await fetch('https://web-production-11acd.up.railway.app/api/companion/latest', { signal: AbortSignal.timeout(3000) });
         latestInfo = await _lr.json();
@@ -20766,7 +20765,7 @@ async function ssSaveUserData() {
         <div style="font-size:13px;font-weight:700;color:#fbbf24;">Companion 업데이트 있음</div>
         <div style="font-size:12px;color:#fde68a;margin-top:3px;font-weight:500;" id="ss-companion-update-desc"></div>
       </div>
-      <a id="ss-companion-update-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.24.bat" download
+      <a id="ss-companion-update-link" href="https://scriptstudio-web.pages.dev/ScriptStudio_Companion_Setup_v1.3.25.bat" download
          style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">
         ⬇ 업데이트
       </a>
