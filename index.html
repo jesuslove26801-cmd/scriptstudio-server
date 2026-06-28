@@ -4794,7 +4794,19 @@ async function videoExportCapCut() {
           if (ad.status === 'success') audioPath = ad.path;
         } catch(e) {}
       } else if (s.audioUrl) {
-        audioPath = s.audioUrl;
+        if (s.audioUrl.startsWith('data:')) {
+          // base64 data URL → 서버에 업로드해서 실제 경로 확보
+          try {
+            var aBlob = await (await fetch(s.audioUrl)).blob();
+            var aFd = new FormData();
+            aFd.append('file', aBlob, 'audio.wav');
+            var aResp = await fetch('/api/upload-audio', { method: 'POST', body: aFd });
+            var aData = await aResp.json();
+            if (aData.status === 'success') audioPath = aData.path;
+          } catch(e2) { audioPath = s.audioUrl; }
+        } else {
+          audioPath = s.audioUrl;
+        }
         if (s.audioDuration) baseDur = s.audioDuration;
       }
 

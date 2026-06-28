@@ -1237,6 +1237,17 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
 
         # 오디오 클립 (실제 오디오 duration만 — gap 제외)
         resolved_audio = sc.audioPath or ""
+        # base64 data URL → 임시 파일로 변환 (프로젝트에서 불러온 경우)
+        if resolved_audio.startswith('data:'):
+            try:
+                _b64_payload = resolved_audio.split(',')[1] if ',' in resolved_audio else resolved_audio
+                _audio_tmp = os.path.join(media_dir if return_zip else out_dir, f"tts_audio_{i:03d}.wav")
+                with open(_audio_tmp, 'wb') as _af:
+                    _af.write(base64.b64decode(_b64_payload))
+                resolved_audio = _audio_tmp
+            except Exception as _ae:
+                logger.warning(f"씬 {i+1} 오디오 data URL 디코딩 실패: {_ae}")
+                resolved_audio = ""
         if resolved_audio.startswith('/download-audio/'):
             fname = resolved_audio.replace('/download-audio/', '').split('?')[0]
             candidate = os.path.abspath(os.path.join(out_dir, fname))
