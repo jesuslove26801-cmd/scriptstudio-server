@@ -1210,15 +1210,30 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                 pass
 
         # 비디오/이미지 클립 (gap 포함 전체 duration)
+        CC_MAX_SEG_US = 4_000_000  # CapCut 이미지 소스 범위 최대 길이
         if media_path and os.path.exists(media_path):
-            video_seg = cc.VideoSegment(os.path.abspath(media_path), trange(timeline_us, total_dur_us))
-            # 씬별 움직임 효과 (없으면 전역 설정 사용)
             scene_motion = getattr(sc, 'motionEffect', None) or getattr(req, 'motion_effect', 'none') or 'none'
-            _apply_capcut_motion(video_seg, scene_motion, total_dur_us)
-            # 씬별 트랜지션
             scene_trans = getattr(sc, 'transition', None) or 'none'
-            _apply_capcut_transition(video_seg, scene_trans)
-            script.add_segment(video_seg)
+            if total_dur_us > CC_MAX_SEG_US:
+                # 4초 초과 시 분할 (CapCut 이미지 세그먼트 소스 범위 제한 우회)
+                _remaining_us = total_dur_us
+                _pos_us = timeline_us
+                _first_chunk = True
+                while _remaining_us > 0:
+                    _chunk_dur = min(_remaining_us, CC_MAX_SEG_US)
+                    video_seg = cc.VideoSegment(os.path.abspath(media_path), trange(_pos_us, _chunk_dur))
+                    if _first_chunk:
+                        _apply_capcut_motion(video_seg, scene_motion, _chunk_dur)
+                        _apply_capcut_transition(video_seg, scene_trans)
+                        _first_chunk = False
+                    script.add_segment(video_seg)
+                    _pos_us += _chunk_dur
+                    _remaining_us -= _chunk_dur
+            else:
+                video_seg = cc.VideoSegment(os.path.abspath(media_path), trange(timeline_us, total_dur_us))
+                _apply_capcut_motion(video_seg, scene_motion, total_dur_us)
+                _apply_capcut_transition(video_seg, scene_trans)
+                script.add_segment(video_seg)
 
         # 오디오 클립 (실제 오디오 duration만 — gap 제외)
         resolved_audio = sc.audioPath or ""
@@ -1269,7 +1284,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                         sub_end = next_start
                 if txt and sub_end > sub_start:
                     sub_start_us = timeline_us + int(sub_start * 1_000_000)
-                    sub_dur_us = int((sub_end - sub_start) * 1_000_000)
+                    sub_dur_us = min(int((sub_end - sub_start) * 1_000_000), CC_MAX_SEG_US)
                     if sub_dur_us > 0:
                         text_seg = _make_capcut_text_seg(txt, trange(sub_start_us, sub_dur_us), getattr(req, 'subtitle_position', 'bottom'))
                         script.add_segment(text_seg)
@@ -1285,6 +1300,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                 c_dur = int(audio_dur_us * proportion)
                 if ci == len(chunks) - 1:
                     c_dur = total_dur_us - offset_us  # 마지막 청크는 gap까지 포함
+                c_dur = min(c_dur, CC_MAX_SEG_US)
                 if c_dur > 0 and chunk_txt:
                     text_seg = _make_capcut_text_seg(chunk_txt, trange(timeline_us + offset_us, c_dur), getattr(req, 'subtitle_position', 'bottom'))
                     script.add_segment(text_seg)
