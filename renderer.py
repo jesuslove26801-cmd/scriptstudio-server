@@ -1194,7 +1194,7 @@ def export_capcut_project(req, return_zip: bool = False) -> dict:
                     _sp_bk.run([
                         FFMPEG_PATH, "-y", "-f", "lavfi",
                         "-i", f"color=c=black:s={w}x{h}:r=24",
-                        "-t", str(max(1, int(total_dur))),
+                        "-t", str(max(1, int(total_dur) + 1)),  # +1s buffer: int() rounds down → MP4 < segment duration → CapCut 末帧长 error
                         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "35",
                         black_path
                     ], capture_output=True, timeout=30)
