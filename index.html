@@ -14856,7 +14856,20 @@ async function exportProject() {
     // 오디오: base64로 변환하여 포함 (Railway 재시작 후에도 TTS 유지)
     var audioDataUrl = null;
     var audioPath = null;
-    if (s.audioUrl) {
+    // audioBuf(메모리 AudioBuffer) 우선 → WAV base64로 변환
+    if (s.audioBuf) {
+      try {
+        var wavBytes = audioBufferToWav(s.audioBuf);
+        var wavBlob = new Blob([wavBytes], { type: 'audio/wav' });
+        audioDataUrl = await new Promise(function(res2) {
+          var rd = new FileReader();
+          rd.onload = function(e) { res2(e.target.result); };
+          rd.onerror = function() { res2(null); };
+          rd.readAsDataURL(wavBlob);
+        });
+      } catch(e) {}
+    }
+    if (!audioDataUrl && s.audioUrl) {
       if (s.audioUrl.startsWith('data:')) {
         audioDataUrl = s.audioUrl;
       } else {
@@ -14875,7 +14888,7 @@ async function exportProject() {
       imgDataUrl: s.imgB64 ? 'data:image/png;base64,' + s.imgB64 : await resolveUrl(s.imgDataUrl),
       audioDataUrl: audioDataUrl,
       audioPath: audioPath,
-      audioDuration: s.audioDuration || null,
+      audioDuration: s.audioDuration || (s.audioBuf ? s.audioBuf.duration : null),
       subtitleTimings: s.subtitleTimings || null
     };
   }));
